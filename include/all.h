@@ -33,15 +33,15 @@ enum class MetricType : uint8_t
 
 enum class FluidType : uint8_t
 {
-    Fuel,         // fluid type is fuel
-    Water,        // fluid type is water
-    GrayWater,    // fluid type is gray water
-    LiveWell,     // fluid type is live well
-    Oil,          // fluid type is oil
-    BlackWater,   // fluid type is black water
-    FuelGasoline, // fluid type is gasoline fuel
-    Error,        // error occurred
-    Unavailable,  // unavailable
+    Fuel,
+    Water,
+    GrayWater,
+    LiveWell,
+    Oil,
+    BlackWater,
+    FuelGasoline,
+    Error,
+    Unavailable,
 };
 
 struct FluidLevelContext
