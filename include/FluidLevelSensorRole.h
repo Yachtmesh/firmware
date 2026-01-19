@@ -8,9 +8,12 @@ struct FluidLevelConfig : public RoleConfig
 {
     float minVoltage = 0.0f;
     float maxVoltage = 0.0f;
+    unsigned char inst;
+    FluidType fluidType;
+    uint16_t capacity;
 
-    FluidLevelConfig(float minV, float maxV)
-        : minVoltage(minV), maxVoltage(maxV) {}
+    FluidLevelConfig(FluidType ft, unsigned char i, uint16_t cap, float minV, float maxV)
+        : fluidType(ft), inst(i), capacity(cap), minVoltage(minV), maxVoltage(maxV) {}
 };
 
 struct FluidLevelStatus : public RoleStatus
@@ -42,12 +45,15 @@ private:
     // Domain logic
     FluidLevelCalculator *calculator = nullptr;
 
-    // Configuration
+    // Configuration / context
     float minVoltage = 0.0f;
     float maxVoltage = 0.0f;
+    unsigned char inst;
+    FluidType fluidType;
+    uint16_t capacity = 0; // In liters
 
     // State
+    float lastLevel = 0.0f; // Percentage
     bool configured = false;
     bool running = false;
-    float lastPercent = 0.0f;
 };

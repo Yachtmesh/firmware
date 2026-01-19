@@ -19,17 +19,10 @@ class FakeNmea2000Service : public Nmea2000ServiceInterface
 {
 public:
     bool sent = false;
-    Metric lastMetric{"", 0.0f};
+    Metric lastMetric{MetricType::FluidLevel, 0.0f};
     float lastPercent = -1;
 
-    void loop() override {}
     void start(unsigned long serialBaud) override {}
-
-    void sendFluidLevel(float percent) override
-    {
-        sent = true;
-        lastPercent = percent;
-    }
 
     void sendMetric(const Metric &metric) override
     {
@@ -46,10 +39,10 @@ void test_fluid_level_sensor_role_basic_flow()
     FluidLevelSensorRole role(analog, nmea);
 
     // Identity
-    TEST_ASSERT_EQUAL_STRING("fluid_level", role.id());
+    TEST_ASSERT_EQUAL_STRING("FluidLevel", role.id());
 
     // Configure
-    FluidLevelConfig cfg{1.0f, 5.0f};
+    FluidLevelConfig cfg{FluidType::FuelGasoline, 14, 257, 1.0f, 5.0f};
     role.configure(cfg);
 
     // Validation should pass
@@ -64,6 +57,9 @@ void test_fluid_level_sensor_role_basic_flow()
 
     // NMEA message should have been sent
     TEST_ASSERT_TRUE(nmea.sent);
-    TEST_ASSERT_EQUAL_STRING("fluid_level", nmea.lastMetric.id.c_str());
+    TEST_ASSERT_EQUAL_STRING(MetricType::FluidLevel, nmea.lastMetric.type);
     TEST_ASSERT_FLOAT_WITHIN(0.1f, 50.0f, nmea.lastMetric.value);
+    TEST_ASSERT_EQUAL(14, nmea.lastMetric.context.fluidLevel.inst);
+    TEST_ASSERT_EQUAL_UINT16(257, nmea.lastMetric.context.fluidLevel.capacity);
+    TEST_ASSERT_EQUAL(FluidType::FuelGasoline, nmea.lastMetric.context.fluidLevel.fluidType);
 }

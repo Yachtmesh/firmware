@@ -24,7 +24,7 @@ FluidLevelSensorRole::FluidLevelSensorRole(AnalogInputInterface &analog,
 
 const char *FluidLevelSensorRole::id()
 {
-    return "fluid_level";
+    return "FluidLevel";
 }
 
 void FluidLevelSensorRole::configure(const RoleConfig &cfg)
@@ -39,6 +39,9 @@ void FluidLevelSensorRole::configure(const RoleConfig &cfg)
 
     minVoltage = c->minVoltage;
     maxVoltage = c->maxVoltage;
+    inst = c->inst;
+    fluidType = c->fluidType;
+    capacity = c->capacity;
 
     delete calculator;
     calculator = new FluidLevelCalculator(minVoltage, maxVoltage);
@@ -77,20 +80,21 @@ void FluidLevelSensorRole::loop()
     float voltage = analog.readVoltage();
     float percent = calculator->toPercent(voltage);
 
-    lastPercent = percent;
+    lastLevel = percent;
 
-    Metric metric{"fluid_level", percent};
+    Metric metric{MetricType::FluidLevel, lastLevel};
+    metric.context.fluidLevel.inst = inst;
+    metric.context.fluidLevel.fluidType = fluidType;
+    metric.context.fluidLevel.capacity = capacity;
 
     nmea.sendMetric(metric);
-
-    // nmea.sendFluidLevel(percent);
 }
 
 RoleStatus FluidLevelSensorRole::status()
 {
     FluidLevelStatus s;
 
-    s.percent = lastPercent;
+    s.percent = lastLevel;
     s.running = running;
 
     return s;

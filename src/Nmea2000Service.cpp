@@ -5,64 +5,20 @@
 #define ESP32_CAN_TX_PIN GPIO_NUM_5
 #define ESP32_CAN_RX_PIN GPIO_NUM_4
 
-#include "NMEA2000Service.h"
 #include <NMEA2000_CAN.h>
-#include <N2kMessages.h>
+#include <N2KMessages.h>
+#include "NMEA2000Service.h"
 
 const unsigned long TransmitMessages[] PROGMEM = {130310L, 130311L, 130312L, 0};
 
-tN2kSyncScheduler TemperatureScheduler(false, 2000, 500);
+tN2kSyncScheduler FluidLevelScheduler(false, 2000, 500);
 tN2kSyncScheduler EnvironmentalScheduler(false, 500, 510);
 tN2kSyncScheduler OutsideEnvironmentalScheduler(false, 500, 520);
-
-// *****************************************************************************
-double ReadCabinTemp()
-{
-    return CToKelvin(22.5); // Read here the true temperature e.g. from analog input
-}
-
-// *****************************************************************************
-double ReadWaterTemp()
-{
-    return CToKelvin(15.5); // Read here the true temperature e.g. from analog input
-}
-
-// ****
-
-// *****************************************************************************
-void SendN2kTemperature()
-{
-    tN2kMsg N2kMsg;
-    // Serial.print(millis()); Serial.println(", Sending message");
-    if (TemperatureScheduler.IsTime())
-    {
-        TemperatureScheduler.UpdateNextTime();
-        SetN2kTemperature(N2kMsg, 1, 1, N2kts_MainCabinTemperature, ReadCabinTemp());
-        NMEA2000.SendMsg(N2kMsg);
-    }
-
-    if (EnvironmentalScheduler.IsTime())
-    {
-        EnvironmentalScheduler.UpdateNextTime();
-        SetN2kEnvironmentalParameters(N2kMsg, 1, N2kts_MainCabinTemperature, ReadCabinTemp());
-        NMEA2000.SendMsg(N2kMsg);
-    }
-
-    if (OutsideEnvironmentalScheduler.IsTime())
-    {
-        OutsideEnvironmentalScheduler.UpdateNextTime();
-        double wt = ReadWaterTemp();
-        SetN2kOutsideEnvironmentalParameters(N2kMsg, 1, wt);
-        NMEA2000.SendMsg(N2kMsg);
-        Serial.print(millis());
-        Serial.println(", Temperature send ready, yess!");
-    }
-}
 
 void OnN2kOpen()
 {
     // Start schedulers now.
-    TemperatureScheduler.UpdateNextTime();
+    FluidLevelScheduler.UpdateNextTime();
     EnvironmentalScheduler.UpdateNextTime();
     OutsideEnvironmentalScheduler.UpdateNextTime();
 }
@@ -106,13 +62,55 @@ void Nmea2000Service::start(unsigned long serialBaud)
     // Serial.println("NMEA Service ready");
 }
 
-// loop(): call this from Arduino loop
-void Nmea2000Service::loop()
+void Nmea2000Service::sendMetric(const Metric &metric)
 {
-}
+    tN2kMsg N2kMsg;
 
-void Nmea2000Service::sendFluidLevel(float percent)
-{
-    SendN2kTemperature();     // your function to send PGNs
+    switch (metric.type)
+    {
+    case MetricType::FluidLevel:
+    {
+        FluidLevelScheduler.UpdateNextTime();
+
+        tN2kFluidType fluidType = static_cast<tN2kFluidType>(toN2kFluidType(metric.context.fluidLevel.fluidType));
+        uint16_t capacity = metric.context.fluidLevel.capacity;
+        unsigned char inst = metric.context.fluidLevel.inst;
+
+        SetN2kFluidLevel(N2kMsg, inst, fluidType, static_cast<double>(metric.value), capacity);
+
+        break;
+    }
+
+    default:
+        // Nothing to send, return
+        return;
+    }
+
+    NMEA2000.SendMsg(N2kMsg);
     NMEA2000.ParseMessages(); // parse incoming messages
 }
+
+int Nmea2000Service::toN2kFluidType(FluidType t)
+{
+    switch (t)
+    {
+    case FluidType::Fuel:
+        return tN2kFluidType::N2kft_Fuel;
+    case FluidType::Water:
+        return tN2kFluidType::N2kft_Water;
+    case FluidType::GrayWater:
+        return tN2kFluidType::N2kft_GrayWater;
+    case FluidType::LiveWell:
+        return tN2kFluidType::N2kft_LiveWell;
+    case FluidType::Oil:
+        return tN2kFluidType::N2kft_Oil;
+    case FluidType::BlackWater:
+        return tN2kFluidType::N2kft_BlackWater;
+    case FluidType::FuelGasoline:
+        return tN2kFluidType::N2kft_FuelGasoline;
+    case FluidType::Error:
+        return tN2kFluidType::N2kft_Error;
+    default:
+        return tN2kFluidType::N2kft_Unavailable;
+    }
+};
