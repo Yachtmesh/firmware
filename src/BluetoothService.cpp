@@ -1,4 +1,5 @@
 #include "BluetoothService.h"
+
 #include <Arduino.h>
 #include <esp_mac.h>
 #include <nvs_flash.h>
@@ -15,14 +16,13 @@ uint8_t temprature_sens_read();
 #define DEFAULT_BLE_PASSWORD "yachtmesh123"
 #endif
 
-BluetoothService::BluetoothService() {
-    loadOrGenerateDeviceId();
-}
+BluetoothService::BluetoothService() { loadOrGenerateDeviceId(); }
 
 void BluetoothService::loadOrGenerateDeviceId() {
     // Initialize NVS
     esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
+        err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         nvs_flash_erase();
         nvs_flash_init();
     }
@@ -74,30 +74,23 @@ void BluetoothService::start() {
 
     // Auth characteristic - write to authenticate, read/notify for result
     pAuthChar_ = pService->createCharacteristic(
-        AUTH_CHAR_UUID,
-        NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
-    );
+        AUTH_CHAR_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ |
+                            NIMBLE_PROPERTY::NOTIFY);
     pAuthChar_->setCallbacks(this);
 
     // Running characteristic - read + notify
     pRunningChar_ = pService->createCharacteristic(
-        RUNNING_CHAR_UUID,
-        NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
-    );
+        RUNNING_CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
     pRunningChar_->setCallbacks(this);
 
     // Health characteristic - read + notify
     pHealthChar_ = pService->createCharacteristic(
-        HEALTH_CHAR_UUID,
-        NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
-    );
+        HEALTH_CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
     pHealthChar_->setCallbacks(this);
 
     // Temperature characteristic - read + notify
     pTempChar_ = pService->createCharacteristic(
-        TEMP_CHAR_UUID,
-        NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
-    );
+        TEMP_CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
     pTempChar_->setCallbacks(this);
 
     pService->start();
@@ -117,13 +110,9 @@ void BluetoothService::stop() {
     authenticatedClients_.clear();
 }
 
-void BluetoothService::loop() {
-    updateCharacteristics();
-}
+void BluetoothService::loop() { updateCharacteristics(); }
 
-std::string BluetoothService::getDeviceId() const {
-    return deviceId_;
-}
+std::string BluetoothService::getDeviceId() const { return deviceId_; }
 
 bool BluetoothService::isConnected() const {
     return pServer_ && pServer_->getConnectedCount() > 0;
@@ -133,9 +122,7 @@ bool BluetoothService::hasAuthenticatedClient() const {
     return !authenticatedClients_.empty();
 }
 
-void BluetoothService::setRunningState(bool running) {
-    running_ = running;
-}
+void BluetoothService::setRunningState(bool running) { running_ = running; }
 
 void BluetoothService::setHealthStatus(HealthStatus status) {
     healthStatus_ = status;
@@ -146,11 +133,13 @@ float BluetoothService::getCpuTemperature() {
     return (raw - 32) / 1.8f;
 }
 
-void BluetoothService::onConnect(NimBLEServer* pServer, ble_gap_conn_desc* desc) {
+void BluetoothService::onConnect(NimBLEServer* pServer,
+                                 ble_gap_conn_desc* desc) {
     Serial.printf("BLE client connected: %d\n", desc->conn_handle);
 }
 
-void BluetoothService::onDisconnect(NimBLEServer* pServer, ble_gap_conn_desc* desc) {
+void BluetoothService::onDisconnect(NimBLEServer* pServer,
+                                    ble_gap_conn_desc* desc) {
     uint16_t connHandle = desc->conn_handle;
     authenticatedClients_.erase(connHandle);
     Serial.printf("BLE client disconnected: %d\n", connHandle);
@@ -159,7 +148,8 @@ void BluetoothService::onDisconnect(NimBLEServer* pServer, ble_gap_conn_desc* de
     NimBLEDevice::startAdvertising();
 }
 
-void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic, ble_gap_conn_desc* desc) {
+void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
+                               ble_gap_conn_desc* desc) {
     if (pCharacteristic == pAuthChar_) {
         std::string value = pCharacteristic->getValue();
         uint8_t authResult = 0;
@@ -175,7 +165,8 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic, ble_gap_co
     }
 }
 
-void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic, ble_gap_conn_desc* desc) {
+void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
+                              ble_gap_conn_desc* desc) {
     uint16_t connHandle = desc->conn_handle;
 
     // Auth characteristic returns current auth status for this client
@@ -214,7 +205,8 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic, ble_gap_con
 }
 
 bool BluetoothService::isClientAuthenticated(uint16_t connHandle) const {
-    return authenticatedClients_.find(connHandle) != authenticatedClients_.end();
+    return authenticatedClients_.find(connHandle) !=
+           authenticatedClients_.end();
 }
 
 void BluetoothService::updateCharacteristics() {
