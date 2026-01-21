@@ -65,10 +65,10 @@ void BluetoothService::start() {
 
     NimBLEService* pService = pServer_->createService(SERVICE_UUID);
 
-    // Auth characteristic - write only
+    // Auth characteristic - write to authenticate, read/notify for result
     pAuthChar_ = pService->createCharacteristic(
         AUTH_CHAR_UUID,
-        NIMBLE_PROPERTY::WRITE
+        NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
     );
     pAuthChar_->setCallbacks(this);
 
@@ -155,17 +155,28 @@ void BluetoothService::onDisconnect(NimBLEServer* pServer, ble_gap_conn_desc* de
 void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic, ble_gap_conn_desc* desc) {
     if (pCharacteristic == pAuthChar_) {
         std::string value = pCharacteristic->getValue();
+        uint8_t authResult = 0;
         if (value == DEFAULT_BLE_PASSWORD) {
             authenticatedClients_.insert(desc->conn_handle);
+            authResult = 1;
             Serial.printf("BLE client %d authenticated\n", desc->conn_handle);
         } else {
             Serial.printf("BLE client %d auth failed\n", desc->conn_handle);
         }
+        pAuthChar_->setValue(&authResult, 1);
+        pAuthChar_->notify(desc->conn_handle);
     }
 }
 
 void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic, ble_gap_conn_desc* desc) {
     uint16_t connHandle = desc->conn_handle;
+
+    // Auth characteristic returns current auth status for this client
+    if (pCharacteristic == pAuthChar_) {
+        uint8_t val = isClientAuthenticated(connHandle) ? 1 : 0;
+        pCharacteristic->setValue(&val, 1);
+        return;
+    }
 
     if (!isClientAuthenticated(connHandle)) {
         // Return zero/empty data for unauthenticated clients
