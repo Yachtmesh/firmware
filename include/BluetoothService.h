@@ -5,13 +5,6 @@
 #include <NimBLEDevice.h>
 #include <Preferences.h>
 
-enum class HealthStatus : uint8_t {
-    Healthy = 0,
-    Warning = 1,
-    Error = 2,
-    Unknown = 255
-};
-
 class BluetoothServiceInterface {
 public:
     virtual void start() = 0;
@@ -23,7 +16,6 @@ public:
     virtual bool hasAuthenticatedClient() const = 0;
 
     virtual void setRunningState(bool running) = 0;
-    virtual void setHealthStatus(HealthStatus status) = 0;
     virtual float getCpuTemperature() = 0;
 
     virtual ~BluetoothServiceInterface() = default;
@@ -44,7 +36,6 @@ public:
     bool hasAuthenticatedClient() const override;
 
     void setRunningState(bool running) override;
-    void setHealthStatus(HealthStatus status) override;
     float getCpuTemperature() override;
 
     // NimBLEServerCallbacks
@@ -78,7 +69,6 @@ private:
     // State
     std::string deviceId_;
     bool running_ = false;
-    HealthStatus healthStatus_ = HealthStatus::Unknown;
     uint8_t statusSeq_ = 0;
     uint32_t startTime_ = 0;
 

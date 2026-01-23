@@ -20,7 +20,6 @@ void setup() {
 
     bluetooth.start();
     bluetooth.setRunningState(true);
-    bluetooth.setHealthStatus(HealthStatus::Healthy);
 }
 
 void loop() {
