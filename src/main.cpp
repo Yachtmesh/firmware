@@ -19,7 +19,6 @@ void setup() {
     fluidLevelSensorRole.start();
 
     bluetooth.start();
-    bluetooth.setRunningState(true);
 }
 
 void loop() {

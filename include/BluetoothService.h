@@ -15,7 +15,6 @@ public:
     virtual bool isConnected() const = 0;
     virtual bool hasAuthenticatedClient() const = 0;
 
-    virtual void setRunningState(bool running) = 0;
     virtual float getCpuTemperature() = 0;
 
     virtual ~BluetoothServiceInterface() = default;
@@ -35,7 +34,6 @@ public:
     bool isConnected() const override;
     bool hasAuthenticatedClient() const override;
 
-    void setRunningState(bool running) override;
     float getCpuTemperature() override;
 
     // NimBLEServerCallbacks
@@ -68,7 +66,6 @@ private:
 
     // State
     std::string deviceId_;
-    bool running_ = false;
     uint8_t statusSeq_ = 0;
     uint32_t startTime_ = 0;
 

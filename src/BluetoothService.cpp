@@ -18,7 +18,7 @@ uint8_t temprature_sens_read();
 
 // Data structure sizes
 static constexpr size_t DEVICE_INFO_SIZE = 20;
-static constexpr size_t STATUS_SIZE = 10;
+static constexpr size_t STATUS_SIZE = 9;
 
 BluetoothService::BluetoothService() { loadOrGenerateDeviceId(); }
 
@@ -124,8 +124,6 @@ bool BluetoothService::isConnected() const {
 bool BluetoothService::hasAuthenticatedClient() const {
     return !authenticatedClients_.empty();
 }
-
-void BluetoothService::setRunningState(bool running) { running_ = running; }
 
 float BluetoothService::getCpuTemperature() {
     uint8_t raw = temprature_sens_read();
@@ -237,16 +235,13 @@ void BluetoothService::buildStatus(uint8_t* buffer) {
     // Sequence (1 byte)
     buffer[0] = statusSeq_++;
 
-    // Running (1 byte)
-    buffer[1] = running_ ? 1 : 0;
-
     // Temperature (4 bytes, float32)
     float temp = getCpuTemperature();
-    memcpy(buffer + 2, &temp, sizeof(float));
+    memcpy(buffer + 1, &temp, sizeof(float));
 
     // Uptime (4 bytes, uint32)
     uint32_t uptime = getUptime();
-    memcpy(buffer + 6, &uptime, sizeof(uint32_t));
+    memcpy(buffer + 5, &uptime, sizeof(uint32_t));
 }
 
 void BluetoothService::updateStatus() {
