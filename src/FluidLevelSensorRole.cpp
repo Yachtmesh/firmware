@@ -1,45 +1,35 @@
 #include "FluidLevelSensorRole.h"
-#include "NMEA2000Service.h"
+
 #include <stdexcept>
 
-FluidLevelCalculator::FluidLevelCalculator(float minV, float maxV)
-    : minV(minV), maxV(maxV)
-{
-}
+#include "NMEA2000Service.h"
 
-float FluidLevelCalculator::toPercent(float v) const
-{
-    if (v <= minV)
-        return 0.0f;
-    if (v >= maxV)
-        return 100.0f;
+FluidLevelCalculator::FluidLevelCalculator(float minV, float maxV)
+    : minV(minV), maxV(maxV) {}
+
+float FluidLevelCalculator::toPercent(float v) const {
+    if (v <= minV) return 0.0f;
+    if (v >= maxV) return 100.0f;
     return (v - minV) / (maxV - minV) * 100.0f;
 }
 
-FluidLevelSensorRole::FluidLevelSensorRole(AnalogInputInterface &analog,
-                                           Nmea2000ServiceInterface &nmea)
-    : analog(analog), nmea(nmea)
-{
-}
+FluidLevelSensorRole::FluidLevelSensorRole(AnalogInputInterface& analog,
+                                           Nmea2000ServiceInterface& nmea)
+    : analog(analog), nmea(nmea) {}
 
-const char *FluidLevelSensorRole::id()
-{
-    return "FluidLevel";
-}
+const char* FluidLevelSensorRole::id() { return "FluidLevel"; }
 
-void FluidLevelSensorRole::configure(const RoleConfig &cfg)
-{
-    const auto *c = static_cast<const FluidLevelConfig *>(&cfg); // pointer
+void FluidLevelSensorRole::configure(const RoleConfig& cfg) {
+    const auto* c = static_cast<const FluidLevelConfig*>(&cfg);  // pointer
 
-    if (!c)
-    {
+    if (!c) {
         throw std::invalid_argument(
             "FluidLevelSensorRole received wrong config type");
     }
 
     minVoltage = c->minVoltage;
     maxVoltage = c->maxVoltage;
-    inst = c->inst;
+    inst = c->inst;  // instance, indicating fuel tank, bilge, etc.
     fluidType = c->fluidType;
     capacity = c->capacity;
 
@@ -49,33 +39,23 @@ void FluidLevelSensorRole::configure(const RoleConfig &cfg)
     configured = true;
 }
 
-bool FluidLevelSensorRole::validate()
-{
-    if (!configured)
-        return false;
-    if (minVoltage >= maxVoltage)
-        return false;
+bool FluidLevelSensorRole::validate() {
+    if (!configured) return false;
+    if (minVoltage >= maxVoltage) return false;
 
     return true;
 }
 
-void FluidLevelSensorRole::start()
-{
-    if (!validate())
-        return;
+void FluidLevelSensorRole::start() {
+    if (!validate()) return;
 
     running = true;
 }
 
-void FluidLevelSensorRole::stop()
-{
-    running = false;
-}
+void FluidLevelSensorRole::stop() { running = false; }
 
-void FluidLevelSensorRole::loop()
-{
-    if (!running || !calculator)
-        return;
+void FluidLevelSensorRole::loop() {
+    if (!running || !calculator) return;
 
     float voltage = analog.readVoltage();
     float percent = calculator->toPercent(voltage);
@@ -90,8 +70,7 @@ void FluidLevelSensorRole::loop()
     nmea.sendMetric(metric);
 }
 
-RoleStatus FluidLevelSensorRole::status()
-{
+RoleStatus FluidLevelSensorRole::status() {
     FluidLevelStatus s;
 
     s.percent = lastLevel;
