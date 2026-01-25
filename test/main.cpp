@@ -18,5 +18,11 @@ int main()
     RUN_TEST(test_role_manager_loads_from_file);
     RUN_TEST(test_role_manager_loads_from_directory);
 
+    // RoleInfo tests (for BLE characteristic)
+    RUN_TEST(test_role_manager_get_role_info_empty);
+    RUN_TEST(test_role_manager_get_role_info_not_started);
+    RUN_TEST(test_role_manager_get_role_info_after_start);
+    RUN_TEST(test_role_manager_get_role_info_multiple_roles);
+
     return UNITY_END();
 }

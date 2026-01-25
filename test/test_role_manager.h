@@ -171,3 +171,101 @@ void test_role_manager_loads_from_directory() {
     manager.loadFromDirectory("/roles");
     TEST_ASSERT_EQUAL(2, manager.roleCount());
 }
+
+// Tests that getRoleInfo returns empty when no roles loaded
+void test_role_manager_get_role_info_empty() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    auto info = manager.getRoleInfo();
+    TEST_ASSERT_EQUAL(0, info.size());
+}
+
+// Tests that getRoleInfo returns role info with running=false before start
+void test_role_manager_get_role_info_not_started() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    const char* json = R"({
+        "type": "FluidLevel",
+        "fluidType": "Water",
+        "inst": 0,
+        "capacity": 100,
+        "minVoltage": 0.5,
+        "maxVoltage": 4.5
+    })";
+
+    manager.loadRoleFromJson(json);
+
+    auto info = manager.getRoleInfo();
+    TEST_ASSERT_EQUAL(1, info.size());
+    TEST_ASSERT_EQUAL_STRING("FluidLevel", info[0].id);
+    TEST_ASSERT_FALSE(info[0].running);
+}
+
+// Tests that getRoleInfo shows running=true after startAll
+void test_role_manager_get_role_info_after_start() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    const char* json = R"({
+        "type": "FluidLevel",
+        "fluidType": "Water",
+        "inst": 0,
+        "capacity": 100,
+        "minVoltage": 0.5,
+        "maxVoltage": 4.5
+    })";
+
+    manager.loadRoleFromJson(json);
+    manager.startAll();
+
+    auto info = manager.getRoleInfo();
+    TEST_ASSERT_EQUAL(1, info.size());
+    TEST_ASSERT_EQUAL_STRING("FluidLevel", info[0].id);
+    TEST_ASSERT_TRUE(info[0].running);
+}
+
+// Tests that getRoleInfo works with multiple roles
+void test_role_manager_get_role_info_multiple_roles() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    const char* json1 = R"({
+        "type": "FluidLevel",
+        "fluidType": "Water",
+        "inst": 0,
+        "capacity": 100,
+        "minVoltage": 0.5,
+        "maxVoltage": 4.5
+    })";
+    const char* json2 = R"({
+        "type": "FluidLevel",
+        "fluidType": "Fuel",
+        "inst": 1,
+        "capacity": 200,
+        "minVoltage": 0.2,
+        "maxVoltage": 4.8
+    })";
+
+    manager.loadRoleFromJson(json1);
+    manager.loadRoleFromJson(json2);
+    manager.startAll();
+
+    auto info = manager.getRoleInfo();
+    TEST_ASSERT_EQUAL(2, info.size());
+    TEST_ASSERT_TRUE(info[0].running);
+    TEST_ASSERT_TRUE(info[1].running);
+}

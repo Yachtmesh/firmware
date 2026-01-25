@@ -5,6 +5,8 @@
 #include <NimBLEDevice.h>
 #include <Preferences.h>
 
+#include "RoleManager.h"
+
 class BluetoothServiceInterface {
 public:
     virtual void start() = 0;
@@ -24,7 +26,7 @@ class BluetoothService : public BluetoothServiceInterface,
                          public NimBLEServerCallbacks,
                          public NimBLECharacteristicCallbacks {
 public:
-    BluetoothService();
+    BluetoothService(RoleManagerInterface* roleManager = nullptr);
 
     void start() override;
     void stop() override;
@@ -51,6 +53,7 @@ private:
     static constexpr const char* AUTH_STATUS_CHAR_UUID = "4e617669-0001-4d65-7368-000000000003";
     static constexpr const char* DEVICE_INFO_CHAR_UUID = "4e617669-0001-4d65-7368-000000000004";
     static constexpr const char* STATUS_CHAR_UUID = "4e617669-0001-4d65-7368-000000000005";
+    static constexpr const char* ROLES_CHAR_UUID = "4e617669-0001-4d65-7368-000000000006";
 
     // NVS keys
     static constexpr const char* NVS_NAMESPACE = "yachtmesh";
@@ -64,6 +67,9 @@ private:
     // Default NMEA address (will be configurable later)
     static constexpr uint8_t DEFAULT_NMEA_ADDRESS = 22;
 
+    // Dependencies
+    RoleManagerInterface* roleManager_ = nullptr;
+
     // State
     std::string deviceId_;
     uint8_t statusSeq_ = 0;
@@ -75,6 +81,7 @@ private:
     NimBLECharacteristic* pAuthStatusChar_ = nullptr;
     NimBLECharacteristic* pDeviceInfoChar_ = nullptr;
     NimBLECharacteristic* pStatusChar_ = nullptr;
+    NimBLECharacteristic* pRolesChar_ = nullptr;
 
     std::set<uint16_t> authenticatedClients_;
 
@@ -85,5 +92,6 @@ private:
     void updateStatus();
     void buildDeviceInfo(uint8_t* buffer);
     void buildStatus(uint8_t* buffer);
+    size_t buildRoles(uint8_t* buffer, size_t maxSize);
     uint32_t getUptime() const;
 };

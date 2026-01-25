@@ -103,3 +103,15 @@ void RoleManager::stopAll() {
         role->stop();
     }
 }
+
+std::vector<RoleInfo> RoleManager::getRoleInfo() const {
+    std::vector<RoleInfo> info;
+    info.reserve(roles_.size());
+
+    for (const auto& role : roles_) {
+        RoleStatus s = role->status();
+        info.push_back({role->id(), s.running});
+    }
+
+    return info;
+}

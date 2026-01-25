@@ -20,7 +20,10 @@ uint8_t temprature_sens_read();
 static constexpr size_t DEVICE_INFO_SIZE = 20;
 static constexpr size_t STATUS_SIZE = 9;
 
-BluetoothService::BluetoothService() { loadOrGenerateDeviceId(); }
+BluetoothService::BluetoothService(RoleManagerInterface* roleManager)
+    : roleManager_(roleManager) {
+    loadOrGenerateDeviceId();
+}
 
 void BluetoothService::loadOrGenerateDeviceId() {
     esp_err_t err = nvs_flash_init();
@@ -95,6 +98,11 @@ void BluetoothService::start() {
     pStatusChar_ = pService->createCharacteristic(
         STATUS_CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
     pStatusChar_->setCallbacks(this);
+
+    // Roles characteristic - read only (requires auth)
+    pRolesChar_ = pService->createCharacteristic(ROLES_CHAR_UUID,
+                                                  NIMBLE_PROPERTY::READ);
+    pRolesChar_->setCallbacks(this);
 
     pService->start();
 
@@ -180,7 +188,7 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
         return;
     }
 
-    // Device info and status require authentication
+    // Device info, status, and roles require authentication
     if (!authenticated) {
         if (pCharacteristic == pDeviceInfoChar_) {
             uint8_t empty[DEVICE_INFO_SIZE] = {0};
@@ -188,6 +196,9 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
         } else if (pCharacteristic == pStatusChar_) {
             uint8_t empty[STATUS_SIZE] = {0};
             pCharacteristic->setValue(empty, sizeof(empty));
+        } else if (pCharacteristic == pRolesChar_) {
+            uint8_t empty = 0;
+            pCharacteristic->setValue(&empty, 1);
         }
         return;
     }
@@ -201,6 +212,10 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
         uint8_t buffer[STATUS_SIZE];
         buildStatus(buffer);
         pCharacteristic->setValue(buffer, sizeof(buffer));
+    } else if (pCharacteristic == pRolesChar_) {
+        uint8_t buffer[128];  // Max BLE characteristic size
+        size_t len = buildRoles(buffer, sizeof(buffer));
+        pCharacteristic->setValue(buffer, len);
     }
 }
 
@@ -254,4 +269,35 @@ void BluetoothService::updateStatus() {
     buildStatus(buffer);
     pStatusChar_->setValue(buffer, sizeof(buffer));
     pStatusChar_->notify();
+}
+
+size_t BluetoothService::buildRoles(uint8_t* buffer, size_t maxSize) {
+    if (!roleManager_) {
+        buffer[0] = 0;
+        return 1;
+    }
+
+    auto roles = roleManager_->getRoleInfo();
+    size_t offset = 0;
+
+    // Role count (1 byte)
+    buffer[offset++] = static_cast<uint8_t>(roles.size());
+
+    // For each role: id_len (1 byte) + id (variable) + running (1 byte)
+    for (const auto& role : roles) {
+        size_t idLen = strlen(role.id);
+        if (idLen > 255) idLen = 255;
+
+        // Check if we have space
+        if (offset + 1 + idLen + 1 > maxSize) {
+            break;
+        }
+
+        buffer[offset++] = static_cast<uint8_t>(idLen);
+        memcpy(buffer + offset, role.id, idLen);
+        offset += idLen;
+        buffer[offset++] = role.running ? 1 : 0;
+    }
+
+    return offset;
 }

@@ -7,6 +7,7 @@ struct RoleConfig
 
 struct RoleStatus
 {
+    bool running = false;
     virtual ~RoleStatus() = default;
 };
 

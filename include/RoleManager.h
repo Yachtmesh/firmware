@@ -10,7 +10,19 @@
 // Nmea2000ServiceInterface. If we add a new role type that needs GPSInterface,
 // only RoleFactory changes - RoleManager remains untouched.
 
-class RoleManager {
+struct RoleInfo {
+    const char* id;
+    bool running;
+};
+
+class RoleManagerInterface {
+   public:
+    virtual size_t roleCount() const = 0;
+    virtual std::vector<RoleInfo> getRoleInfo() const = 0;
+    virtual ~RoleManagerInterface() = default;
+};
+
+class RoleManager : public RoleManagerInterface {
    public:
     RoleManager(RoleFactory& factory, FileSystemInterface& fs);
 
@@ -28,7 +40,8 @@ class RoleManager {
     // Load from JSON string (for testing)
     bool loadRoleFromJson(const char* json);
 
-    size_t roleCount() const { return roles_.size(); }
+    size_t roleCount() const override { return roles_.size(); }
+    std::vector<RoleInfo> getRoleInfo() const override;
 
    private:
     RoleFactory& factory_;

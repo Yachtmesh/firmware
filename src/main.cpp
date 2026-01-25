@@ -9,11 +9,11 @@
 
 Nmea2000Service nmea;
 AnalogInputService analogInput;
-BluetoothService bluetooth;
 LittleFSAdapter fileSystem;
 
 RoleFactory roleFactory(analogInput, nmea);
 RoleManager roleManager(roleFactory, fileSystem);
+BluetoothService bluetooth(&roleManager);
 
 void setup() {
     Serial.begin(115200);

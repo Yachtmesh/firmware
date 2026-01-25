@@ -22,7 +22,6 @@ struct FluidLevelConfig : public RoleConfig {
 
 struct FluidLevelStatus : public RoleStatus {
     float percent = 0.0f;
-    bool running = false;
 };
 
 class FluidLevelSensorRole : public Role {
