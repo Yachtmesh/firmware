@@ -1,27 +1,36 @@
 #include <Arduino.h>
+#include <LittleFS.h>
 
 #include "BluetoothService.h"
-#include "FluidLevelSensorRole.h"
+#include "LittleFSAdapter.h"
 #include "NMEA2000Service.h"
-#include "all.h"
+#include "RoleFactory.h"
+#include "RoleManager.h"
 
 Nmea2000Service nmea;
 AnalogInputService analogInput;
-FluidLevelSensorRole fluidLevelSensorRole(analogInput, nmea);
 BluetoothService bluetooth;
+LittleFSAdapter fileSystem;
+
+RoleFactory roleFactory(analogInput, nmea);
+RoleManager roleManager(roleFactory, fileSystem);
 
 void setup() {
-    Serial.begin(115200);  // Start Serial
+    Serial.begin(115200);
+
+    if (!LittleFS.begin(true)) {  // true = format if mount fails
+        Serial.println("LittleFS mount failed");
+    }
+
     nmea.start(115200);
-
-    FluidLevelConfig cfg{FluidType::Water, 14, 257, 0.2f, 4.8f};
-    fluidLevelSensorRole.configure(cfg);
-    fluidLevelSensorRole.start();
-
     bluetooth.start();
+
+    // Load all roles from /roles/ directory
+    roleManager.loadFromDirectory("/roles");
+    roleManager.startAll();
 }
 
 void loop() {
-    fluidLevelSensorRole.loop();
+    roleManager.loopAll();
     bluetooth.loop();
 }
