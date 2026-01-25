@@ -1,38 +1,32 @@
 #pragma once
 
 #include <unity.h>
-#include "NMEA2000Service.h"
-#include "FluidLevelSensorRole.h"
 
-class FakeAnalogInput : public AnalogInputInterface
-{
-public:
+#include "FluidLevelSensorRole.h"
+#include "NMEA2000Service.h"
+
+class FakeAnalogInput : public AnalogInputInterface {
+   public:
     float voltage = 0.0f;
 
-    float readVoltage() override
-    {
-        return voltage;
-    }
+    float readVoltage() override { return voltage; }
 };
 
-class FakeNmea2000Service : public Nmea2000ServiceInterface
-{
-public:
+class FakeNmea2000Service : public Nmea2000ServiceInterface {
+   public:
     bool sent = false;
     Metric lastMetric{MetricType::FluidLevel, 0.0f};
     float lastPercent = -1;
 
-    void start(unsigned long serialBaud) override {}
+    void start() override {}
 
-    void sendMetric(const Metric &metric) override
-    {
+    void sendMetric(const Metric& metric) override {
         sent = true;
         lastMetric = metric;
     }
 };
 
-void test_fluid_level_sensor_role_basic_flow()
-{
+void test_fluid_level_sensor_role_basic_flow() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
 
@@ -49,7 +43,7 @@ void test_fluid_level_sensor_role_basic_flow()
     TEST_ASSERT_TRUE(role.validate());
 
     // Simulate sensor input
-    analog.voltage = 3.0f; // mid-scale
+    analog.voltage = 3.0f;  // mid-scale
 
     // Run one cycle
     role.start();
@@ -61,5 +55,6 @@ void test_fluid_level_sensor_role_basic_flow()
     TEST_ASSERT_FLOAT_WITHIN(0.1f, 50.0f, nmea.lastMetric.value);
     TEST_ASSERT_EQUAL(14, nmea.lastMetric.context.fluidLevel.inst);
     TEST_ASSERT_EQUAL_UINT16(257, nmea.lastMetric.context.fluidLevel.capacity);
-    TEST_ASSERT_EQUAL(FluidType::FuelGasoline, nmea.lastMetric.context.fluidLevel.fluidType);
+    TEST_ASSERT_EQUAL(FluidType::FuelGasoline,
+                      nmea.lastMetric.context.fluidLevel.fluidType);
 }

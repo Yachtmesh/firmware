@@ -22,7 +22,7 @@ void setup() {
     }
 
     // Start services
-    nmea.start(115200);
+    nmea.start();
     bluetooth.start();
 
     // Start role manager, load roles and start all roles.
