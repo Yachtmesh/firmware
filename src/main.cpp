@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <LittleFS.h>
 
 #include "BluetoothService.h"
 #include "LittleFSAdapter.h"
@@ -18,14 +17,16 @@ BluetoothService bluetooth(&roleManager);
 void setup() {
     Serial.begin(115200);
 
-    if (!LittleFS.begin(true)) {  // true = format if mount fails
+    if (!fileSystem.begin()) {
         Serial.println("LittleFS mount failed");
     }
 
+    // Start services
     nmea.start(115200);
     bluetooth.start();
 
-    // Load all roles from /roles/ directory
+    // Start role manager, load roles and start all roles.
+    // TODO: Add error handling to role status
     roleManager.loadFromDirectory("/roles");
     roleManager.startAll();
 }

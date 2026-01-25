@@ -34,6 +34,10 @@ private:
 // Wraps LittleFS to implement FileSystemInterface
 class LittleFSAdapter : public FileSystemInterface {
 public:
+    bool begin(bool formatOnFail = true) {
+        return LittleFS.begin(formatOnFail);
+    }
+
     std::unique_ptr<FileInterface> open(const char* path, const char* mode = "r") override {
         File file = LittleFS.open(path, mode);
         if (!file) return nullptr;
