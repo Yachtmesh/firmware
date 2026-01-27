@@ -1,5 +1,6 @@
 
 #pragma once
+#include <ArduinoJson.h>
 #include <NMEA2000Service.h>
 #include <Role.h>
 #include <all.h>
@@ -7,10 +8,11 @@
 struct FluidLevelConfig : public RoleConfig {
     float minVoltage = 0.0f;
     float maxVoltage = 0.0f;
-    unsigned char inst;  // instance, indicating fuel tank, bilge, etc.
-    FluidType fluidType;
-    uint16_t capacity;
+    unsigned char inst = 0;  // instance, indicating fuel tank, bilge, etc.
+    FluidType fluidType = FluidType::Unavailable;
+    uint16_t capacity = 0;
 
+    FluidLevelConfig() = default;
     FluidLevelConfig(FluidType ft, unsigned char i, uint16_t cap, float minV,
                      float maxV)
         : fluidType(ft),
@@ -18,6 +20,8 @@ struct FluidLevelConfig : public RoleConfig {
           capacity(cap),
           minVoltage(minV),
           maxVoltage(maxV) {}
+
+    void toJson(JsonDocument& doc) const;
 };
 
 struct FluidLevelStatus : public RoleStatus {
@@ -38,6 +42,9 @@ class FluidLevelSensorRole : public Role {
     void loop() override;
     RoleStatus status() override;
 
+    // Configuration (public for direct access)
+    FluidLevelConfig config;
+
    private:
     // Dependencies (injected)
     AnalogInputInterface& analog;
@@ -46,15 +53,7 @@ class FluidLevelSensorRole : public Role {
     // Domain logic
     FluidLevelCalculator* calculator = nullptr;
 
-    // Configuration / context
-    float minVoltage = 0.0f;
-    float maxVoltage = 0.0f;
-    unsigned char inst;
-    FluidType fluidType;
-    uint16_t capacity = 0;  // In liters
-
     // State
     float lastLevel = 0.0f;  // Percentage
-    bool configured = false;
     bool running = false;
 };

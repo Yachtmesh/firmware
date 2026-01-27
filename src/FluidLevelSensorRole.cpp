@@ -1,8 +1,7 @@
 #include "FluidLevelSensorRole.h"
 
-#include <stdexcept>
-
 #include "NMEA2000Service.h"
+#include "RoleConfigFactory.h"
 
 FluidLevelCalculator::FluidLevelCalculator(float minV, float maxV)
     : minV(minV), maxV(maxV) {}
@@ -20,28 +19,14 @@ FluidLevelSensorRole::FluidLevelSensorRole(AnalogInputInterface& analog,
 const char* FluidLevelSensorRole::id() { return "FluidLevel"; }
 
 void FluidLevelSensorRole::configure(const RoleConfig& cfg) {
-    const auto* c = static_cast<const FluidLevelConfig*>(&cfg);  // pointer
-
-    if (!c) {
-        throw std::invalid_argument(
-            "FluidLevelSensorRole received wrong config type");
-    }
-
-    minVoltage = c->minVoltage;
-    maxVoltage = c->maxVoltage;
-    inst = c->inst;  // instance, indicating fuel tank, bilge, etc.
-    fluidType = c->fluidType;
-    capacity = c->capacity;
+    config = static_cast<const FluidLevelConfig&>(cfg);
 
     delete calculator;
-    calculator = new FluidLevelCalculator(minVoltage, maxVoltage);
-
-    configured = true;
+    calculator = new FluidLevelCalculator(config.minVoltage, config.maxVoltage);
 }
 
 bool FluidLevelSensorRole::validate() {
-    if (!configured) return false;
-    if (minVoltage >= maxVoltage) return false;
+    if (config.minVoltage >= config.maxVoltage) return false;
 
     return true;
 }
@@ -63,9 +48,9 @@ void FluidLevelSensorRole::loop() {
     lastLevel = percent;
 
     Metric metric{MetricType::FluidLevel, lastLevel};
-    metric.context.fluidLevel.inst = inst;
-    metric.context.fluidLevel.fluidType = fluidType;
-    metric.context.fluidLevel.capacity = capacity;
+    metric.context.fluidLevel.inst = config.inst;
+    metric.context.fluidLevel.fluidType = config.fluidType;
+    metric.context.fluidLevel.capacity = config.capacity;
 
     nmea.sendMetric(metric);
 }
@@ -77,4 +62,13 @@ RoleStatus FluidLevelSensorRole::status() {
     s.running = running;
 
     return s;
+}
+
+void FluidLevelConfig::toJson(JsonDocument& doc) const {
+    doc["type"] = "FluidLevel";
+    doc["fluidType"] = fluidTypeToString(fluidType);
+    doc["inst"] = inst;
+    doc["capacity"] = capacity;
+    doc["minVoltage"] = minVoltage;
+    doc["maxVoltage"] = maxVoltage;
 }

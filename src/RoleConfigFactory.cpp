@@ -12,6 +12,20 @@ FluidType fluidTypeFromString(const char* str) {
     return FluidType::Unavailable;
 }
 
+const char* fluidTypeToString(FluidType ft) {
+    switch (ft) {
+        case FluidType::Fuel: return "Fuel";
+        case FluidType::Water: return "Water";
+        case FluidType::GrayWater: return "GrayWater";
+        case FluidType::LiveWell: return "LiveWell";
+        case FluidType::Oil: return "Oil";
+        case FluidType::BlackWater: return "BlackWater";
+        case FluidType::FuelGasoline: return "FuelGasoline";
+        case FluidType::Error: return "Error";
+        default: return "Unavailable";
+    }
+}
+
 std::unique_ptr<RoleConfig> createRoleConfig(const JsonDocument& doc) {
     const char* type = doc["type"] | "";
 

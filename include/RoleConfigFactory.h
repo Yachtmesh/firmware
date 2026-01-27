@@ -6,6 +6,7 @@
 #include "FluidLevelSensorRole.h"
 
 FluidType fluidTypeFromString(const char* str);
+const char* fluidTypeToString(FluidType ft);
 
 // Factory function that parses JSON and returns appropriate RoleConfig
 // Returns nullptr if type is unknown or parsing fails
