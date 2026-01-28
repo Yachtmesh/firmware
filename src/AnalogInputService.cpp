@@ -9,10 +9,11 @@ float AnalogInputService::readVoltage()
     // Convert to voltage
     float voltage = adcValue * (3.3 / 4095.0);
 
-    Serial.print("ADC: ");
-    Serial.print(adcValue);
-    Serial.print("  Voltage: ");
-    Serial.println(voltage);
+    // Serial.print("ADC: ");
+    // Serial.print(adcValue);
+    // Serial.print("  Voltage: ");
+    // Serial.println(voltage);
 
     return voltage;
+    
 }
