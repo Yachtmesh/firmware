@@ -1,5 +1,6 @@
 #include <Arduino.h>
 
+#include "AnalogInputService.h"
 #include "BluetoothService.h"
 #include "LittleFSAdapter.h"
 #include "NMEA2000Service.h"

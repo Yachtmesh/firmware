@@ -1,9 +1,8 @@
 
 #pragma once
-#include <ArduinoJson.h>
-#include <NMEA2000Service.h>
-#include <Role.h>
-#include <all.h>
+#include "AnalogInputService.h"
+#include "NMEA2000Service.h"
+#include "Role.h"
 
 struct FluidLevelConfig : public RoleConfig {
     float minVoltage = 0.0f;

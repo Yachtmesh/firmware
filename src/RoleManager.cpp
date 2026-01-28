@@ -127,6 +127,7 @@ std::string RoleManager::getRoleConfigsJson() const {
     if (!cacheValid_) {
         rebuildCache();
     }
+
     return cachedRolesJson_;
 }
 

@@ -1,30 +1,6 @@
 #include "RoleConfigFactory.h"
 
-FluidType fluidTypeFromString(const char* str) {
-    if (strcmp(str, "Fuel") == 0) return FluidType::Fuel;
-    if (strcmp(str, "Water") == 0) return FluidType::Water;
-    if (strcmp(str, "GrayWater") == 0) return FluidType::GrayWater;
-    if (strcmp(str, "LiveWell") == 0) return FluidType::LiveWell;
-    if (strcmp(str, "Oil") == 0) return FluidType::Oil;
-    if (strcmp(str, "BlackWater") == 0) return FluidType::BlackWater;
-    if (strcmp(str, "FuelGasoline") == 0) return FluidType::FuelGasoline;
-    if (strcmp(str, "Error") == 0) return FluidType::Error;
-    return FluidType::Unavailable;
-}
-
-const char* fluidTypeToString(FluidType ft) {
-    switch (ft) {
-        case FluidType::Fuel: return "Fuel";
-        case FluidType::Water: return "Water";
-        case FluidType::GrayWater: return "GrayWater";
-        case FluidType::LiveWell: return "LiveWell";
-        case FluidType::Oil: return "Oil";
-        case FluidType::BlackWater: return "BlackWater";
-        case FluidType::FuelGasoline: return "FuelGasoline";
-        case FluidType::Error: return "Error";
-        default: return "Unavailable";
-    }
-}
+#include "FluidLevelSensorRole.h"
 
 std::unique_ptr<RoleConfig> createRoleConfig(const JsonDocument& doc) {
     const char* type = doc["type"] | "";
@@ -36,8 +12,8 @@ std::unique_ptr<RoleConfig> createRoleConfig(const JsonDocument& doc) {
         const char* ftStr = doc["fluidType"] | "Unavailable";
         uint16_t cap = doc["capacity"] | 0;
 
-        return std::make_unique<FluidLevelConfig>(
-            fluidTypeFromString(ftStr), inst, cap, minV, maxV);
+        return std::make_unique<FluidLevelConfig>(fluidTypeFromString(ftStr),
+                                                  inst, cap, minV, maxV);
     }
 
     // Future: add more role types here

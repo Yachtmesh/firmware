@@ -1,12 +1,9 @@
 #pragma once
-#include <ArduinoJson.h>
-
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "FileSystem.h"
-#include "Role.h"
 #include "RoleFactory.h"
 
 // RoleManager doesn't need to know about AnalogInputInterface or

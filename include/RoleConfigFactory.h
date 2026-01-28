@@ -1,12 +1,8 @@
 #pragma once
-#include <memory>
 #include <cstring>
-#include <ArduinoJson.h>
-#include "all.h"
-#include "FluidLevelSensorRole.h"
+#include <memory>
 
-FluidType fluidTypeFromString(const char* str);
-const char* fluidTypeToString(FluidType ft);
+#include "Role.h"
 
 // Factory function that parses JSON and returns appropriate RoleConfig
 // Returns nullptr if type is unknown or parsing fails

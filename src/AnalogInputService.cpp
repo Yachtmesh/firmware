@@ -1,4 +1,4 @@
-#include "all.h"
+#include "AnalogInputService.h"
 #include <Arduino.h>
 
 float AnalogInputService::readVoltage()

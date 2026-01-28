@@ -1,9 +1,9 @@
 #pragma once
 #include <memory>
 
+#include "AnalogInputService.h"
 #include "NMEA2000Service.h"
 #include "Role.h"
-#include "all.h"
 
 // Factory that creates Role instances given a type string
 // Dependencies injected via constructor, limited to AnalogInput and
