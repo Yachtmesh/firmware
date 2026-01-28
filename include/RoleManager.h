@@ -1,5 +1,8 @@
 #pragma once
+#include <ArduinoJson.h>
+
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "FileSystem.h"
@@ -19,6 +22,8 @@ class RoleManagerInterface {
    public:
     virtual size_t roleCount() const = 0;
     virtual std::vector<RoleInfo> getRoleInfo() const = 0;
+    virtual std::string getRoleConfigsJson() const = 0;
+    virtual bool updateRoleConfig(const char* roleId, const JsonDocument& doc) = 0;
     virtual ~RoleManagerInterface() = default;
 };
 
@@ -42,11 +47,19 @@ class RoleManager : public RoleManagerInterface {
 
     size_t roleCount() const override { return roles_.size(); }
     std::vector<RoleInfo> getRoleInfo() const override;
+    std::string getRoleConfigsJson() const override;
+    bool updateRoleConfig(const char* roleId, const JsonDocument& doc) override;
 
    private:
     RoleFactory& factory_;
     FileSystemInterface& fs_;
     std::vector<std::unique_ptr<Role>> roles_;
+
+    // Cached JSON for thread-safe BLE access
+    mutable std::string cachedRolesJson_ = "[]";
+    mutable bool cacheValid_ = false;
+
+    void rebuildCache() const;
 
     // Internal: parse JSON and create role
     bool parseAndCreateRole(const char* json, size_t length);

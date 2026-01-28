@@ -54,6 +54,7 @@ private:
     static constexpr const char* DEVICE_INFO_CHAR_UUID = "4e617669-0001-4d65-7368-000000000004";
     static constexpr const char* STATUS_CHAR_UUID = "4e617669-0001-4d65-7368-000000000005";
     static constexpr const char* ROLES_CHAR_UUID = "4e617669-0001-4d65-7368-000000000006";
+    static constexpr const char* CONFIG_UPDATE_CHAR_UUID = "4e617669-0001-4d65-7368-000000000007";
 
     // NVS keys
     static constexpr const char* NVS_NAMESPACE = "yachtmesh";
@@ -82,6 +83,7 @@ private:
     NimBLECharacteristic* pDeviceInfoChar_ = nullptr;
     NimBLECharacteristic* pStatusChar_ = nullptr;
     NimBLECharacteristic* pRolesChar_ = nullptr;
+    NimBLECharacteristic* pConfigUpdateChar_ = nullptr;
 
     std::set<uint16_t> authenticatedClients_;
 
@@ -92,6 +94,6 @@ private:
     void updateStatus();
     void buildDeviceInfo(uint8_t* buffer);
     void buildStatus(uint8_t* buffer);
-    size_t buildRoles(uint8_t* buffer, size_t maxSize);
+    std::string buildRolesJson();
     uint32_t getUptime() const;
 };

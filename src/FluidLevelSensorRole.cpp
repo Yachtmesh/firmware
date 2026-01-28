@@ -64,6 +64,24 @@ RoleStatus FluidLevelSensorRole::status() {
     return s;
 }
 
+void FluidLevelSensorRole::getConfigJson(JsonDocument& doc) {
+    config.toJson(doc);
+}
+
+bool FluidLevelSensorRole::configureFromJson(const JsonDocument& doc) {
+    float minV = doc["minVoltage"] | 0.0f;
+    float maxV = doc["maxVoltage"] | 0.0f;
+    unsigned char inst = doc["inst"] | 0;
+    const char* ftStr = doc["fluidType"] | "Unavailable";
+    uint16_t cap = doc["capacity"] | 0;
+
+    FluidLevelConfig newConfig(
+        fluidTypeFromString(ftStr), inst, cap, minV, maxV);
+
+    configure(newConfig);
+    return validate();
+}
+
 void FluidLevelConfig::toJson(JsonDocument& doc) const {
     doc["type"] = "FluidLevel";
     doc["fluidType"] = fluidTypeToString(fluidType);

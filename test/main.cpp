@@ -24,5 +24,17 @@ int main()
     RUN_TEST(test_role_manager_get_role_info_after_start);
     RUN_TEST(test_role_manager_get_role_info_multiple_roles);
 
+    // FluidLevelSensorRole config JSON tests
+    RUN_TEST(test_fluid_level_sensor_role_get_config_json);
+    RUN_TEST(test_fluid_level_sensor_role_configure_from_json);
+    RUN_TEST(test_fluid_level_sensor_role_configure_from_json_invalid);
+
+    // RoleManager config JSON tests
+    RUN_TEST(test_role_manager_get_configs_json_empty);
+    RUN_TEST(test_role_manager_get_configs_json_single_role);
+    RUN_TEST(test_role_manager_update_role_config);
+    RUN_TEST(test_role_manager_update_role_config_unknown_role);
+    RUN_TEST(test_role_manager_update_role_config_invalid);
+
     return UNITY_END();
 }

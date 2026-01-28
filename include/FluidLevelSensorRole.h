@@ -36,11 +36,13 @@ class FluidLevelSensorRole : public Role {
     // Role interface
     const char* id() override;
     void configure(const RoleConfig& cfg) override;
+    bool configureFromJson(const JsonDocument& doc) override;
     bool validate() override;
     void start() override;
     void stop() override;
     void loop() override;
     RoleStatus status() override;
+    void getConfigJson(JsonDocument& doc) override;
 
     // Configuration (public for direct access)
     FluidLevelConfig config;

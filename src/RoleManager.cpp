@@ -83,6 +83,7 @@ bool RoleManager::parseAndCreateRole(const char* json, size_t length) {
     }
 
     roles_.push_back(std::move(role));
+    cacheValid_ = false;  // Invalidate cache when roles change
     return true;
 }
 
@@ -95,6 +96,11 @@ void RoleManager::startAll() {
 void RoleManager::loopAll() {
     for (auto& role : roles_) {
         role->loop();
+    }
+
+    // Rebuild cache in main loop context if invalidated
+    if (!cacheValid_) {
+        rebuildCache();
     }
 }
 
@@ -114,4 +120,41 @@ std::vector<RoleInfo> RoleManager::getRoleInfo() const {
     }
 
     return info;
+}
+
+std::string RoleManager::getRoleConfigsJson() const {
+    // Return cached JSON - safe to call from any thread
+    return cachedRolesJson_;
+}
+
+void RoleManager::rebuildCache() const {
+    StaticJsonDocument<1024> doc;
+    doc.to<JsonObject>();  // Initialize as empty object
+
+    for (const auto& role : roles_) {
+        JsonObject roleObj = doc.createNestedObject(role->id());
+        StaticJsonDocument<256> configDoc;
+        role->getConfigJson(configDoc);
+
+        // Copy config fields to the nested object
+        for (JsonPair kv : configDoc.as<JsonObject>()) {
+            roleObj[kv.key()] = kv.value();
+        }
+    }
+
+    serializeJson(doc, cachedRolesJson_);
+    cacheValid_ = true;
+}
+
+bool RoleManager::updateRoleConfig(const char* roleId, const JsonDocument& doc) {
+    for (auto& role : roles_) {
+        if (strcmp(role->id(), roleId) == 0) {
+            bool result = role->configureFromJson(doc);
+            if (result) {
+                cacheValid_ = false;  // Invalidate cache on config change
+            }
+            return result;
+        }
+    }
+    return false;
 }

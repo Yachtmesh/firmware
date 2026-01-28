@@ -1,10 +1,12 @@
 #pragma once
+#include <ArduinoJson.h>
 #include <unity.h>
+
 #include "FileSystem.h"
+#include "MockFileSystem.h"
 #include "Role.h"
 #include "RoleFactory.h"
 #include "RoleManager.h"
-#include "MockFileSystem.h"
 #include "test_fluid_level_sensor_role.h"  // For FakeAnalogInput, FakeNmea2000Service
 
 // Tests that RoleManager can load a valid JSON config
@@ -268,4 +270,138 @@ void test_role_manager_get_role_info_multiple_roles() {
     TEST_ASSERT_EQUAL(2, info.size());
     TEST_ASSERT_TRUE(info[0].running);
     TEST_ASSERT_TRUE(info[1].running);
+}
+
+// Tests that getRoleConfigsJson returns empty object when no roles
+void test_role_manager_get_configs_json_empty() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    std::string json = manager.getRoleConfigsJson();
+    TEST_ASSERT_EQUAL_STRING("{}", json.c_str());
+}
+
+// Tests that getRoleConfigsJson returns config for single role
+void test_role_manager_get_configs_json_single_role() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    const char* roleJson = R"({
+        "type": "FluidLevel",
+        "fluidType": "Water",
+        "inst": 1,
+        "capacity": 100,
+        "minVoltage": 0.5,
+        "maxVoltage": 4.5
+    })";
+
+    manager.loadRoleFromJson(roleJson);
+
+    std::string json = manager.getRoleConfigsJson();
+
+    // Parse and verify
+    StaticJsonDocument<512> doc;
+    deserializeJson(doc, json);
+
+    TEST_ASSERT_TRUE(doc.containsKey("FluidLevel"));
+    JsonObject config = doc["FluidLevel"];
+    TEST_ASSERT_EQUAL_STRING("FluidLevel", config["type"]);
+    TEST_ASSERT_EQUAL_STRING("Water", config["fluidType"]);
+    TEST_ASSERT_EQUAL(1, config["inst"]);
+    TEST_ASSERT_EQUAL(100, config["capacity"]);
+}
+
+// Tests that updateRoleConfig updates existing role
+void test_role_manager_update_role_config() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    const char* roleJson = R"({
+        "type": "FluidLevel",
+        "fluidType": "Water",
+        "inst": 0,
+        "capacity": 100,
+        "minVoltage": 0.5,
+        "maxVoltage": 4.5
+    })";
+
+    manager.loadRoleFromJson(roleJson);
+
+    // Update config
+    StaticJsonDocument<256> updateDoc;
+    updateDoc["fluidType"] = "Fuel";
+    updateDoc["inst"] = 2;
+    updateDoc["capacity"] = 200;
+    updateDoc["minVoltage"] = 0.2;
+    updateDoc["maxVoltage"] = 4.8;
+
+    bool result = manager.updateRoleConfig("FluidLevel", updateDoc);
+    TEST_ASSERT_TRUE(result);
+
+    // Verify update via getRoleConfigsJson
+    std::string json = manager.getRoleConfigsJson();
+    StaticJsonDocument<512> doc;
+    deserializeJson(doc, json);
+
+    JsonObject config = doc["FluidLevel"];
+    TEST_ASSERT_EQUAL_STRING("Fuel", config["fluidType"]);
+    TEST_ASSERT_EQUAL(2, config["inst"]);
+    TEST_ASSERT_EQUAL(200, config["capacity"]);
+}
+
+// Tests that updateRoleConfig returns false for unknown role
+void test_role_manager_update_role_config_unknown_role() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    StaticJsonDocument<256> updateDoc;
+    updateDoc["fluidType"] = "Water";
+    updateDoc["minVoltage"] = 0.5;
+    updateDoc["maxVoltage"] = 4.5;
+
+    bool result = manager.updateRoleConfig("NonExistentRole", updateDoc);
+    TEST_ASSERT_FALSE(result);
+}
+
+// Tests that updateRoleConfig returns false for invalid config
+void test_role_manager_update_role_config_invalid() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    const char* roleJson = R"({
+        "type": "FluidLevel",
+        "fluidType": "Water",
+        "inst": 0,
+        "capacity": 100,
+        "minVoltage": 0.5,
+        "maxVoltage": 4.5
+    })";
+
+    manager.loadRoleFromJson(roleJson);
+
+    // Invalid: minVoltage >= maxVoltage
+    StaticJsonDocument<256> updateDoc;
+    updateDoc["fluidType"] = "Water";
+    updateDoc["inst"] = 0;
+    updateDoc["capacity"] = 100;
+    updateDoc["minVoltage"] = 5.0;
+    updateDoc["maxVoltage"] = 1.0;
+
+    bool result = manager.updateRoleConfig("FluidLevel", updateDoc);
+    TEST_ASSERT_FALSE(result);
 }

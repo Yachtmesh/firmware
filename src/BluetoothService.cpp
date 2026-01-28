@@ -1,6 +1,7 @@
 #include "BluetoothService.h"
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <esp_mac.h>
 #include <nvs_flash.h>
 
@@ -100,9 +101,15 @@ void BluetoothService::start() {
     pStatusChar_->setCallbacks(this);
 
     // Roles characteristic - read only (requires auth)
-    pRolesChar_ = pService->createCharacteristic(ROLES_CHAR_UUID,
-                                                  NIMBLE_PROPERTY::READ);
+    // Returns JSON with role info and configs merged
+    pRolesChar_ =
+        pService->createCharacteristic(ROLES_CHAR_UUID, NIMBLE_PROPERTY::READ);
     pRolesChar_->setCallbacks(this);
+
+    // Config update characteristic - write only (requires auth)
+    pConfigUpdateChar_ = pService->createCharacteristic(CONFIG_UPDATE_CHAR_UUID,
+                                                        NIMBLE_PROPERTY::WRITE);
+    pConfigUpdateChar_->setCallbacks(this);
 
     pService->start();
 
@@ -173,6 +180,46 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
         // Notify auth status change
         pAuthStatusChar_->setValue(&authResult, 1);
         pAuthStatusChar_->notify(desc->conn_handle);
+    } else if (pCharacteristic == pConfigUpdateChar_) {
+        // Require authentication for config updates
+        if (!isClientAuthenticated(desc->conn_handle)) {
+            Serial.println("BLE config update rejected: not authenticated");
+            return;
+        }
+
+        if (!roleManager_) {
+            Serial.println("BLE config update rejected: no role manager");
+            return;
+        }
+
+        std::string value = pCharacteristic->getValue();
+        StaticJsonDocument<512> doc;
+        if (deserializeJson(doc, value)) {
+            Serial.println("BLE config update failed: invalid JSON");
+            return;
+        }
+
+        // Expected format: {"roleId": "FluidLevel", "config": {...}}
+        const char* roleId = doc["roleId"] | "";
+        JsonObject configObj = doc["config"];
+
+        if (strlen(roleId) == 0 || configObj.isNull()) {
+            Serial.println(
+                "BLE config update failed: missing roleId or config");
+            return;
+        }
+
+        // Create a new doc for just the config
+        StaticJsonDocument<256> configDoc;
+        for (JsonPair kv : configObj) {
+            configDoc[kv.key()] = kv.value();
+        }
+
+        if (roleManager_->updateRoleConfig(roleId, configDoc)) {
+            Serial.printf("BLE config updated for role: %s\n", roleId);
+        } else {
+            Serial.printf("BLE config update failed for role: %s\n", roleId);
+        }
     }
 }
 
@@ -197,8 +244,7 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
             uint8_t empty[STATUS_SIZE] = {0};
             pCharacteristic->setValue(empty, sizeof(empty));
         } else if (pCharacteristic == pRolesChar_) {
-            uint8_t empty = 0;
-            pCharacteristic->setValue(&empty, 1);
+            pCharacteristic->setValue("[]");
         }
         return;
     }
@@ -213,9 +259,8 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
         buildStatus(buffer);
         pCharacteristic->setValue(buffer, sizeof(buffer));
     } else if (pCharacteristic == pRolesChar_) {
-        uint8_t buffer[128];  // Max BLE characteristic size
-        size_t len = buildRoles(buffer, sizeof(buffer));
-        pCharacteristic->setValue(buffer, len);
+        std::string json = buildRolesJson();
+        pCharacteristic->setValue(json);
     }
 }
 
@@ -271,33 +316,51 @@ void BluetoothService::updateStatus() {
     pStatusChar_->notify();
 }
 
-size_t BluetoothService::buildRoles(uint8_t* buffer, size_t maxSize) {
+
+std::string BluetoothService::buildRolesJson() {
     if (!roleManager_) {
-        buffer[0] = 0;
-        return 1;
+        return "[]";
     }
+
+    StaticJsonDocument<1024> doc;
+    JsonArray arr = doc.to<JsonArray>();
 
     auto roles = roleManager_->getRoleInfo();
-    size_t offset = 0;
-
-    // Role count (1 byte)
-    buffer[offset++] = static_cast<uint8_t>(roles.size());
-
-    // For each role: id_len (1 byte) + id (variable) + running (1 byte)
     for (const auto& role : roles) {
-        size_t idLen = strlen(role.id);
-        if (idLen > 255) idLen = 255;
+        JsonObject roleObj = arr.createNestedObject();
+        roleObj["id"] = role.id;
+        roleObj["running"] = role.running;
 
-        // Check if we have space
-        if (offset + 1 + idLen + 1 > maxSize) {
-            break;
-        }
-
-        buffer[offset++] = static_cast<uint8_t>(idLen);
-        memcpy(buffer + offset, role.id, idLen);
-        offset += idLen;
-        buffer[offset++] = role.running ? 1 : 0;
+        // Get config for this role and merge into roleObj
+        StaticJsonDocument<256> configDoc;
+        // Find and get config from roleManager
+        // We need to iterate through roles again to get configs
     }
 
-    return offset;
+    // Get configs from roleManager and merge
+    std::string configsJson = roleManager_->getRoleConfigsJson();
+    StaticJsonDocument<1024> configsDoc;
+    deserializeJson(configsDoc, configsJson);
+    JsonObject configs = configsDoc.as<JsonObject>();
+
+    // Rebuild array with merged data
+    doc.clear();
+    JsonArray finalArr = doc.to<JsonArray>();
+    for (const auto& role : roles) {
+        JsonObject roleObj = finalArr.createNestedObject();
+        roleObj["id"] = role.id;
+        roleObj["running"] = role.running;
+
+        // Merge config if available
+        if (configs.containsKey(role.id)) {
+            JsonObject config = configs[role.id];
+            for (JsonPair kv : config) {
+                roleObj["config"][kv.key()] = kv.value();
+            }
+        }
+    }
+
+    std::string result;
+    serializeJson(doc, result);
+    return result;
 }
