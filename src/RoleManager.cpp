@@ -2,6 +2,7 @@
 
 #include <ArduinoJson.h>
 
+#include <cstdio>
 #include <cstring>
 
 #include "RoleConfigFactory.h"
@@ -123,7 +124,9 @@ std::vector<RoleInfo> RoleManager::getRoleInfo() const {
 }
 
 std::string RoleManager::getRoleConfigsJson() const {
-    // Return cached JSON - safe to call from any thread
+    if (!cacheValid_) {
+        rebuildCache();
+    }
     return cachedRolesJson_;
 }
 
@@ -142,11 +145,14 @@ void RoleManager::rebuildCache() const {
         }
     }
 
+    cachedRolesJson_.clear();
     serializeJson(doc, cachedRolesJson_);
+
     cacheValid_ = true;
 }
 
-bool RoleManager::updateRoleConfig(const char* roleId, const JsonDocument& doc) {
+bool RoleManager::updateRoleConfig(const char* roleId,
+                                   const JsonDocument& doc) {
     for (auto& role : roles_) {
         if (strcmp(role->id(), roleId) == 0) {
             bool result = role->configureFromJson(doc);

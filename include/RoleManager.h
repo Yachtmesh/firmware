@@ -23,7 +23,8 @@ class RoleManagerInterface {
     virtual size_t roleCount() const = 0;
     virtual std::vector<RoleInfo> getRoleInfo() const = 0;
     virtual std::string getRoleConfigsJson() const = 0;
-    virtual bool updateRoleConfig(const char* roleId, const JsonDocument& doc) = 0;
+    virtual bool updateRoleConfig(const char* roleId,
+                                  const JsonDocument& doc) = 0;
     virtual ~RoleManagerInterface() = default;
 };
 
@@ -56,7 +57,7 @@ class RoleManager : public RoleManagerInterface {
     std::vector<std::unique_ptr<Role>> roles_;
 
     // Cached JSON for thread-safe BLE access
-    mutable std::string cachedRolesJson_ = "[]";
+    mutable std::string cachedRolesJson_ = "{}";
     mutable bool cacheValid_ = false;
 
     void rebuildCache() const;
