@@ -199,7 +199,7 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
             return;
         }
 
-        // Expected format: {"roleId": "FluidLevel", "config": {...}}
+        // Expected format: {"roleId": "FluidLevel-trq", "config": {...}}
         const char* roleId = doc["roleId"] | "";
         JsonObject configObj = doc["config"];
 
@@ -316,7 +316,6 @@ void BluetoothService::updateStatus() {
     pStatusChar_->notify();
 }
 
-
 std::string BluetoothService::buildRolesJson() {
     if (!roleManager_) {
         return "[]";
@@ -329,6 +328,7 @@ std::string BluetoothService::buildRolesJson() {
     for (const auto& role : roles) {
         JsonObject roleObj = arr.createNestedObject();
         roleObj["id"] = role.id;
+        roleObj["type"] = role.type;
         roleObj["running"] = role.running;
 
         // Get config for this role and merge into roleObj
@@ -349,6 +349,7 @@ std::string BluetoothService::buildRolesJson() {
     for (const auto& role : roles) {
         JsonObject roleObj = finalArr.createNestedObject();
         roleObj["id"] = role.id;
+        roleObj["type"] = role.type;
         roleObj["running"] = role.running;
 
         // Merge config if available

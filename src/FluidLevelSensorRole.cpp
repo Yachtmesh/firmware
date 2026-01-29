@@ -16,7 +16,7 @@ FluidLevelSensorRole::FluidLevelSensorRole(AnalogInputInterface& analog,
                                            Nmea2000ServiceInterface& nmea)
     : analog(analog), nmea(nmea) {}
 
-const char* FluidLevelSensorRole::id() { return "FluidLevel"; }
+const char* FluidLevelSensorRole::type() { return "FluidLevel"; }
 
 void FluidLevelSensorRole::configure(const RoleConfig& cfg) {
     config = static_cast<const FluidLevelConfig&>(cfg);

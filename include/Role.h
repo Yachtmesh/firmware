@@ -2,6 +2,8 @@
 
 #include <ArduinoJson.h>
 
+#include <string>
+
 struct RoleConfig {
     virtual ~RoleConfig() = default;
     virtual void toJson(JsonDocument& doc) const {}
@@ -14,7 +16,12 @@ struct RoleStatus {
 
 class Role {
    public:
-    virtual const char* id() = 0;
+    virtual const char* type() = 0;
+    const char* id() const {
+        return instanceId_.empty() ? "unknown" : instanceId_.c_str();
+    }
+    void setInstanceId(const std::string& id) { instanceId_ = id; }
+
     virtual void configure(const RoleConfig& cfg) = 0;
     virtual bool configureFromJson(const JsonDocument& doc) = 0;
     virtual bool validate() = 0;
@@ -24,4 +31,7 @@ class Role {
     virtual RoleStatus status() = 0;
     virtual void getConfigJson(JsonDocument& doc) = 0;
     virtual ~Role() {}
+
+   protected:
+    std::string instanceId_;
 };

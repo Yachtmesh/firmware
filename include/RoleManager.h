@@ -12,6 +12,7 @@
 
 struct RoleInfo {
     const char* id;
+    const char* type;
     bool running;
 };
 
@@ -31,7 +32,8 @@ class RoleManager {
     bool loadRole(const char* configPath);
 
     // Load from JSON string (for testing)
-    bool loadRoleFromJson(const char* json);
+    // instanceId is optional; if not provided, uses role type as ID
+    bool loadRoleFromJson(const char* json, const char* instanceId = nullptr);
 
     size_t roleCount() const { return roles_.size(); }
     std::vector<RoleInfo> getRoleInfo() const;
@@ -50,5 +52,6 @@ class RoleManager {
     void rebuildCache() const;
 
     // Internal: parse JSON and create role
-    bool parseAndCreateRole(const char* json, size_t length);
+    bool parseAndCreateRole(const char* json, size_t length,
+                            const char* instanceId = nullptr);
 };

@@ -33,8 +33,13 @@ void test_fluid_level_sensor_role_basic_flow() {
 
     FluidLevelSensorRole role(analog, nmea);
 
-    // Identity
-    TEST_ASSERT_EQUAL_STRING("FluidLevel", role.id());
+    // Type identification
+    TEST_ASSERT_EQUAL_STRING("FluidLevel", role.type());
+
+    // Instance ID defaults to "unknown" until set
+    TEST_ASSERT_EQUAL_STRING("unknown", role.id());
+    role.setInstanceId("FluidLevel-abc");
+    TEST_ASSERT_EQUAL_STRING("FluidLevel-abc", role.id());
 
     // Configure
     FluidLevelConfig cfg{FluidType::FuelGasoline, 14, 257, 1.0f, 5.0f};

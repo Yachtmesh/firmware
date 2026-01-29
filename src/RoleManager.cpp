@@ -49,16 +49,29 @@ bool RoleManager::loadRole(const char* configPath) {
     buffer[fileSize] = '\0';
     file->close();
 
-    bool result = parseAndCreateRole(buffer, fileSize);
+    // Extract filename stem as instance ID (e.g., "/roles/FluidLevel-abc.json"
+    // -> "FluidLevel-abc")
+    std::string instanceId;
+    const char* lastSlash = strrchr(configPath, '/');
+    const char* filename = lastSlash ? lastSlash + 1 : configPath;
+    const char* dot = strrchr(filename, '.');
+    if (dot) {
+        instanceId = std::string(filename, dot - filename);
+    } else {
+        instanceId = filename;
+    }
+
+    bool result = parseAndCreateRole(buffer, fileSize, instanceId.c_str());
     delete[] buffer;
     return result;
 }
 
-bool RoleManager::loadRoleFromJson(const char* json) {
-    return parseAndCreateRole(json, strlen(json));
+bool RoleManager::loadRoleFromJson(const char* json, const char* instanceId) {
+    return parseAndCreateRole(json, strlen(json), instanceId);
 }
 
-bool RoleManager::parseAndCreateRole(const char* json, size_t length) {
+bool RoleManager::parseAndCreateRole(const char* json, size_t length,
+                                     const char* instanceId) {
     StaticJsonDocument<512> doc;
     if (deserializeJson(doc, json, length)) {
         return false;
@@ -69,6 +82,13 @@ bool RoleManager::parseAndCreateRole(const char* json, size_t length) {
     auto role = factory_.createRole(type);
     if (!role) {
         return false;
+    }
+
+    // Set the instance ID from filename if provided, otherwise use type
+    if (instanceId) {
+        role->setInstanceId(instanceId);
+    } else {
+        role->setInstanceId(role->type());
     }
 
     // Create config and configure role
@@ -117,7 +137,7 @@ std::vector<RoleInfo> RoleManager::getRoleInfo() const {
 
     for (const auto& role : roles_) {
         RoleStatus s = role->status();
-        info.push_back({role->id(), s.running});
+        info.push_back({role->id(), role->type(), s.running});
     }
 
     return info;

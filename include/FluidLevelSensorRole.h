@@ -33,7 +33,7 @@ class FluidLevelSensorRole : public Role {
                          Nmea2000ServiceInterface& nmea);
 
     // Role interface
-    const char* id() override;
+    const char* type() override;
     void configure(const RoleConfig& cfg) override;
     bool configureFromJson(const JsonDocument& doc) override;
     bool validate() override;

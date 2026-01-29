@@ -130,7 +130,7 @@ void test_role_manager_loads_from_file() {
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
-    fs.addFile("/roles/tank.json", R"({
+    fs.addFile("/roles/FluidLevel-atd.json", R"({
         "type": "FluidLevel",
         "fluidType": "BlackWater",
         "inst": 2,
@@ -139,7 +139,7 @@ void test_role_manager_loads_from_file() {
         "maxVoltage": 3.3
     })");
 
-    bool loaded = manager.loadRole("/roles/tank.json");
+    bool loaded = manager.loadRole("/roles/FluidLevel-atd.json");
     TEST_ASSERT_TRUE(loaded);
     TEST_ASSERT_EQUAL(1, manager.roleCount());
 }
