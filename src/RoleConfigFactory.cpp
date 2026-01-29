@@ -12,7 +12,7 @@ std::unique_ptr<RoleConfig> createRoleConfig(const JsonDocument& doc) {
         const char* ftStr = doc["fluidType"] | "Unavailable";
         uint16_t cap = doc["capacity"] | 0;
 
-        return std::make_unique<FluidLevelConfig>(fluidTypeFromString(ftStr),
+        return std::make_unique<FluidLevelConfig>(FluidTypeFromString(ftStr),
                                                   inst, cap, minV, maxV);
     }
 

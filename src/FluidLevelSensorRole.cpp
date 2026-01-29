@@ -75,7 +75,7 @@ bool FluidLevelSensorRole::configureFromJson(const JsonDocument& doc) {
     const char* ftStr = doc["fluidType"] | "Unavailable";
     uint16_t cap = doc["capacity"] | 0;
 
-    FluidLevelConfig newConfig(fluidTypeFromString(ftStr), inst, cap, minV,
+    FluidLevelConfig newConfig(FluidTypeFromString(ftStr), inst, cap, minV,
                                maxV);
 
     configure(newConfig);
@@ -84,30 +84,9 @@ bool FluidLevelSensorRole::configureFromJson(const JsonDocument& doc) {
 
 void FluidLevelConfig::toJson(JsonDocument& doc) const {
     doc["type"] = "FluidLevel";
-    doc["fluidType"] = fluidTypeToString(fluidType);
+    doc["fluidType"] = FluidTypeToString(fluidType);
     doc["inst"] = inst;
     doc["capacity"] = capacity;
     doc["minVoltage"] = minVoltage;
     doc["maxVoltage"] = maxVoltage;
-}
-
-FluidType fluidTypeFromString(const char* str) {
-#define X(name) \
-    if (strcmp(str, #name) == 0) return FluidType::name;
-    FLUID_TYPE_LIST(X)
-#undef X
-    return FluidType::Unavailable;
-}
-
-const char* fluidTypeToString(FluidType ft) {
-    {
-        switch (ft) {
-#define X(name)           \
-    case FluidType::name: \
-        return #name;
-            FLUID_TYPE_LIST(X)
-#undef X
-        }
-        return "Unavailable";
-    }
 }

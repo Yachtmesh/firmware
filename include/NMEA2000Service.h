@@ -43,6 +43,3 @@ class Nmea2000Service : public Nmea2000ServiceInterface {
    private:
     int toN2kFluidType(FluidType t);
 };
-
-FluidType fluidTypeFromString(const char* str);
-const char* fluidTypeToString(FluidType ft);

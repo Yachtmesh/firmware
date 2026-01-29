@@ -1,7 +1,7 @@
 #pragma once
 
-#include <unity.h>
 #include <ArduinoJson.h>
+#include <unity.h>
 
 #include "FluidLevelSensorRole.h"
 #include "NMEA2000Service.h"
@@ -127,45 +127,68 @@ void test_fluid_level_sensor_role_configure_from_json_invalid() {
 // FluidType serialization tests
 
 void test_fluid_type_to_string_all_values() {
-    TEST_ASSERT_EQUAL_STRING("Fuel", fluidTypeToString(FluidType::Fuel));
-    TEST_ASSERT_EQUAL_STRING("Water", fluidTypeToString(FluidType::Water));
-    TEST_ASSERT_EQUAL_STRING("GrayWater", fluidTypeToString(FluidType::GrayWater));
-    TEST_ASSERT_EQUAL_STRING("LiveWell", fluidTypeToString(FluidType::LiveWell));
-    TEST_ASSERT_EQUAL_STRING("Oil", fluidTypeToString(FluidType::Oil));
-    TEST_ASSERT_EQUAL_STRING("BlackWater", fluidTypeToString(FluidType::BlackWater));
-    TEST_ASSERT_EQUAL_STRING("FuelGasoline", fluidTypeToString(FluidType::FuelGasoline));
-    TEST_ASSERT_EQUAL_STRING("Error", fluidTypeToString(FluidType::Error));
-    TEST_ASSERT_EQUAL_STRING("Unavailable", fluidTypeToString(FluidType::Unavailable));
+    TEST_ASSERT_EQUAL_STRING("Fuel", FluidTypeToString(FluidType::Fuel));
+    TEST_ASSERT_EQUAL_STRING("Water", FluidTypeToString(FluidType::Water));
+    TEST_ASSERT_EQUAL_STRING("GrayWater",
+                             FluidTypeToString(FluidType::GrayWater));
+    TEST_ASSERT_EQUAL_STRING("LiveWell",
+                             FluidTypeToString(FluidType::LiveWell));
+    TEST_ASSERT_EQUAL_STRING("Oil", FluidTypeToString(FluidType::Oil));
+    TEST_ASSERT_EQUAL_STRING("BlackWater",
+                             FluidTypeToString(FluidType::BlackWater));
+    TEST_ASSERT_EQUAL_STRING("FuelGasoline",
+                             FluidTypeToString(FluidType::FuelGasoline));
+    TEST_ASSERT_EQUAL_STRING("Error", FluidTypeToString(FluidType::Error));
+    TEST_ASSERT_EQUAL_STRING("Unavailable",
+                             FluidTypeToString(FluidType::Unavailable));
 }
 
 void test_fluid_type_from_string_all_values() {
-    TEST_ASSERT_EQUAL(FluidType::Fuel, fluidTypeFromString("Fuel"));
-    TEST_ASSERT_EQUAL(FluidType::Water, fluidTypeFromString("Water"));
-    TEST_ASSERT_EQUAL(FluidType::GrayWater, fluidTypeFromString("GrayWater"));
-    TEST_ASSERT_EQUAL(FluidType::LiveWell, fluidTypeFromString("LiveWell"));
-    TEST_ASSERT_EQUAL(FluidType::Oil, fluidTypeFromString("Oil"));
-    TEST_ASSERT_EQUAL(FluidType::BlackWater, fluidTypeFromString("BlackWater"));
-    TEST_ASSERT_EQUAL(FluidType::FuelGasoline, fluidTypeFromString("FuelGasoline"));
-    TEST_ASSERT_EQUAL(FluidType::Error, fluidTypeFromString("Error"));
-    TEST_ASSERT_EQUAL(FluidType::Unavailable, fluidTypeFromString("Unavailable"));
+    TEST_ASSERT_EQUAL(FluidType::Fuel, FluidTypeFromString("Fuel"));
+    TEST_ASSERT_EQUAL(FluidType::Water, FluidTypeFromString("Water"));
+    TEST_ASSERT_EQUAL(FluidType::GrayWater, FluidTypeFromString("GrayWater"));
+    TEST_ASSERT_EQUAL(FluidType::LiveWell, FluidTypeFromString("LiveWell"));
+    TEST_ASSERT_EQUAL(FluidType::Oil, FluidTypeFromString("Oil"));
+    TEST_ASSERT_EQUAL(FluidType::BlackWater, FluidTypeFromString("BlackWater"));
+    TEST_ASSERT_EQUAL(FluidType::FuelGasoline,
+                      FluidTypeFromString("FuelGasoline"));
+    TEST_ASSERT_EQUAL(FluidType::Error, FluidTypeFromString("Error"));
+    TEST_ASSERT_EQUAL(FluidType::Unavailable,
+                      FluidTypeFromString("Unavailable"));
 }
 
 void test_fluid_type_from_string_unknown_returns_unavailable() {
-    TEST_ASSERT_EQUAL(FluidType::Unavailable, fluidTypeFromString("Unknown"));
-    TEST_ASSERT_EQUAL(FluidType::Unavailable, fluidTypeFromString(""));
-    TEST_ASSERT_EQUAL(FluidType::Unavailable, fluidTypeFromString("fuel"));  // case sensitive
-    TEST_ASSERT_EQUAL(FluidType::Unavailable, fluidTypeFromString("WATER")); // case sensitive
+    TEST_ASSERT_EQUAL(FluidType::Unavailable, FluidTypeFromString("Unknown"));
+    TEST_ASSERT_EQUAL(FluidType::Unavailable, FluidTypeFromString(""));
+    TEST_ASSERT_EQUAL(FluidType::Unavailable,
+                      FluidTypeFromString("fuel"));  // case sensitive
+    TEST_ASSERT_EQUAL(FluidType::Unavailable,
+                      FluidTypeFromString("WATER"));  // case sensitive
 }
 
 void test_fluid_type_round_trip() {
     // Verify toString -> fromString returns original value
-    TEST_ASSERT_EQUAL(FluidType::Fuel, fluidTypeFromString(fluidTypeToString(FluidType::Fuel)));
-    TEST_ASSERT_EQUAL(FluidType::Water, fluidTypeFromString(fluidTypeToString(FluidType::Water)));
-    TEST_ASSERT_EQUAL(FluidType::GrayWater, fluidTypeFromString(fluidTypeToString(FluidType::GrayWater)));
-    TEST_ASSERT_EQUAL(FluidType::LiveWell, fluidTypeFromString(fluidTypeToString(FluidType::LiveWell)));
-    TEST_ASSERT_EQUAL(FluidType::Oil, fluidTypeFromString(fluidTypeToString(FluidType::Oil)));
-    TEST_ASSERT_EQUAL(FluidType::BlackWater, fluidTypeFromString(fluidTypeToString(FluidType::BlackWater)));
-    TEST_ASSERT_EQUAL(FluidType::FuelGasoline, fluidTypeFromString(fluidTypeToString(FluidType::FuelGasoline)));
-    TEST_ASSERT_EQUAL(FluidType::Error, fluidTypeFromString(fluidTypeToString(FluidType::Error)));
-    TEST_ASSERT_EQUAL(FluidType::Unavailable, fluidTypeFromString(fluidTypeToString(FluidType::Unavailable)));
+    TEST_ASSERT_EQUAL(FluidType::Fuel,
+                      FluidTypeFromString(FluidTypeToString(FluidType::Fuel)));
+    TEST_ASSERT_EQUAL(FluidType::Water,
+                      FluidTypeFromString(FluidTypeToString(FluidType::Water)));
+    TEST_ASSERT_EQUAL(
+        FluidType::GrayWater,
+        FluidTypeFromString(FluidTypeToString(FluidType::GrayWater)));
+    TEST_ASSERT_EQUAL(
+        FluidType::LiveWell,
+        FluidTypeFromString(FluidTypeToString(FluidType::LiveWell)));
+    TEST_ASSERT_EQUAL(FluidType::Oil,
+                      FluidTypeFromString(FluidTypeToString(FluidType::Oil)));
+    TEST_ASSERT_EQUAL(
+        FluidType::BlackWater,
+        FluidTypeFromString(FluidTypeToString(FluidType::BlackWater)));
+    TEST_ASSERT_EQUAL(
+        FluidType::FuelGasoline,
+        FluidTypeFromString(FluidTypeToString(FluidType::FuelGasoline)));
+    TEST_ASSERT_EQUAL(FluidType::Error,
+                      FluidTypeFromString(FluidTypeToString(FluidType::Error)));
+    TEST_ASSERT_EQUAL(
+        FluidType::Unavailable,
+        FluidTypeFromString(FluidTypeToString(FluidType::Unavailable)));
 }
