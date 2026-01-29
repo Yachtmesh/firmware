@@ -1,14 +1,21 @@
 #pragma once
 #include <string>
 
-enum class FluidType : uint8_t {
-    Fuel,
-    Water,
-    GrayWater,
-    LiveWell,
-    Oil,
-    BlackWater,
-    FuelGasoline,
-    Error,
-    Unavailable,
+// --- Single source of truth ---
+#define FLUID_TYPE_LIST(X) \
+    X(Fuel)                \
+    X(Water)               \
+    X(GrayWater)           \
+    X(LiveWell)            \
+    X(Oil)                 \
+    X(BlackWater)          \
+    X(FuelGasoline)        \
+    X(Error)               \
+    X(Unavailable)
+
+// --- Enum definition ---
+enum class FluidType {
+#define X(name) name,
+    FLUID_TYPE_LIST(X)
+#undef X
 };

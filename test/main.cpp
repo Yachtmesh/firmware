@@ -29,6 +29,12 @@ int main()
     RUN_TEST(test_fluid_level_sensor_role_configure_from_json);
     RUN_TEST(test_fluid_level_sensor_role_configure_from_json_invalid);
 
+    // FluidType serialization tests
+    RUN_TEST(test_fluid_type_to_string_all_values);
+    RUN_TEST(test_fluid_type_from_string_all_values);
+    RUN_TEST(test_fluid_type_from_string_unknown_returns_unavailable);
+    RUN_TEST(test_fluid_type_round_trip);
+
     // RoleManager config JSON tests
     RUN_TEST(test_role_manager_get_configs_json_empty);
     RUN_TEST(test_role_manager_get_configs_json_single_role);

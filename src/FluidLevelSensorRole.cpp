@@ -92,36 +92,22 @@ void FluidLevelConfig::toJson(JsonDocument& doc) const {
 }
 
 FluidType fluidTypeFromString(const char* str) {
-    if (strcmp(str, "Fuel") == 0) return FluidType::Fuel;
-    if (strcmp(str, "Water") == 0) return FluidType::Water;
-    if (strcmp(str, "GrayWater") == 0) return FluidType::GrayWater;
-    if (strcmp(str, "LiveWell") == 0) return FluidType::LiveWell;
-    if (strcmp(str, "Oil") == 0) return FluidType::Oil;
-    if (strcmp(str, "BlackWater") == 0) return FluidType::BlackWater;
-    if (strcmp(str, "FuelGasoline") == 0) return FluidType::FuelGasoline;
-    if (strcmp(str, "Error") == 0) return FluidType::Error;
+#define X(name) \
+    if (strcmp(str, #name) == 0) return FluidType::name;
+    FLUID_TYPE_LIST(X)
+#undef X
     return FluidType::Unavailable;
 }
 
 const char* fluidTypeToString(FluidType ft) {
-    switch (ft) {
-        case FluidType::Fuel:
-            return "Fuel";
-        case FluidType::Water:
-            return "Water";
-        case FluidType::GrayWater:
-            return "GrayWater";
-        case FluidType::LiveWell:
-            return "LiveWell";
-        case FluidType::Oil:
-            return "Oil";
-        case FluidType::BlackWater:
-            return "BlackWater";
-        case FluidType::FuelGasoline:
-            return "FuelGasoline";
-        case FluidType::Error:
-            return "Error";
-        default:
-            return "Unavailable";
+    {
+        switch (ft) {
+#define X(name)           \
+    case FluidType::name: \
+        return #name;
+            FLUID_TYPE_LIST(X)
+#undef X
+        }
+        return "Unavailable";
     }
 }
