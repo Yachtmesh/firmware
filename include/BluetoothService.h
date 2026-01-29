@@ -27,7 +27,7 @@ class BluetoothService : public BluetoothServiceInterface,
                          public NimBLEServerCallbacks,
                          public NimBLECharacteristicCallbacks {
    public:
-    BluetoothService(RoleManagerInterface* roleManager = nullptr);
+    BluetoothService(RoleManager* roleManager = nullptr);
 
     void start() override;
     void stop() override;
@@ -79,7 +79,7 @@ class BluetoothService : public BluetoothServiceInterface,
     static constexpr uint8_t DEFAULT_NMEA_ADDRESS = 22;
 
     // Dependencies
-    RoleManagerInterface* roleManager_ = nullptr;
+    RoleManager* roleManager_ = nullptr;
 
     // State
     std::string deviceId_;

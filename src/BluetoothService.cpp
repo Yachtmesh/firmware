@@ -21,7 +21,7 @@ uint8_t temprature_sens_read();
 static constexpr size_t DEVICE_INFO_SIZE = 20;
 static constexpr size_t STATUS_SIZE = 9;
 
-BluetoothService::BluetoothService(RoleManagerInterface* roleManager)
+BluetoothService::BluetoothService(RoleManager* roleManager)
     : roleManager_(roleManager) {
     loadOrGenerateDeviceId();
 }

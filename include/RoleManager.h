@@ -15,17 +15,7 @@ struct RoleInfo {
     bool running;
 };
 
-class RoleManagerInterface {
-   public:
-    virtual size_t roleCount() const = 0;
-    virtual std::vector<RoleInfo> getRoleInfo() const = 0;
-    virtual std::string getRoleConfigsJson() const = 0;
-    virtual bool updateRoleConfig(const char* roleId,
-                                  const JsonDocument& doc) = 0;
-    virtual ~RoleManagerInterface() = default;
-};
-
-class RoleManager : public RoleManagerInterface {
+class RoleManager {
    public:
     RoleManager(RoleFactory& factory, FileSystemInterface& fs);
 
@@ -43,10 +33,10 @@ class RoleManager : public RoleManagerInterface {
     // Load from JSON string (for testing)
     bool loadRoleFromJson(const char* json);
 
-    size_t roleCount() const override { return roles_.size(); }
-    std::vector<RoleInfo> getRoleInfo() const override;
-    std::string getRoleConfigsJson() const override;
-    bool updateRoleConfig(const char* roleId, const JsonDocument& doc) override;
+    size_t roleCount() const { return roles_.size(); }
+    std::vector<RoleInfo> getRoleInfo() const;
+    std::string getRoleConfigsJson() const;
+    bool updateRoleConfig(const char* roleId, const JsonDocument& doc);
 
    private:
     RoleFactory& factory_;
