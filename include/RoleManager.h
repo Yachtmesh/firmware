@@ -36,6 +36,10 @@ class RoleManager {
     // instanceId is optional; if not provided, uses role type as ID
     bool loadRoleFromJson(const char* json, const char* instanceId = nullptr);
 
+    // Create a new role from JSON, generating a unique ID
+    // Returns the generated role ID, or empty string on failure
+    std::string createRole(const JsonDocument& doc);
+
     size_t roleCount() const { return roles_.size(); }
     std::vector<RoleInfo> getRoleInfo() const;
     std::string getRoleConfigsJson() const;
@@ -55,6 +59,9 @@ class RoleManager {
     // Internal: parse JSON and create role
     bool parseAndCreateRole(const char* json, size_t length,
                             const char* instanceId = nullptr);
+
+    // Generate a unique instance ID for a role type
+    std::string generateInstanceId(const char* type);
 
     // Deferred persistence - written in loopAll()
     std::set<std::string> pendingPersist_;

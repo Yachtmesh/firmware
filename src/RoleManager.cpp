@@ -70,6 +70,53 @@ bool RoleManager::loadRoleFromJson(const char* json, const char* instanceId) {
     return parseAndCreateRole(json, strlen(json), instanceId);
 }
 
+std::string RoleManager::createRole(const JsonDocument& doc) {
+    const char* type = doc["type"] | "";
+    if (strlen(type) == 0) {
+        return "";
+    }
+
+    auto role = factory_.createRole(type);
+    if (!role) {
+        return "";
+    }
+
+    std::string instanceId = generateInstanceId(type);
+    role->setInstanceId(instanceId);
+
+    auto config = createRoleConfig(doc);
+    if (!config) {
+        return "";
+    }
+
+    role->configure(*config);
+
+    if (!role->validate()) {
+        return "";
+    }
+
+    roles_.push_back(std::move(role));
+    cacheValid_ = false;
+    pendingPersist_.insert(instanceId);
+
+    return instanceId;
+}
+
+std::string RoleManager::generateInstanceId(const char* type) {
+    static const char charset[] = "abcdefghijklmnopqrstuvwxyz0123456789";
+    static unsigned int seed = 1;
+
+    std::string id = type;
+    id += "-";
+
+    for (int i = 0; i < 3; i++) {
+        seed = seed * 1103515245 + 12345;
+        id += charset[(seed >> 16) % 36];
+    }
+
+    return id;
+}
+
 bool RoleManager::parseAndCreateRole(const char* json, size_t length,
                                      const char* instanceId) {
     StaticJsonDocument<512> doc;

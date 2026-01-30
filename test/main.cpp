@@ -43,5 +43,13 @@ int main()
     RUN_TEST(test_role_manager_update_role_config_unknown_role);
     RUN_TEST(test_role_manager_update_role_config_invalid);
 
+    // createRole tests
+    RUN_TEST(test_role_manager_create_role);
+    RUN_TEST(test_role_manager_create_role_unknown_type);
+    RUN_TEST(test_role_manager_create_role_missing_type);
+    RUN_TEST(test_role_manager_create_role_invalid_config);
+    RUN_TEST(test_role_manager_create_role_persists);
+    RUN_TEST(test_role_manager_create_role_unique_ids);
+
     return UNITY_END();
 }

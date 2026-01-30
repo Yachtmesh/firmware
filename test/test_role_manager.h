@@ -451,3 +451,151 @@ void test_role_manager_update_role_config_invalid() {
     bool result = manager.updateRoleConfig("FluidLevel", updateDoc);
     TEST_ASSERT_FALSE(result);
 }
+
+// Tests that createRole creates a new role and returns generated ID
+void test_role_manager_create_role() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    StaticJsonDocument<256> doc;
+    doc["type"] = "FluidLevel";
+    doc["fluidType"] = "Water";
+    doc["inst"] = 0;
+    doc["capacity"] = 100;
+    doc["minVoltage"] = 0.5;
+    doc["maxVoltage"] = 4.5;
+
+    std::string roleId = manager.createRole(doc);
+    TEST_ASSERT_FALSE(roleId.empty());
+    TEST_ASSERT_EQUAL(1, manager.roleCount());
+
+    // Verify ID starts with type
+    TEST_ASSERT_TRUE(roleId.rfind("FluidLevel-", 0) == 0);
+}
+
+// Tests that createRole returns empty string for unknown type
+void test_role_manager_create_role_unknown_type() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    StaticJsonDocument<256> doc;
+    doc["type"] = "UnknownRole";
+
+    std::string roleId = manager.createRole(doc);
+    TEST_ASSERT_TRUE(roleId.empty());
+    TEST_ASSERT_EQUAL(0, manager.roleCount());
+}
+
+// Tests that createRole returns empty string for missing type
+void test_role_manager_create_role_missing_type() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    StaticJsonDocument<256> doc;
+    doc["fluidType"] = "Water";
+    doc["inst"] = 0;
+
+    std::string roleId = manager.createRole(doc);
+    TEST_ASSERT_TRUE(roleId.empty());
+    TEST_ASSERT_EQUAL(0, manager.roleCount());
+}
+
+// Tests that createRole returns empty string for invalid config
+void test_role_manager_create_role_invalid_config() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    // Invalid: minVoltage >= maxVoltage
+    StaticJsonDocument<256> doc;
+    doc["type"] = "FluidLevel";
+    doc["fluidType"] = "Water";
+    doc["inst"] = 0;
+    doc["capacity"] = 100;
+    doc["minVoltage"] = 5.0;
+    doc["maxVoltage"] = 1.0;
+
+    std::string roleId = manager.createRole(doc);
+    TEST_ASSERT_TRUE(roleId.empty());
+    TEST_ASSERT_EQUAL(0, manager.roleCount());
+}
+
+// Tests that createRole persists the new role to filesystem
+void test_role_manager_create_role_persists() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    StaticJsonDocument<256> doc;
+    doc["type"] = "FluidLevel";
+    doc["fluidType"] = "Fuel";
+    doc["inst"] = 1;
+    doc["capacity"] = 200;
+    doc["minVoltage"] = 0.2;
+    doc["maxVoltage"] = 4.8;
+
+    std::string roleId = manager.createRole(doc);
+    TEST_ASSERT_FALSE(roleId.empty());
+
+    // Trigger deferred persist via loopAll
+    manager.loopAll();
+
+    // Verify file was written
+    std::string path = "/roles/" + roleId + ".json";
+    const std::string* written = fs.getWrittenFile(path);
+    TEST_ASSERT_NOT_NULL(written);
+
+    // Parse and verify content
+    StaticJsonDocument<256> savedDoc;
+    deserializeJson(savedDoc, *written);
+    TEST_ASSERT_EQUAL_STRING("FluidLevel", savedDoc["type"]);
+    TEST_ASSERT_EQUAL_STRING("Fuel", savedDoc["fluidType"]);
+    TEST_ASSERT_EQUAL(1, savedDoc["inst"]);
+    TEST_ASSERT_EQUAL(200, savedDoc["capacity"]);
+}
+
+// Tests that createRole generates unique IDs for multiple roles
+void test_role_manager_create_role_unique_ids() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    StaticJsonDocument<256> doc1;
+    doc1["type"] = "FluidLevel";
+    doc1["fluidType"] = "Water";
+    doc1["inst"] = 0;
+    doc1["capacity"] = 100;
+    doc1["minVoltage"] = 0.5;
+    doc1["maxVoltage"] = 4.5;
+
+    StaticJsonDocument<256> doc2;
+    doc2["type"] = "FluidLevel";
+    doc2["fluidType"] = "Fuel";
+    doc2["inst"] = 1;
+    doc2["capacity"] = 200;
+    doc2["minVoltage"] = 0.2;
+    doc2["maxVoltage"] = 4.8;
+
+    std::string id1 = manager.createRole(doc1);
+    std::string id2 = manager.createRole(doc2);
+
+    TEST_ASSERT_FALSE(id1.empty());
+    TEST_ASSERT_FALSE(id2.empty());
+    TEST_ASSERT_TRUE(id1 != id2);
+    TEST_ASSERT_EQUAL(2, manager.roleCount());
+}
