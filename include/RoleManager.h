@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -54,4 +55,8 @@ class RoleManager {
     // Internal: parse JSON and create role
     bool parseAndCreateRole(const char* json, size_t length,
                             const char* instanceId = nullptr);
+
+    // Deferred persistence - written in loopAll()
+    std::set<std::string> pendingPersist_;
+    void persistPendingConfigs();
 };

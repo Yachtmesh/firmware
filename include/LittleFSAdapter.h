@@ -25,6 +25,10 @@ public:
         return file_.readBytes(buffer, length);
     }
 
+    size_t write(const char* buffer, size_t length) override {
+        return file_.write(reinterpret_cast<const uint8_t*>(buffer), length);
+    }
+
     size_t size() const override { return file_.size(); }
 
 private:

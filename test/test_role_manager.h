@@ -375,6 +375,52 @@ void test_role_manager_update_role_config_unknown_role() {
     TEST_ASSERT_FALSE(result);
 }
 
+// Tests that updateRoleConfig persists to filesystem
+void test_role_manager_update_role_config_persists() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    // Load from file so ID matches filename
+    fs.addFile("/roles/FluidLevel-abc.json", R"({
+        "type": "FluidLevel",
+        "fluidType": "Water",
+        "inst": 0,
+        "capacity": 100,
+        "minVoltage": 0.5,
+        "maxVoltage": 4.5
+    })");
+
+    manager.loadRole("/roles/FluidLevel-abc.json");
+
+    // Update config
+    StaticJsonDocument<256> updateDoc;
+    updateDoc["fluidType"] = "Fuel";
+    updateDoc["inst"] = 2;
+    updateDoc["capacity"] = 200;
+    updateDoc["minVoltage"] = 0.2;
+    updateDoc["maxVoltage"] = 4.8;
+
+    bool result = manager.updateRoleConfig("FluidLevel-abc", updateDoc);
+    TEST_ASSERT_TRUE(result);
+
+    // Trigger deferred persist via loopAll
+    manager.loopAll();
+
+    // Verify file was written
+    const std::string* written = fs.getWrittenFile("/roles/FluidLevel-abc.json");
+    TEST_ASSERT_NOT_NULL(written);
+
+    // Parse and verify content
+    StaticJsonDocument<256> savedDoc;
+    deserializeJson(savedDoc, *written);
+    TEST_ASSERT_EQUAL_STRING("Fuel", savedDoc["fluidType"]);
+    TEST_ASSERT_EQUAL(2, savedDoc["inst"]);
+    TEST_ASSERT_EQUAL(200, savedDoc["capacity"]);
+}
+
 // Tests that updateRoleConfig returns false for invalid config
 void test_role_manager_update_role_config_invalid() {
     FakeAnalogInput analog;

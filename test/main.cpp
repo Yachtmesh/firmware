@@ -39,6 +39,7 @@ int main()
     RUN_TEST(test_role_manager_get_configs_json_empty);
     RUN_TEST(test_role_manager_get_configs_json_single_role);
     RUN_TEST(test_role_manager_update_role_config);
+    RUN_TEST(test_role_manager_update_role_config_persists);
     RUN_TEST(test_role_manager_update_role_config_unknown_role);
     RUN_TEST(test_role_manager_update_role_config_invalid);
 

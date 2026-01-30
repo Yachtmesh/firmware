@@ -7,10 +7,12 @@
 // Mock file that can be pre-loaded with content
 class MockFile : public FileInterface {
 public:
-    MockFile() : valid_(false), isDir_(false), pos_(0) {}
+    MockFile() : valid_(false), isDir_(false), pos_(0), writtenContent_(nullptr) {}
 
-    MockFile(const std::string& content, const std::string& name, bool isDir = false)
-        : valid_(true), isDir_(isDir), content_(content), name_(name), pos_(0) {}
+    MockFile(const std::string& content, const std::string& name, bool isDir = false,
+             std::string* writtenContent = nullptr)
+        : valid_(true), isDir_(isDir), content_(content), name_(name), pos_(0),
+          writtenContent_(writtenContent) {}
 
     operator bool() const override { return valid_; }
 
@@ -35,6 +37,14 @@ public:
         return toRead;
     }
 
+    size_t write(const char* buffer, size_t length) override {
+        content_.assign(buffer, length);
+        if (writtenContent_) {
+            *writtenContent_ = content_;
+        }
+        return length;
+    }
+
     size_t size() const override { return content_.size(); }
 
     // Test helper: add child files for directory iteration
@@ -48,6 +58,7 @@ private:
     std::string content_;
     std::string name_;
     size_t pos_;
+    std::string* writtenContent_;
     std::vector<std::unique_ptr<FileInterface>> children_;
     size_t childIndex_ = 0;
 };
@@ -56,6 +67,16 @@ private:
 class MockFileSystem : public FileSystemInterface {
 public:
     std::unique_ptr<FileInterface> open(const char* path, const char* mode = "r") override {
+        // Handle write mode
+        if (mode && mode[0] == 'w') {
+            size_t lastSlash = std::string(path).rfind('/');
+            std::string name = (lastSlash != std::string::npos)
+                ? std::string(path).substr(lastSlash + 1)
+                : path;
+            writtenFiles_[path] = "";
+            return std::make_unique<MockFile>("", name, false, &writtenFiles_[path]);
+        }
+
         // Check directories first (they have children to iterate)
         auto dirIt = directories_.find(path);
         if (dirIt != directories_.end()) {
@@ -95,6 +116,12 @@ public:
         directories_[path] = childPaths;
     }
 
+    // Get content written to a file path (for test verification)
+    const std::string* getWrittenFile(const std::string& path) const {
+        auto it = writtenFiles_.find(path);
+        return it != writtenFiles_.end() ? &it->second : nullptr;
+    }
+
 private:
     struct FileEntry {
         std::string content;
@@ -103,4 +130,5 @@ private:
     };
     std::map<std::string, FileEntry> files_;
     std::map<std::string, std::vector<std::string>> directories_;
+    std::map<std::string, std::string> writtenFiles_;
 };

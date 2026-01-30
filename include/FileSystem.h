@@ -11,6 +11,7 @@ public:
     virtual const char* name() const = 0;
     virtual void close() = 0;
     virtual size_t readBytes(char* buffer, size_t length) = 0;
+    virtual size_t write(const char* buffer, size_t length) = 0;
     virtual size_t size() const = 0;
     virtual ~FileInterface() = default;
 };

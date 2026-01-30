@@ -123,6 +123,11 @@ void RoleManager::loopAll() {
     if (!cacheValid_) {
         rebuildCache();
     }
+
+    // Persist any pending config changes
+    if (!pendingPersist_.empty()) {
+        persistPendingConfigs();
+    }
 }
 
 void RoleManager::stopAll() {
@@ -179,9 +184,36 @@ bool RoleManager::updateRoleConfig(const char* roleId,
             bool result = role->configureFromJson(doc);
             if (result) {
                 cacheValid_ = false;  // Invalidate cache on config change
+                pendingPersist_.insert(roleId);  // Defer write to loopAll()
             }
             return result;
         }
     }
     return false;
+}
+
+void RoleManager::persistPendingConfigs() {
+    for (const auto& roleId : pendingPersist_) {
+        for (auto& role : roles_) {
+            if (strcmp(role->id(), roleId.c_str()) == 0) {
+                std::string path = "/roles/";
+                path += roleId;
+                path += ".json";
+
+                StaticJsonDocument<256> configDoc;
+                role->getConfigJson(configDoc);
+
+                std::string json;
+                serializeJson(configDoc, json);
+
+                auto file = fs_.open(path.c_str(), "w");
+                if (file && *file) {
+                    file->write(json.c_str(), json.length());
+                    file->close();
+                }
+                break;
+            }
+        }
+    }
+    pendingPersist_.clear();
 }
