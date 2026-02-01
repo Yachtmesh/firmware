@@ -1,88 +1,92 @@
-# YachtMesh Platform
+# CLAUDE.md
 
-PlatformIO project for ESP32-based NMEA2000 sensor devices. Provides sensor data on the NMEA2000 backbone and can publish NMEA2000 messages over WiFi or other transports.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Build & Test Commands
 
 ```bash
-# Build for ESP32
-pio run -e esp32dev
-
-# Upload to device
-pio run -e esp32dev -t upload
-
-# Monitor serial output
-pio device monitor
-
-# Run native tests
-pio test -e native
+pio run -e esp32dev              # Build for ESP32
+pio run -e esp32dev -t upload    # Upload to device
+pio device monitor               # Monitor serial output
+pio test -e native               # Run all native tests
 ```
 
 ## Architecture
 
 ### Role Pattern
 
-The project uses a **Role** abstraction (`include/Role.h`) for sensor functionality:
+The core abstraction for sensor functionality (`include/Role.h`):
 
-- `configure(RoleConfig&)` - Set up the role with config
-- `validate()` - Check if configuration is valid
-- `start()` / `stop()` - Control execution
-- `loop()` - Called repeatedly in main loop
+```cpp
+class Role {
+    virtual const char* type() = 0;
+    virtual void configure(const RoleConfig& cfg) = 0;
+    virtual bool configureFromJson(const JsonDocument& doc) = 0;
+    virtual bool validate() = 0;
+    virtual void start() / stop() / loop() = 0;
+    virtual RoleStatus status() = 0;
+    virtual void getConfigJson(JsonDocument& doc) = 0;
+};
+```
 
-### Services
+Each role has an instance ID (e.g., `FluidLevel-axv`) and persists configuration as JSON in `/roles/`.
 
-Services are injected into Roles via interfaces for testability:
+### Key Classes
+
+- **RoleManager** - Lifecycle orchestration, persistence, BLE config caching
+- **RoleFactory** - Creates Role instances from type strings and JSON config
+- **FileSystemInterface** - Abstract filesystem for testability (LittleFS in production, MockFileSystem in tests)
+
+### Service Injection
+
+Services are injected into Roles via interfaces:
 
 - `Nmea2000ServiceInterface` - Sends metrics to NMEA2000 bus
 - `AnalogInputInterface` - Reads analog sensor values
 
-### Metrics
+### Enum Code Generation
 
-Sensor data flows through the `Metric` struct with:
+`types.h` uses macros to generate type-safe enums with automatic string conversion:
 
-- `MetricType` enum (e.g., `FluidLevel`)
-- `value` - The measurement
-- `MetricContext` - Type-specific context (e.g., tank instance, fluid type, capacity)
+```cpp
+#define FLUID_TYPE_LIST(X) X(Fuel) X(Water) X(GrayWater) ...
+GENERATE_ENUM(FluidType, FLUID_TYPE_LIST)
+GENERATE_TO_STRING(FluidType, FLUID_TYPE_LIST)    // FluidTypeToString()
+GENERATE_FROM_STRING(FluidType, FLUID_TYPE_LIST)  // FluidTypeFromString()
+```
+
+### Deferred Persistence
+
+RoleManager defers filesystem writes to `loopAll()` to avoid blocking in BLE callbacks:
+
+```cpp
+void loopAll() {
+    // ... execute roles ...
+    if (!pendingPersist_.empty()) {
+        persistPendingConfigs();  // Safe I/O context
+    }
+}
+```
+
+## Adding a New Role Type
+
+1. Create `NewSensorRole.h/.cpp` extending `Role`
+2. Implement all virtual methods including `configureFromJson()` and `getConfigJson()`
+3. Add the type to `RoleFactory::createRoleInstance()`
+4. Write tests in `test/test_new_sensor_role.h`
+5. Include test header in `test/main.cpp`
 
 ## Current Roles
 
 ### FluidLevelSensorRole
 
-Reads analog voltage from a tank level sensor and broadcasts as NMEA2000 PGN 127505 (Fluid Level).
+Reads analog voltage from tank level sensor, broadcasts as NMEA2000 PGN 127505.
 
-Configuration:
-
-- `FluidType` - Water, Fuel, GrayWater, BlackWater, etc.
-- `inst` - Tank instance number
-- `capacity` - Tank capacity in liters
-- `minVoltage` / `maxVoltage` - Sensor voltage range for 0-100%
-
-## Project Structure
-
-```
-src/
-  main.cpp              # Entry point
-  FluidLevelSensorRole.cpp
-  Nmea2000Service.cpp
-  AnalogInputService.cpp
-include/
-  all.h                 # Common types (Metric, FluidType, interfaces)
-  Role.h                # Role base class
-  FluidLevelSensorRole.h
-  NMEA2000Service.h
-test/
-  main.cpp              # Test runner
-  test_fluid_level_sensor_role.h
-```
+Config: `fluidType`, `inst` (instance), `capacity` (liters), `minVoltage`/`maxVoltage` (calibration)
 
 ## Dependencies
 
-- NMEA2000-library - NMEA 2000 protocol implementation
-- NMEA2000_esp32 - ESP32 CAN bus driver
-- Unity - Test framework (native tests only)
-
-## Hardware
-
-- ESP32 dev board
-- CAN transceiver connected to NMEA2000 backbone
-- Analog sensors connected to ADC pins
+- NMEA2000-library / NMEA2000_esp32 - NMEA 2000 protocol and ESP32 CAN driver
+- ArduinoJson - JSON parsing/serialization
+- NimBLE-Arduino - Bluetooth Low Energy
+- Unity - Test framework (native only)
