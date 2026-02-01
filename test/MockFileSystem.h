@@ -102,6 +102,11 @@ public:
         return nullptr;
     }
 
+    bool mkdir(const char* path) override {
+        directories_[path] = {};
+        return true;
+    }
+
     // Test helpers
     void addFile(const std::string& path, const std::string& content) {
         size_t lastSlash = path.rfind('/');

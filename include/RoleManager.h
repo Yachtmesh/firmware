@@ -38,7 +38,7 @@ class RoleManager {
 
     // Create a new role from JSON, generating a unique ID
     // Returns the generated role ID, or empty string on failure
-    std::string createRole(const JsonDocument& doc);
+    std::string createRole(const char* roleType, const JsonDocument& doc);
 
     size_t roleCount() const { return roles_.size(); }
     std::vector<RoleInfo> getRoleInfo() const;

@@ -193,15 +193,18 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
         }
 
         std::string value = pCharacteristic->getValue();
+        Serial.println(value.c_str());
         StaticJsonDocument<512> doc;
         if (deserializeJson(doc, value)) {
             Serial.println("BLE config update failed: invalid JSON");
             return;
         }
 
-        // Expected format: {"roleId": "FluidLevel-trq", "config": {...}}
-        // If roleId is omitted, creates a new role
+        // Expected format: {"roleId": "FluidLevel-trq", "roleType":
+        // "FluidLevel", "config": {...}} If roleId is omitted, creates a new
+        // role using roleType
         const char* roleId = doc["roleId"] | "";
+        const char* roleType = doc["roleType"] | "";
         JsonObject configObj = doc["config"];
 
         if (configObj.isNull()) {
@@ -217,7 +220,12 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
 
         if (strlen(roleId) == 0) {
             // No roleId - create a new role
-            std::string newId = roleManager_->createRole(configDoc);
+            if (strlen(roleType) == 0) {
+                Serial.println("BLE role creation failed: missing roleType");
+                return;
+            }
+            std::string newId = roleManager_->createRole(roleType, configDoc);
+            Serial.print(newId.c_str());
             if (!newId.empty()) {
                 Serial.printf("BLE created new role: %s\n", newId.c_str());
             } else {
@@ -228,7 +236,8 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
             if (roleManager_->updateRoleConfig(roleId, configDoc)) {
                 Serial.printf("BLE config updated for role: %s\n", roleId);
             } else {
-                Serial.printf("BLE config update failed for role: %s\n", roleId);
+                Serial.printf("BLE config update failed for role: %s\n",
+                              roleId);
             }
         }
     }

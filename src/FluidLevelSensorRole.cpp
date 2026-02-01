@@ -74,6 +74,7 @@ bool FluidLevelSensorRole::configureFromJson(const JsonDocument& doc) {
     unsigned char inst = doc["inst"] | 0;
     const char* ftStr = doc["fluidType"] | "Unavailable";
     uint16_t cap = doc["capacity"] | 0;
+    Serial.print(ftStr);
 
     FluidLevelConfig newConfig(FluidTypeFromString(ftStr), inst, cap, minV,
                                maxV);

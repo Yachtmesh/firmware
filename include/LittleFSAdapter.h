@@ -47,4 +47,8 @@ public:
         if (!file) return nullptr;
         return std::make_unique<LittleFSFile>(file);
     }
+
+    bool mkdir(const char* path) override {
+        return LittleFS.mkdir(path);
+    }
 };

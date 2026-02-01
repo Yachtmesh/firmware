@@ -2,10 +2,9 @@
 
 #include "FluidLevelSensorRole.h"
 
-std::unique_ptr<RoleConfig> createRoleConfig(const JsonDocument& doc) {
-    const char* type = doc["type"] | "";
-
-    if (strcmp(type, "FluidLevel") == 0) {
+std::unique_ptr<RoleConfig> createRoleConfig(const char* roleType,
+                                             const JsonDocument& doc) {
+    if (strcmp(roleType, "FluidLevel") == 0) {
         float minV = doc["minVoltage"] | 0.0f;
         float maxV = doc["maxVoltage"] | 0.0f;
         unsigned char inst = doc["inst"] | 0;

@@ -70,21 +70,20 @@ bool RoleManager::loadRoleFromJson(const char* json, const char* instanceId) {
     return parseAndCreateRole(json, strlen(json), instanceId);
 }
 
-std::string RoleManager::createRole(const JsonDocument& doc) {
-    const char* type = doc["type"] | "";
-    if (strlen(type) == 0) {
+std::string RoleManager::createRole(const char* roleType,
+                                    const JsonDocument& doc) {
+    if (!roleType || strlen(roleType) == 0) {
         return "";
     }
-
-    auto role = factory_.createRole(type);
+    auto role = factory_.createRole(roleType);
     if (!role) {
         return "";
     }
 
-    std::string instanceId = generateInstanceId(type);
+    std::string instanceId = generateInstanceId(roleType);
     role->setInstanceId(instanceId);
 
-    auto config = createRoleConfig(doc);
+    auto config = createRoleConfig(roleType, doc);
     if (!config) {
         return "";
     }
@@ -139,7 +138,7 @@ bool RoleManager::parseAndCreateRole(const char* json, size_t length,
     }
 
     // Create config and configure role
-    auto config = createRoleConfig(doc);
+    auto config = createRoleConfig(type, doc);
     if (!config) {
         return false;
     }

@@ -461,14 +461,13 @@ void test_role_manager_create_role() {
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<256> doc;
-    doc["type"] = "FluidLevel";
     doc["fluidType"] = "Water";
     doc["inst"] = 0;
     doc["capacity"] = 100;
     doc["minVoltage"] = 0.5;
     doc["maxVoltage"] = 4.5;
 
-    std::string roleId = manager.createRole(doc);
+    std::string roleId = manager.createRole("FluidLevel", doc);
     TEST_ASSERT_FALSE(roleId.empty());
     TEST_ASSERT_EQUAL(1, manager.roleCount());
 
@@ -485,14 +484,13 @@ void test_role_manager_create_role_unknown_type() {
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<256> doc;
-    doc["type"] = "UnknownRole";
 
-    std::string roleId = manager.createRole(doc);
+    std::string roleId = manager.createRole("UnknownRole", doc);
     TEST_ASSERT_TRUE(roleId.empty());
     TEST_ASSERT_EQUAL(0, manager.roleCount());
 }
 
-// Tests that createRole returns empty string for missing type
+// Tests that createRole returns empty string for missing/empty type
 void test_role_manager_create_role_missing_type() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -504,7 +502,7 @@ void test_role_manager_create_role_missing_type() {
     doc["fluidType"] = "Water";
     doc["inst"] = 0;
 
-    std::string roleId = manager.createRole(doc);
+    std::string roleId = manager.createRole("", doc);
     TEST_ASSERT_TRUE(roleId.empty());
     TEST_ASSERT_EQUAL(0, manager.roleCount());
 }
@@ -519,14 +517,13 @@ void test_role_manager_create_role_invalid_config() {
 
     // Invalid: minVoltage >= maxVoltage
     StaticJsonDocument<256> doc;
-    doc["type"] = "FluidLevel";
     doc["fluidType"] = "Water";
     doc["inst"] = 0;
     doc["capacity"] = 100;
     doc["minVoltage"] = 5.0;
     doc["maxVoltage"] = 1.0;
 
-    std::string roleId = manager.createRole(doc);
+    std::string roleId = manager.createRole("FluidLevel", doc);
     TEST_ASSERT_TRUE(roleId.empty());
     TEST_ASSERT_EQUAL(0, manager.roleCount());
 }
@@ -540,14 +537,13 @@ void test_role_manager_create_role_persists() {
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<256> doc;
-    doc["type"] = "FluidLevel";
     doc["fluidType"] = "Fuel";
     doc["inst"] = 1;
     doc["capacity"] = 200;
     doc["minVoltage"] = 0.2;
     doc["maxVoltage"] = 4.8;
 
-    std::string roleId = manager.createRole(doc);
+    std::string roleId = manager.createRole("FluidLevel", doc);
     TEST_ASSERT_FALSE(roleId.empty());
 
     // Trigger deferred persist via loopAll
@@ -576,7 +572,6 @@ void test_role_manager_create_role_unique_ids() {
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<256> doc1;
-    doc1["type"] = "FluidLevel";
     doc1["fluidType"] = "Water";
     doc1["inst"] = 0;
     doc1["capacity"] = 100;
@@ -584,15 +579,14 @@ void test_role_manager_create_role_unique_ids() {
     doc1["maxVoltage"] = 4.5;
 
     StaticJsonDocument<256> doc2;
-    doc2["type"] = "FluidLevel";
     doc2["fluidType"] = "Fuel";
     doc2["inst"] = 1;
     doc2["capacity"] = 200;
     doc2["minVoltage"] = 0.2;
     doc2["maxVoltage"] = 4.8;
 
-    std::string id1 = manager.createRole(doc1);
-    std::string id2 = manager.createRole(doc2);
+    std::string id1 = manager.createRole("FluidLevel", doc1);
+    std::string id2 = manager.createRole("FluidLevel", doc2);
 
     TEST_ASSERT_FALSE(id1.empty());
     TEST_ASSERT_FALSE(id2.empty());

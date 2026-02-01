@@ -22,6 +22,8 @@ void setup() {
         Serial.println("LittleFS mount failed");
     }
 
+    fileSystem.mkdir("/roles");
+
     // Start services
     nmea.start();
     bluetooth.start();
