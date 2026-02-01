@@ -58,8 +58,6 @@ void Nmea2000Service::start() {
 
     // Open NMEA2000 bus
     NMEA2000.Open();
-
-    // Serial.println("NMEA Service ready");
 }
 
 void Nmea2000Service::sendMetric(const Metric& metric) {

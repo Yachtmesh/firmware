@@ -5,8 +5,6 @@
 #include <cstdio>
 #include <cstring>
 
-#include "RoleConfigFactory.h"
-
 RoleManager::RoleManager(RoleFactory& factory, FileSystemInterface& fs)
     : factory_(factory), fs_(fs) {}
 
@@ -75,20 +73,14 @@ std::string RoleManager::createRole(const char* roleType,
     if (!roleType || strlen(roleType) == 0) {
         return "";
     }
-    auto role = factory_.createRole(roleType);
+
+    auto role = factory_.createRole(roleType, doc);
     if (!role) {
         return "";
     }
 
     std::string instanceId = generateInstanceId(roleType);
     role->setInstanceId(instanceId);
-
-    auto config = createRoleConfig(roleType, doc);
-    if (!config) {
-        return "";
-    }
-
-    role->configure(*config);
 
     if (!role->validate()) {
         return "";
@@ -123,9 +115,9 @@ bool RoleManager::parseAndCreateRole(const char* json, size_t length,
         return false;
     }
 
-    // Get type and create role
+    // Get type and create configured role
     const char* type = doc["type"] | "";
-    auto role = factory_.createRole(type);
+    auto role = factory_.createRole(type, doc);
     if (!role) {
         return false;
     }
@@ -136,14 +128,6 @@ bool RoleManager::parseAndCreateRole(const char* json, size_t length,
     } else {
         role->setInstanceId(role->type());
     }
-
-    // Create config and configure role
-    auto config = createRoleConfig(type, doc);
-    if (!config) {
-        return false;
-    }
-
-    role->configure(*config);
 
     if (!role->validate()) {
         return false;

@@ -193,7 +193,7 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
         }
 
         std::string value = pCharacteristic->getValue();
-        Serial.println(value.c_str());
+
         StaticJsonDocument<512> doc;
         if (deserializeJson(doc, value)) {
             Serial.println("BLE config update failed: invalid JSON");
@@ -225,7 +225,7 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
                 return;
             }
             std::string newId = roleManager_->createRole(roleType, configDoc);
-            Serial.print(newId.c_str());
+
             if (!newId.empty()) {
                 Serial.printf("BLE created new role: %s\n", newId.c_str());
             } else {

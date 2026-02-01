@@ -1,7 +1,6 @@
 #include "FluidLevelSensorRole.h"
 
 #include "NMEA2000Service.h"
-#include "RoleConfigFactory.h"
 
 FluidLevelCalculator::FluidLevelCalculator(float minV, float maxV)
     : minV(minV), maxV(maxV) {}
@@ -74,7 +73,6 @@ bool FluidLevelSensorRole::configureFromJson(const JsonDocument& doc) {
     unsigned char inst = doc["inst"] | 0;
     const char* ftStr = doc["fluidType"] | "Unavailable";
     uint16_t cap = doc["capacity"] | 0;
-    Serial.print(ftStr);
 
     FluidLevelConfig newConfig(FluidTypeFromString(ftStr), inst, cap, minV,
                                maxV);
