@@ -95,16 +95,13 @@ std::string RoleManager::createRole(const char* roleType,
 
 std::string RoleManager::generateInstanceId(const char* type) {
     static const char charset[] = "abcdefghijklmnopqrstuvwxyz0123456789";
-    static unsigned int seed = 1;
 
     std::string id = type;
     id += "-";
 
     for (int i = 0; i < 3; i++) {
-        seed = seed * 1103515245 + 12345;
-        id += charset[(seed >> 16) % 36];
+        id += charset[esp_random() % 36];
     }
-
     return id;
 }
 
