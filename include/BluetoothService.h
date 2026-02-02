@@ -103,7 +103,7 @@ class BluetoothService : public BluetoothServiceInterface,
     bool isClientAuthenticated(uint16_t connHandle) const;
     void updateStatus();
     void buildDeviceInfo(uint8_t* buffer);
-    void buildStatus(uint8_t* buffer);
+    void buildDeviceStatus(uint8_t* buffer);
     std::string buildRolesJson();
     uint32_t getUptime() const;
 };

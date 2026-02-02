@@ -276,7 +276,7 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
         pCharacteristic->setValue(buffer, sizeof(buffer));
     } else if (pCharacteristic == pStatusChar_) {
         uint8_t buffer[STATUS_SIZE];
-        buildStatus(buffer);
+        buildDeviceStatus(buffer);
         pCharacteristic->setValue(buffer, sizeof(buffer));
     } else if (pCharacteristic == pRolesChar_) {
         std::string json = buildRolesJson();
@@ -309,7 +309,7 @@ void BluetoothService::buildDeviceInfo(uint8_t* buffer) {
     // Reserved (4 bytes) - already zeroed
 }
 
-void BluetoothService::buildStatus(uint8_t* buffer) {
+void BluetoothService::buildDeviceStatuss(uint8_t* buffer) {
     memset(buffer, 0, STATUS_SIZE);
 
     // Sequence (1 byte)
