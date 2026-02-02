@@ -21,5 +21,6 @@ class FileSystemInterface {
 public:
     virtual std::unique_ptr<FileInterface> open(const char* path, const char* mode = "r") = 0;
     virtual bool mkdir(const char* path) = 0;
+    virtual bool remove(const char* path) = 0;
     virtual ~FileSystemInterface() = default;
 };

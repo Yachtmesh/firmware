@@ -1,7 +1,8 @@
 #pragma once
 #include "FileSystem.h"
-#include <string>
 #include <map>
+#include <set>
+#include <string>
 #include <vector>
 
 // Mock file that can be pre-loaded with content
@@ -107,6 +108,19 @@ public:
         return true;
     }
 
+    bool remove(const char* path) override {
+        files_.erase(path);
+        writtenFiles_.erase(path);
+        removedFiles_.insert(path);
+        // Also remove from parent directory's children list
+        for (auto& [dirPath, children] : directories_) {
+            children.erase(
+                std::remove(children.begin(), children.end(), path),
+                children.end());
+        }
+        return true;
+    }
+
     // Test helpers
     void addFile(const std::string& path, const std::string& content) {
         size_t lastSlash = path.rfind('/');
@@ -127,6 +141,16 @@ public:
         return it != writtenFiles_.end() ? &it->second : nullptr;
     }
 
+    // Check if a file was removed (for test verification)
+    bool wasRemoved(const std::string& path) const {
+        return removedFiles_.find(path) != removedFiles_.end();
+    }
+
+    // Get all removed files (for test verification)
+    const std::set<std::string>& getRemovedFiles() const {
+        return removedFiles_;
+    }
+
 private:
     struct FileEntry {
         std::string content;
@@ -136,4 +160,5 @@ private:
     std::map<std::string, FileEntry> files_;
     std::map<std::string, std::vector<std::string>> directories_;
     std::map<std::string, std::string> writtenFiles_;
+    std::set<std::string> removedFiles_;
 };

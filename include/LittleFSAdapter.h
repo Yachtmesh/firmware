@@ -51,4 +51,8 @@ public:
     bool mkdir(const char* path) override {
         return LittleFS.mkdir(path);
     }
+
+    bool remove(const char* path) override {
+        return LittleFS.remove(path);
+    }
 };

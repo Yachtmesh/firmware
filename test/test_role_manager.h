@@ -593,3 +593,131 @@ void test_role_manager_create_role_unique_ids() {
     TEST_ASSERT_TRUE(id1 != id2);
     TEST_ASSERT_EQUAL(2, manager.roleCount());
 }
+
+// Tests that factoryReset clears all roles
+void test_role_manager_factory_reset_clears_roles() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    const char* json1 = R"({
+        "type": "FluidLevel",
+        "fluidType": "Water",
+        "inst": 0,
+        "capacity": 100,
+        "minVoltage": 0.5,
+        "maxVoltage": 4.5
+    })";
+    const char* json2 = R"({
+        "type": "FluidLevel",
+        "fluidType": "Fuel",
+        "inst": 1,
+        "capacity": 200,
+        "minVoltage": 0.2,
+        "maxVoltage": 4.8
+    })";
+
+    manager.loadRoleFromJson(json1);
+    manager.loadRoleFromJson(json2);
+    manager.startAll();
+    TEST_ASSERT_EQUAL(2, manager.roleCount());
+
+    // Trigger factory reset
+    manager.factoryReset();
+    manager.loopAll();
+
+    TEST_ASSERT_EQUAL(0, manager.roleCount());
+}
+
+// Tests that factoryReset deletes config files
+void test_role_manager_factory_reset_deletes_files() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    // Set up files and directory
+    fs.addFile("/roles/FluidLevel-abc.json", R"({
+        "type": "FluidLevel",
+        "fluidType": "Water",
+        "inst": 0,
+        "capacity": 100,
+        "minVoltage": 0.5,
+        "maxVoltage": 4.5
+    })");
+    fs.addFile("/roles/FluidLevel-xyz.json", R"({
+        "type": "FluidLevel",
+        "fluidType": "Fuel",
+        "inst": 1,
+        "capacity": 200,
+        "minVoltage": 0.2,
+        "maxVoltage": 4.8
+    })");
+    fs.addDirectory("/roles",
+                    {"/roles/FluidLevel-abc.json", "/roles/FluidLevel-xyz.json"});
+
+    manager.loadFromDirectory("/roles");
+    TEST_ASSERT_EQUAL(2, manager.roleCount());
+
+    // Trigger factory reset
+    manager.factoryReset();
+    manager.loopAll();
+
+    // Verify files were removed
+    TEST_ASSERT_TRUE(fs.wasRemoved("/roles/FluidLevel-abc.json"));
+    TEST_ASSERT_TRUE(fs.wasRemoved("/roles/FluidLevel-xyz.json"));
+    TEST_ASSERT_EQUAL(0, manager.roleCount());
+}
+
+// Tests that factoryReset works with empty roles directory
+void test_role_manager_factory_reset_empty() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    fs.addDirectory("/roles", {});
+
+    // Should not crash with no roles
+    manager.factoryReset();
+    manager.loopAll();
+
+    TEST_ASSERT_EQUAL(0, manager.roleCount());
+}
+
+// Tests that factoryReset clears pending persists
+void test_role_manager_factory_reset_clears_pending() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    MockFileSystem fs;
+    RoleFactory factory(analog, nmea);
+    RoleManager manager(factory, fs);
+
+    // Create a role (adds to pending persist)
+    StaticJsonDocument<256> doc;
+    doc["fluidType"] = "Water";
+    doc["inst"] = 0;
+    doc["capacity"] = 100;
+    doc["minVoltage"] = 0.5;
+    doc["maxVoltage"] = 4.5;
+
+    std::string roleId = manager.createRole("FluidLevel", doc);
+    TEST_ASSERT_FALSE(roleId.empty());
+
+    // Set up directory for reset
+    fs.addDirectory("/roles", {});
+
+    // Factory reset before loopAll would persist
+    manager.factoryReset();
+    manager.loopAll();
+
+    // Verify role was not persisted (factory reset cleared pending)
+    std::string path = "/roles/" + roleId + ".json";
+    const std::string* written = fs.getWrittenFile(path);
+    TEST_ASSERT_NULL(written);
+    TEST_ASSERT_EQUAL(0, manager.roleCount());
+}

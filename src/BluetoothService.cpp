@@ -111,6 +111,11 @@ void BluetoothService::start() {
                                                         NIMBLE_PROPERTY::WRITE);
     pConfigUpdateChar_->setCallbacks(this);
 
+    // Factory reset characteristic - write only (requires auth)
+    pFactoryResetChar_ = pService->createCharacteristic(FACTORY_RESET_CHAR_UUID,
+                                                        NIMBLE_PROPERTY::WRITE);
+    pFactoryResetChar_->setCallbacks(this);
+
     pService->start();
 
     NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
@@ -240,6 +245,20 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
                               roleId);
             }
         }
+    } else if (pCharacteristic == pFactoryResetChar_) {
+        // Require authentication for factory reset
+        if (!isClientAuthenticated(desc->conn_handle)) {
+            Serial.println("BLE factory reset rejected: not authenticated");
+            return;
+        }
+
+        if (!roleManager_) {
+            Serial.println("BLE factory reset rejected: no role manager");
+            return;
+        }
+
+        roleManager_->factoryReset();
+        Serial.println("BLE factory reset initiated");
     }
 }
 

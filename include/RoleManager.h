@@ -45,6 +45,9 @@ class RoleManager {
     std::string getRoleConfigsJson() const;
     bool updateRoleConfig(const char* roleId, const JsonDocument& doc);
 
+    // Factory reset - clears all roles and their config files
+    void factoryReset();
+
    private:
     RoleFactory& factory_;
     FileSystemInterface& fs_;
@@ -62,4 +65,8 @@ class RoleManager {
     // Deferred persistence - written in loopAll()
     std::set<std::string> pendingPersist_;
     void persistPendingConfigs();
+
+    // Deferred factory reset - executed in loopAll()
+    bool pendingFactoryReset_ = false;
+    void executeFactoryReset();
 };

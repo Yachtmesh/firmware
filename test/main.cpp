@@ -51,5 +51,11 @@ int main() {
     RUN_TEST(test_role_manager_create_role_persists);
     RUN_TEST(test_role_manager_create_role_unique_ids);
 
+    // factoryReset tests
+    RUN_TEST(test_role_manager_factory_reset_clears_roles);
+    RUN_TEST(test_role_manager_factory_reset_deletes_files);
+    RUN_TEST(test_role_manager_factory_reset_empty);
+    RUN_TEST(test_role_manager_factory_reset_clears_pending);
+
     return UNITY_END();
 }
