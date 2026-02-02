@@ -21,7 +21,6 @@ void setup() {
     if (!fileSystem.begin()) {
         Serial.println("LittleFS mount failed");
     }
-
     fileSystem.mkdir("/roles");
 
     // Start services

@@ -309,7 +309,7 @@ void BluetoothService::buildDeviceInfo(uint8_t* buffer) {
     // Reserved (4 bytes) - already zeroed
 }
 
-void BluetoothService::buildDeviceStatuss(uint8_t* buffer) {
+void BluetoothService::buildDeviceStatus(uint8_t* buffer) {
     memset(buffer, 0, STATUS_SIZE);
 
     // Sequence (1 byte)
@@ -331,7 +331,7 @@ void BluetoothService::updateStatus() {
 
     // Build and send status update
     uint8_t buffer[STATUS_SIZE];
-    buildStatus(buffer);
+    buildDeviceStatus(buffer);
     pStatusChar_->setValue(buffer, sizeof(buffer));
     pStatusChar_->notify();
 }
@@ -341,33 +341,19 @@ std::string BluetoothService::buildRolesJson() {
         return "[]";
     }
 
+    // Get configs first
+    std::string configsJson = roleManager_->getRoleConfigsJson();
+    StaticJsonDocument<1024> configsDoc;
+    deserializeJson(configsDoc, configsJson);
+    JsonObject configs = configsDoc.as<JsonObject>();
+
+    // Build array with merged data in single pass
     StaticJsonDocument<1024> doc;
     JsonArray arr = doc.to<JsonArray>();
 
     auto roles = roleManager_->getRoleInfo();
     for (const auto& role : roles) {
         JsonObject roleObj = arr.createNestedObject();
-        roleObj["id"] = role.id;
-        roleObj["type"] = role.type;
-        roleObj["running"] = role.running;
-
-        // Get config for this role and merge into roleObj
-        StaticJsonDocument<256> configDoc;
-        // Find and get config from roleManager
-        // We need to iterate through roles again to get configs
-    }
-
-    // Get configs from roleManager and merge
-    std::string configsJson = roleManager_->getRoleConfigsJson();
-    StaticJsonDocument<1024> configsDoc;
-    deserializeJson(configsDoc, configsJson);
-    JsonObject configs = configsDoc.as<JsonObject>();
-
-    // Rebuild array with merged data
-    doc.clear();
-    JsonArray finalArr = doc.to<JsonArray>();
-    for (const auto& role : roles) {
-        JsonObject roleObj = finalArr.createNestedObject();
         roleObj["id"] = role.id;
         roleObj["type"] = role.type;
         roleObj["running"] = role.running;

@@ -33,13 +33,13 @@ bool FluidLevelSensorRole::validate() {
 void FluidLevelSensorRole::start() {
     if (!validate()) return;
 
-    running = true;
+    status_.running = true;
 }
 
-void FluidLevelSensorRole::stop() { running = false; }
+void FluidLevelSensorRole::stop() { status_.running = false; }
 
 void FluidLevelSensorRole::loop() {
-    if (!running || !calculator) return;
+    if (!status_.running || !calculator) return;
 
     float voltage = analog.readVoltage();
     float percent = calculator->toPercent(voltage);
@@ -52,15 +52,6 @@ void FluidLevelSensorRole::loop() {
     metric.context.fluidLevel.capacity = config.capacity;
 
     nmea.sendMetric(metric);
-}
-
-RoleStatus FluidLevelSensorRole::status() {
-    FluidLevelStatus s;
-
-    s.percent = lastLevel;
-    s.running = running;
-
-    return s;
 }
 
 void FluidLevelSensorRole::getConfigJson(JsonDocument& doc) {

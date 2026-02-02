@@ -56,10 +56,6 @@ class RoleManager {
 
     void rebuildCache() const;
 
-    // Internal: parse JSON and create role
-    bool parseAndCreateRole(const char* json, size_t length,
-                            const char* instanceId = nullptr);
-
     // Generate a unique instance ID for a role type
     std::string generateInstanceId(const char* type);
 

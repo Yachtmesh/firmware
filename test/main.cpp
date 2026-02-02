@@ -1,9 +1,9 @@
 #include <unity.h>
+
 #include "test_fluid_level_sensor_role.h"
 #include "test_role_manager.h"
 
-int main()
-{
+int main() {
     UNITY_BEGIN();
 
     // FluidLevelSensorRole tests

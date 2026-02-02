@@ -23,10 +23,6 @@ struct FluidLevelConfig : public RoleConfig {
     void toJson(JsonDocument& doc) const;
 };
 
-struct FluidLevelStatus : public RoleStatus {
-    float percent = 0.0f;
-};
-
 class FluidLevelSensorRole : public Role {
    public:
     FluidLevelSensorRole(AnalogInputInterface& analog,
@@ -40,7 +36,6 @@ class FluidLevelSensorRole : public Role {
     void start() override;
     void stop() override;
     void loop() override;
-    RoleStatus status() override;
     void getConfigJson(JsonDocument& doc) override;
 
     // Configuration (public for direct access)
@@ -56,5 +51,4 @@ class FluidLevelSensorRole : public Role {
 
     // State
     float lastLevel = 0.0f;  // Percentage
-    bool running = false;
 };

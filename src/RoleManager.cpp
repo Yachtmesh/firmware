@@ -3,7 +3,12 @@
 #include <ArduinoJson.h>
 
 #include <cstdio>
-#include <cstring>
+#include <cstdlib>
+
+#ifndef ESP32
+// esp_random() not available in native tests, stubbing it out here.
+inline uint32_t esp_random() { return static_cast<uint32_t>(rand()); }
+#endif
 
 RoleManager::RoleManager(RoleFactory& factory, FileSystemInterface& fs)
     : factory_(factory), fs_(fs) {}
@@ -59,15 +64,41 @@ bool RoleManager::loadRole(const char* configPath) {
         instanceId = filename;
     }
 
-    bool result = parseAndCreateRole(buffer, fileSize, instanceId.c_str());
+    bool result = loadRoleFromJson(buffer, instanceId.c_str());
     delete[] buffer;
     return result;
 }
 
 bool RoleManager::loadRoleFromJson(const char* json, const char* instanceId) {
-    return parseAndCreateRole(json, strlen(json), instanceId);
-}
+    size_t length = strlen(json);
 
+    StaticJsonDocument<512> doc;
+    if (deserializeJson(doc, json, length)) {
+        return false;
+    }
+
+    // Get type and create configured role
+    const char* type = doc["type"] | "";
+    auto role = factory_.createRole(type, doc);
+    if (!role) {
+        return false;
+    }
+
+    // Set the instance ID from filename if provided, otherwise use type
+    if (instanceId) {
+        role->setInstanceId(instanceId);
+    } else {
+        role->setInstanceId(role->type());
+    }
+
+    if (!role->validate()) {
+        return false;
+    }
+
+    roles_.push_back(std::move(role));
+    cacheValid_ = false;  // Invalidate cache when roles change
+    return true;
+}
 std::string RoleManager::createRole(const char* roleType,
                                     const JsonDocument& doc) {
     if (!roleType || strlen(roleType) == 0) {
@@ -105,36 +136,6 @@ std::string RoleManager::generateInstanceId(const char* type) {
     return id;
 }
 
-bool RoleManager::parseAndCreateRole(const char* json, size_t length,
-                                     const char* instanceId) {
-    StaticJsonDocument<512> doc;
-    if (deserializeJson(doc, json, length)) {
-        return false;
-    }
-
-    // Get type and create configured role
-    const char* type = doc["type"] | "";
-    auto role = factory_.createRole(type, doc);
-    if (!role) {
-        return false;
-    }
-
-    // Set the instance ID from filename if provided, otherwise use type
-    if (instanceId) {
-        role->setInstanceId(instanceId);
-    } else {
-        role->setInstanceId(role->type());
-    }
-
-    if (!role->validate()) {
-        return false;
-    }
-
-    roles_.push_back(std::move(role));
-    cacheValid_ = false;  // Invalidate cache when roles change
-    return true;
-}
-
 void RoleManager::startAll() {
     for (auto& role : roles_) {
         role->start();
@@ -168,7 +169,7 @@ std::vector<RoleInfo> RoleManager::getRoleInfo() const {
     info.reserve(roles_.size());
 
     for (const auto& role : roles_) {
-        RoleStatus s = role->status();
+        const RoleStatus& s = role->status();
         info.push_back({role->id(), role->type(), s.running});
     }
 
