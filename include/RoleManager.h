@@ -11,12 +11,6 @@
 // Nmea2000ServiceInterface. If we add a new role type that needs GPSInterface,
 // only RoleFactory changes - RoleManager remains untouched.
 
-struct RoleInfo {
-    const char* id;
-    const char* type;
-    bool running;
-};
-
 class RoleManager {
    public:
     RoleManager(RoleFactory& factory, FileSystemInterface& fs);
@@ -41,8 +35,10 @@ class RoleManager {
     std::string createRole(const char* roleType, const JsonDocument& doc);
 
     size_t roleCount() const { return roles_.size(); }
-    std::vector<RoleInfo> getRoleInfo() const;
-    std::string getRoleConfigsJson() const;
+
+    // Returns JSON array of all roles with id, type, running status, and config
+    std::string getRolesAsJson() const;
+
     bool updateRoleConfig(const char* roleId, const JsonDocument& doc);
 
     // Factory reset - clears all roles and their config files
@@ -54,7 +50,7 @@ class RoleManager {
     std::vector<std::unique_ptr<Role>> roles_;
 
     // Cached JSON for thread-safe BLE access
-    mutable std::string cachedRolesJson_ = "{}";
+    mutable std::string cachedRolesJson_ = "[]";
     mutable bool cacheValid_ = false;
 
     void rebuildCache() const;

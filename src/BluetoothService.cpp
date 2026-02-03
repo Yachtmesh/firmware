@@ -359,34 +359,5 @@ std::string BluetoothService::buildRolesJson() {
     if (!roleManager_) {
         return "[]";
     }
-
-    // Get configs first
-    std::string configsJson = roleManager_->getRoleConfigsJson();
-    StaticJsonDocument<1024> configsDoc;
-    deserializeJson(configsDoc, configsJson);
-    JsonObject configs = configsDoc.as<JsonObject>();
-
-    // Build array with merged data in single pass
-    StaticJsonDocument<1024> doc;
-    JsonArray arr = doc.to<JsonArray>();
-
-    auto roles = roleManager_->getRoleInfo();
-    for (const auto& role : roles) {
-        JsonObject roleObj = arr.createNestedObject();
-        roleObj["id"] = role.id;
-        roleObj["type"] = role.type;
-        roleObj["running"] = role.running;
-
-        // Merge config if available
-        if (configs.containsKey(role.id)) {
-            JsonObject config = configs[role.id];
-            for (JsonPair kv : config) {
-                roleObj["config"][kv.key()] = kv.value();
-            }
-        }
-    }
-
-    std::string result;
-    serializeJson(doc, result);
-    return result;
+    return roleManager_->getRolesAsJson();
 }

@@ -1,6 +1,6 @@
 #include "RoleManager.h"
 
-#include <ArduinoJson.h>
+// #include <ArduinoJson.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -69,6 +69,9 @@ bool RoleManager::loadRole(const char* configPath) {
     return result;
 }
 
+// Load existing role from json, expect id to be provided otherwise generate.
+// Here we expect the `type` key to be in the configuration json doc stored in
+// flash.
 bool RoleManager::loadRoleFromJson(const char* json, const char* instanceId) {
     size_t length = strlen(json);
 
@@ -84,11 +87,12 @@ bool RoleManager::loadRoleFromJson(const char* json, const char* instanceId) {
         return false;
     }
 
-    // Set the instance ID from filename if provided, otherwise use type
+    // Set the instance ID from filename if provided, otherwise generate
+    // (normally not needed to generate)
     if (instanceId) {
         role->setInstanceId(instanceId);
     } else {
-        role->setInstanceId(role->type());
+        role->setInstanceId(generateInstanceId(role->type()));
     }
 
     if (!role->validate()) {
@@ -99,6 +103,7 @@ bool RoleManager::loadRoleFromJson(const char* json, const char* instanceId) {
     cacheValid_ = false;  // Invalidate cache when roles change
     return true;
 }
+
 std::string RoleManager::createRole(const char* roleType,
                                     const JsonDocument& doc) {
     if (!roleType || strlen(roleType) == 0) {
@@ -147,6 +152,12 @@ void RoleManager::loopAll() {
         role->loop();
     }
 
+    // Execute factory reset first if pending (clears all state)
+    if (pendingFactoryReset_) {
+        executeFactoryReset();
+        return;
+    }
+
     // Rebuild cache in main loop context if invalidated
     if (!cacheValid_) {
         rebuildCache();
@@ -164,44 +175,34 @@ void RoleManager::stopAll() {
     }
 }
 
-std::vector<RoleInfo> RoleManager::getRoleInfo() const {
-    std::vector<RoleInfo> info;
-    info.reserve(roles_.size());
-
-    for (const auto& role : roles_) {
-        const RoleStatus& s = role->status();
-        info.push_back({role->id(), role->type(), s.running});
-    }
-
-    return info;
-}
-
-std::string RoleManager::getRoleConfigsJson() const {
+std::string RoleManager::getRolesAsJson() const {
     if (!cacheValid_) {
         rebuildCache();
     }
-
     return cachedRolesJson_;
 }
 
 void RoleManager::rebuildCache() const {
     StaticJsonDocument<1024> doc;
-    doc.to<JsonObject>();  // Initialize as empty object
+    JsonArray arr = doc.to<JsonArray>();
 
     for (const auto& role : roles_) {
-        JsonObject roleObj = doc.createNestedObject(role->id());
+        JsonObject roleObj = arr.createNestedObject();
+        roleObj["id"] = role->id();
+        roleObj["type"] = role->type();
+        roleObj["running"] = role->status().running;
+
+        // Add config as nested object
         StaticJsonDocument<256> configDoc;
         role->getConfigJson(configDoc);
-
-        // Copy config fields to the nested object
+        JsonObject configObj = roleObj.createNestedObject("config");
         for (JsonPair kv : configDoc.as<JsonObject>()) {
-            roleObj[kv.key()] = kv.value();
+            configObj[kv.key()] = kv.value();
         }
     }
 
     cachedRolesJson_.clear();
     serializeJson(doc, cachedRolesJson_);
-
     cacheValid_ = true;
 }
 
@@ -244,4 +245,41 @@ void RoleManager::persistPendingConfigs() {
         }
     }
     pendingPersist_.clear();
+}
+
+// Wrap these into one, if false, set to true, and then in main loop will
+// execute.
+void RoleManager::factoryReset() { pendingFactoryReset_ = true; }
+
+void RoleManager::executeFactoryReset() {
+    pendingFactoryReset_ = false;
+
+    // Stop and remove all roles
+    for (auto& role : roles_) {
+        role->stop();
+    }
+
+    // Delete all config files in /roles/
+    auto root = fs_.open("/roles");
+    if (root && root->isDirectory()) {
+        std::vector<std::string> filesToDelete;
+
+        auto file = root->openNextFile();
+        while (file) {
+            if (!file->isDirectory()) {
+                std::string path = "/roles/";
+                path += file->name();
+                filesToDelete.push_back(path);
+            }
+            file = root->openNextFile();
+        }
+
+        for (const auto& path : filesToDelete) {
+            fs_.remove(path.c_str());
+        }
+    }
+
+    roles_.clear();
+    pendingPersist_.clear();
+    cacheValid_ = false;
 }

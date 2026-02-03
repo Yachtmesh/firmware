@@ -18,11 +18,12 @@ int main() {
     RUN_TEST(test_role_manager_loads_from_file);
     RUN_TEST(test_role_manager_loads_from_directory);
 
-    // RoleInfo tests (for BLE characteristic)
-    RUN_TEST(test_role_manager_get_role_info_empty);
-    RUN_TEST(test_role_manager_get_role_info_not_started);
-    RUN_TEST(test_role_manager_get_role_info_after_start);
-    RUN_TEST(test_role_manager_get_role_info_multiple_roles);
+    // getRolesAsJson tests
+    RUN_TEST(test_role_manager_get_roles_as_json_empty);
+    RUN_TEST(test_role_manager_get_roles_as_json_not_started);
+    RUN_TEST(test_role_manager_get_roles_as_json_after_start);
+    RUN_TEST(test_role_manager_get_roles_as_json_multiple);
+    RUN_TEST(test_role_manager_get_roles_as_json_config_fields);
 
     // FluidLevelSensorRole config JSON tests
     RUN_TEST(test_fluid_level_sensor_role_get_config_json);
@@ -35,9 +36,7 @@ int main() {
     RUN_TEST(test_fluid_type_from_string_unknown_returns_unavailable);
     RUN_TEST(test_fluid_type_round_trip);
 
-    // RoleManager config JSON tests
-    RUN_TEST(test_role_manager_get_configs_json_empty);
-    RUN_TEST(test_role_manager_get_configs_json_single_role);
+    // RoleManager update config tests
     RUN_TEST(test_role_manager_update_role_config);
     RUN_TEST(test_role_manager_update_role_config_persists);
     RUN_TEST(test_role_manager_update_role_config_unknown_role);

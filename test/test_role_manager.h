@@ -174,27 +174,27 @@ void test_role_manager_loads_from_directory() {
     TEST_ASSERT_EQUAL(2, manager.roleCount());
 }
 
-// Tests that getRoleInfo returns empty when no roles loaded
-void test_role_manager_get_role_info_empty() {
+// Tests that getRolesAsJson returns empty array when no roles loaded
+void test_role_manager_get_roles_as_json_empty() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     MockFileSystem fs;
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
-    auto info = manager.getRoleInfo();
-    TEST_ASSERT_EQUAL(0, info.size());
+    std::string json = manager.getRolesAsJson();
+    TEST_ASSERT_EQUAL_STRING("[]", json.c_str());
 }
 
-// Tests that getRoleInfo returns role info with running=false before start
-void test_role_manager_get_role_info_not_started() {
+// Tests that getRolesAsJson returns role with running=false before start
+void test_role_manager_get_roles_as_json_not_started() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     MockFileSystem fs;
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
-    const char* json = R"({
+    const char* roleJson = R"({
         "type": "FluidLevel",
         "fluidType": "Water",
         "inst": 0,
@@ -203,23 +203,32 @@ void test_role_manager_get_role_info_not_started() {
         "maxVoltage": 4.5
     })";
 
-    manager.loadRoleFromJson(json);
+    manager.loadRoleFromJson(roleJson);
 
-    auto info = manager.getRoleInfo();
-    TEST_ASSERT_EQUAL(1, info.size());
-    TEST_ASSERT_EQUAL_STRING("FluidLevel", info[0].id);
-    TEST_ASSERT_FALSE(info[0].running);
+    std::string json = manager.getRolesAsJson();
+    StaticJsonDocument<512> doc;
+    deserializeJson(doc, json);
+
+    TEST_ASSERT_TRUE(doc.is<JsonArray>());
+    TEST_ASSERT_EQUAL(1, doc.size());
+
+    JsonObject role = doc[0];
+    TEST_ASSERT_EQUAL_STRING(
+        "FluidLevel-y01",
+        role["id"]);  // In tests randomizer is actually not random.
+    TEST_ASSERT_EQUAL_STRING("FluidLevel", role["type"]);
+    TEST_ASSERT_FALSE(role["running"]);
 }
 
-// Tests that getRoleInfo shows running=true after startAll
-void test_role_manager_get_role_info_after_start() {
+// Tests that getRolesAsJson shows running=true after startAll
+void test_role_manager_get_roles_as_json_after_start() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     MockFileSystem fs;
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
-    const char* json = R"({
+    const char* roleJson = R"({
         "type": "FluidLevel",
         "fluidType": "Water",
         "inst": 0,
@@ -228,17 +237,19 @@ void test_role_manager_get_role_info_after_start() {
         "maxVoltage": 4.5
     })";
 
-    manager.loadRoleFromJson(json);
+    manager.loadRoleFromJson(roleJson);
     manager.startAll();
 
-    auto info = manager.getRoleInfo();
-    TEST_ASSERT_EQUAL(1, info.size());
-    TEST_ASSERT_EQUAL_STRING("FluidLevel", info[0].id);
-    TEST_ASSERT_TRUE(info[0].running);
+    std::string json = manager.getRolesAsJson();
+    StaticJsonDocument<512> doc;
+    deserializeJson(doc, json);
+
+    JsonObject role = doc[0];
+    TEST_ASSERT_TRUE(role["running"]);
 }
 
-// Tests that getRoleInfo works with multiple roles
-void test_role_manager_get_role_info_multiple_roles() {
+// Tests that getRolesAsJson works with multiple roles
+void test_role_manager_get_roles_as_json_multiple() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     MockFileSystem fs;
@@ -262,30 +273,21 @@ void test_role_manager_get_role_info_multiple_roles() {
         "maxVoltage": 4.8
     })";
 
-    manager.loadRoleFromJson(json1);
-    manager.loadRoleFromJson(json2);
+    manager.loadRoleFromJson(json1, "FluidLevel-abc");
+    manager.loadRoleFromJson(json2, "FluidLevel-xyz");
     manager.startAll();
 
-    auto info = manager.getRoleInfo();
-    TEST_ASSERT_EQUAL(2, info.size());
-    TEST_ASSERT_TRUE(info[0].running);
-    TEST_ASSERT_TRUE(info[1].running);
+    std::string json = manager.getRolesAsJson();
+    StaticJsonDocument<1024> doc;
+    deserializeJson(doc, json);
+
+    TEST_ASSERT_EQUAL(2, doc.size());
+    TEST_ASSERT_TRUE(doc[0]["running"]);
+    TEST_ASSERT_TRUE(doc[1]["running"]);
 }
 
-// Tests that getRoleConfigsJson returns empty object when no roles
-void test_role_manager_get_configs_json_empty() {
-    FakeAnalogInput analog;
-    FakeNmea2000Service nmea;
-    MockFileSystem fs;
-    RoleFactory factory(analog, nmea);
-    RoleManager manager(factory, fs);
-
-    std::string json = manager.getRoleConfigsJson();
-    TEST_ASSERT_EQUAL_STRING("{}", json.c_str());
-}
-
-// Tests that getRoleConfigsJson returns config for single role
-void test_role_manager_get_configs_json_single_role() {
+// Tests that getRolesAsJson includes config with all fields
+void test_role_manager_get_roles_as_json_config_fields() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     MockFileSystem fs;
@@ -303,18 +305,20 @@ void test_role_manager_get_configs_json_single_role() {
 
     manager.loadRoleFromJson(roleJson);
 
-    std::string json = manager.getRoleConfigsJson();
-
-    // Parse and verify
+    std::string json = manager.getRolesAsJson();
     StaticJsonDocument<512> doc;
     deserializeJson(doc, json);
 
-    TEST_ASSERT_TRUE(doc.containsKey("FluidLevel"));
-    JsonObject config = doc["FluidLevel"];
+    JsonObject role = doc[0];
+    TEST_ASSERT_TRUE(role.containsKey("config"));
+
+    JsonObject config = role["config"];
     TEST_ASSERT_EQUAL_STRING("FluidLevel", config["type"]);
     TEST_ASSERT_EQUAL_STRING("Water", config["fluidType"]);
     TEST_ASSERT_EQUAL(1, config["inst"]);
     TEST_ASSERT_EQUAL(100, config["capacity"]);
+    TEST_ASSERT_FLOAT_WITHIN(0.01, 0.5, config["minVoltage"]);
+    TEST_ASSERT_FLOAT_WITHIN(0.01, 4.5, config["maxVoltage"]);
 }
 
 // Tests that updateRoleConfig updates existing role
@@ -334,7 +338,7 @@ void test_role_manager_update_role_config() {
         "maxVoltage": 4.5
     })";
 
-    manager.loadRoleFromJson(roleJson);
+    manager.loadRoleFromJson(roleJson, "FluidLevel-abc");
 
     // Update config
     StaticJsonDocument<256> updateDoc;
@@ -344,15 +348,15 @@ void test_role_manager_update_role_config() {
     updateDoc["minVoltage"] = 0.2;
     updateDoc["maxVoltage"] = 4.8;
 
-    bool result = manager.updateRoleConfig("FluidLevel", updateDoc);
-    TEST_ASSERT_TRUE(result);
+    bool result = manager.updateRoleConfig("FluidLevel-abc", updateDoc);
+    TEST_ASSERT_TRUE_MESSAGE(result, "Update succeeded");
 
-    // Verify update via getRoleConfigsJson
-    std::string json = manager.getRoleConfigsJson();
+    // Verify update via getRolesAsJson
+    std::string json = manager.getRolesAsJson();
     StaticJsonDocument<512> doc;
     deserializeJson(doc, json);
 
-    JsonObject config = doc["FluidLevel"];
+    JsonObject config = doc[0]["config"];
     TEST_ASSERT_EQUAL_STRING("Fuel", config["fluidType"]);
     TEST_ASSERT_EQUAL(2, config["inst"]);
     TEST_ASSERT_EQUAL(200, config["capacity"]);
@@ -410,7 +414,8 @@ void test_role_manager_update_role_config_persists() {
     manager.loopAll();
 
     // Verify file was written
-    const std::string* written = fs.getWrittenFile("/roles/FluidLevel-abc.json");
+    const std::string* written =
+        fs.getWrittenFile("/roles/FluidLevel-abc.json");
     TEST_ASSERT_NOT_NULL(written);
 
     // Parse and verify content
@@ -656,8 +661,8 @@ void test_role_manager_factory_reset_deletes_files() {
         "minVoltage": 0.2,
         "maxVoltage": 4.8
     })");
-    fs.addDirectory("/roles",
-                    {"/roles/FluidLevel-abc.json", "/roles/FluidLevel-xyz.json"});
+    fs.addDirectory(
+        "/roles", {"/roles/FluidLevel-abc.json", "/roles/FluidLevel-xyz.json"});
 
     manager.loadFromDirectory("/roles");
     TEST_ASSERT_EQUAL(2, manager.roleCount());

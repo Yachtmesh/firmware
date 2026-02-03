@@ -15,25 +15,7 @@ std::unique_ptr<Role> RoleFactory::createRole(const char* type,
         return nullptr;
     }
 
-    // Parse config based on type
-    std::unique_ptr<RoleConfig> config;
-
-    if (strcmp(type, "FluidLevel") == 0) {
-        float minV = doc["minVoltage"] | 0.0f;
-        float maxV = doc["maxVoltage"] | 0.0f;
-        unsigned char inst = doc["inst"] | 0;
-        const char* ftStr = doc["fluidType"] | "Unavailable";
-        uint16_t cap = doc["capacity"] | 0;
-
-        config = std::make_unique<FluidLevelConfig>(FluidTypeFromString(ftStr),
-                                                    inst, cap, minV, maxV);
-    }
-
-    if (!config) {
-        return nullptr;
-    }
-
-    role->configure(*config);
+    role->configureFromJson(doc);
     return role;
 }
 
