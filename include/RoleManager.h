@@ -27,7 +27,7 @@ class RoleManager {
     bool loadRole(const char* configPath);
 
     // Load from JSON string (for testing)
-    // instanceId is optional; if not provided, uses role type as ID
+    // instanceId is optional; if not provided, generates ID
     bool loadRoleFromJson(const char* json, const char* instanceId = nullptr);
 
     // Create a new role from JSON, generating a unique ID
