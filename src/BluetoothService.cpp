@@ -234,6 +234,13 @@ void BluetoothService::updateStatus() {
         return;
     }
 
+    // Rate limit status updates to avoid flooding the connection
+    unsigned long now = millis();
+    if (now - lastStatusUpdate_ < STATUS_UPDATE_INTERVAL_MS) {
+        return;
+    }
+    lastStatusUpdate_ = now;
+
     if (!deviceInfo_) {
         return;
     }
