@@ -147,7 +147,7 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
             Serial.println("BLE config update failed: invalid JSON");
             return;
         }
-
+        Serial.println("here! ");
         // Use unified applyRoleConfig method
         ApplyConfigResult result = roleManager_->applyRoleConfig(doc);
 

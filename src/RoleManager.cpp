@@ -11,43 +11,85 @@ inline uint32_t esp_random() { return static_cast<uint32_t>(rand()); }
 RoleManager::RoleManager(RoleFactory& factory, FileSystemInterface& fs)
     : factory_(factory), fs_(fs) {}
 
-bool RoleManager::loadRole(const JsonDocument& doc, const char* instanceId) {
-    const char* type = doc["type"] | "";
-    return !addRoleInternal(type, doc, instanceId, false).empty();
+Role* RoleManager::findRole(const char* roleId) {
+    for (auto& role : roles_) {
+        if (strcmp(role->id(), roleId) == 0) {
+            return role.get();
+        }
+    }
+    return nullptr;
 }
 
-std::string RoleManager::createRole(const char* roleType,
-                                    const JsonDocument& doc) {
-    return addRoleInternal(roleType, doc, nullptr, true);
-}
+ApplyConfigResult RoleManager::applyRoleConfig(const JsonDocument& doc, bool persist) {
+    ApplyConfigResult result;
 
-std::string RoleManager::addRoleInternal(const char* type,
-                                         const JsonDocument& doc,
-                                         const char* instanceId, bool persist) {
-    if (!type || strlen(type) == 0) {
-        return "";
+    const char* roleId = doc["roleId"] | "";
+    const char* roleType = doc["roleType"] | "";
+    JsonObjectConst configObj = doc["config"];
+
+    if (configObj.isNull()) {
+        result.error = "Missing config object";
+        return result;
     }
 
-    auto role = factory_.createRole(type, doc);
+    // Create a doc for just the config
+    StaticJsonDocument<256> configDoc;
+    for (JsonPairConst kv : configObj) {
+        configDoc[kv.key()] = kv.value();
+    }
+
+    // Check if this is an update to an existing role
+    if (strlen(roleId) > 0) {
+        Role* existing = findRole(roleId);
+        if (existing) {
+            // Update existing role
+            if (!existing->configureFromJson(configDoc)) {
+                result.error = "Failed to update role config";
+                return result;
+            }
+            cacheValid_ = false;
+            if (persist) {
+                pendingPersist_.insert(roleId);
+            }
+            result.success = true;
+            result.roleId = roleId;
+            return result;
+        }
+        // roleId provided but not found - fall through to create with that ID
+    }
+
+    // Create new role
+    if (strlen(roleType) == 0) {
+        result.error = "Missing roleType for new role";
+        return result;
+    }
+
+    auto role = factory_.createRole(roleType, configDoc);
     if (!role) {
-        return "";
+        result.error = "Failed to create role";
+        return result;
     }
 
-    std::string id = instanceId ? instanceId : generateInstanceId(type);
+    std::string id = (strlen(roleId) > 0) ? roleId : generateInstanceId(roleType);
     role->setInstanceId(id);
 
     if (!role->validate()) {
-        return "";
+        result.error = "Role validation failed";
+        return result;
     }
 
+    Role* rolePtr = role.get();
     roles_.push_back(std::move(role));
     cacheValid_ = false;
 
     if (persist) {
         pendingPersist_.insert(id);
+        rolePtr->start();  // Start immediately for runtime API calls
     }
 
-    return id;
+    result.success = true;
+    result.roleId = id;
+    return result;
 }
 
 std::string RoleManager::generateInstanceId(const char* type) {
@@ -127,67 +169,6 @@ void RoleManager::rebuildCache() const {
     cacheValid_ = true;
 }
 
-bool RoleManager::updateRole(const char* roleId, const JsonDocument& doc) {
-    for (auto& role : roles_) {
-        if (strcmp(role->id(), roleId) == 0) {  // Locate matching role
-            bool result = role->configureFromJson(doc);
-            if (result) {
-                cacheValid_ = false;
-                pendingPersist_.insert(roleId);  // Defer write to loopAll()
-            }
-            return result;
-        }
-    }
-    return false;
-}
-
-ApplyConfigResult RoleManager::applyRoleConfig(const JsonDocument& doc) {
-    ApplyConfigResult result;
-
-    // Extract fields from doc
-    const char* roleId = doc["roleId"] | "";
-    const char* roleType = doc["roleType"] | "";
-    JsonObjectConst configObj = doc["config"];
-
-    if (configObj.isNull()) {
-        result.error = "Missing config object";
-        return result;
-    }
-
-    // Create a new doc for just the config
-    StaticJsonDocument<256> configDoc;
-    for (JsonPairConst kv : configObj) {
-        configDoc[kv.key()] = kv.value();
-    }
-
-    if (strlen(roleId) == 0) {
-        // No roleId - create a new role
-        if (strlen(roleType) == 0) {
-            result.error = "Missing roleType for new role";
-            return result;
-        }
-
-        std::string newId = createRole(roleType, configDoc);
-        if (newId.empty()) {
-            result.error = "Failed to create role";
-            return result;
-        }
-
-        result.success = true;
-        result.roleId = newId;
-    } else {
-        // Update existing role
-        if (!updateRole(roleId, configDoc)) {
-            result.error = "Failed to update role";
-            return result;
-        }
-
-        result.success = true;
-        result.roleId = roleId;
-    }
-
-    return result;
-}
 
 void RoleManager::persistPendingConfigs() {
     for (const auto& roleId : pendingPersist_) {
@@ -197,11 +178,17 @@ void RoleManager::persistPendingConfigs() {
                 path += roleId;
                 path += ".json";
 
+                // Build hierarchical format: {roleId, roleType, config}
+                StaticJsonDocument<512> doc;
+                doc["roleId"] = role->id();
+                doc["roleType"] = role->type();
+
                 StaticJsonDocument<256> configDoc;
                 role->getConfigJson(configDoc);
+                doc["config"] = configDoc;
 
                 std::string json;
-                serializeJson(configDoc, json);
+                serializeJson(doc, json);
 
                 auto file = fs_.open(path.c_str(), "w");
                 if (file && *file) {
@@ -269,21 +256,11 @@ void loadRolesFromDirectory(RoleManager& manager, FileSystemInterface& fs,
             file->readBytes(buffer, fileSize);
             buffer[fileSize] = '\0';
 
-            // Extract instance ID from filename (e.g., "FluidLevel-abc.json" ->
-            // "FluidLevel-abc")
-            std::string instanceId;
-            const char* filename = file->name();
-            const char* dot = strrchr(filename, '.');
-            if (dot) {
-                instanceId = std::string(filename, dot - filename);
-            } else {
-                instanceId = filename;
-            }
-
-            // Parse and load
+            // Parse and load - file contains hierarchical format
+            // {roleId, roleType, config}
             StaticJsonDocument<512> doc;
             if (!deserializeJson(doc, buffer, fileSize)) {
-                manager.loadRole(doc, instanceId.c_str());
+                manager.applyRoleConfig(doc, false);  // No persist - already on disk
             }
 
             delete[] buffer;

@@ -9,17 +9,28 @@
 #include "RoleManager.h"
 #include "test_fluid_level_sensor_role.h"  // For FakeAnalogInput, FakeNmea2000Service
 
-// Test helper: parse JSON string and load role
+// Test helper: parse JSON string (flat format) and load role (no persist)
+// Converts flat config to hierarchical format: {roleId, roleType, config}
 // Returns true if parsing and loading succeeded
 inline bool loadRoleFromJsonString(RoleManager& manager, const char* json,
                                    const char* instanceId = nullptr) {
-    StaticJsonDocument<512> doc;
-    if (deserializeJson(doc, json)) {
+    StaticJsonDocument<512> flatDoc;
+    if (deserializeJson(flatDoc, json)) {
         return false;
     }
-    const char* type = doc["type"] | "";
+    const char* type = flatDoc["type"] | "";
     std::string id = instanceId ? instanceId : (std::string(type) + "-test");
-    return manager.loadRole(doc, id.c_str());
+
+    // Convert to hierarchical format
+    StaticJsonDocument<768> doc;
+    doc["roleId"].set(id);       // Force copy with .set()
+    doc["roleType"].set(type);   // Force copy with .set()
+    JsonObject config = doc.createNestedObject("config");
+    for (JsonPairConst kv : flatDoc.as<JsonObjectConst>()) {
+        config[kv.key().c_str()].set(kv.value());
+    }
+
+    return manager.applyRoleConfig(doc, false).success;
 }
 
 // Tests that RoleManager can load a valid JSON config
@@ -144,12 +155,15 @@ void test_role_manager_loads_from_file() {
     RoleManager manager(factory, fs);
 
     fs.addFile("/roles/FluidLevel-atd.json", R"({
-        "type": "FluidLevel",
-        "fluidType": "BlackWater",
-        "inst": 2,
-        "capacity": 50,
-        "minVoltage": 0.1,
-        "maxVoltage": 3.3
+        "roleId": "FluidLevel-atd",
+        "roleType": "FluidLevel",
+        "config": {
+            "fluidType": "BlackWater",
+            "inst": 2,
+            "capacity": 50,
+            "minVoltage": 0.1,
+            "maxVoltage": 3.3
+        }
     })");
     fs.addDirectory("/roles", {"/roles/FluidLevel-atd.json"});
 
@@ -166,20 +180,26 @@ void test_role_manager_loads_from_directory() {
     RoleManager manager(factory, fs);
 
     fs.addFile("/roles/water.json", R"({
-        "type": "FluidLevel",
-        "fluidType": "Water",
-        "inst": 0,
-        "capacity": 100,
-        "minVoltage": 0.5,
-        "maxVoltage": 4.5
+        "roleId": "water",
+        "roleType": "FluidLevel",
+        "config": {
+            "fluidType": "Water",
+            "inst": 0,
+            "capacity": 100,
+            "minVoltage": 0.5,
+            "maxVoltage": 4.5
+        }
     })");
     fs.addFile("/roles/fuel.json", R"({
-        "type": "FluidLevel",
-        "fluidType": "Fuel",
-        "inst": 1,
-        "capacity": 200,
-        "minVoltage": 0.2,
-        "maxVoltage": 4.8
+        "roleId": "fuel",
+        "roleType": "FluidLevel",
+        "config": {
+            "fluidType": "Fuel",
+            "inst": 1,
+            "capacity": 200,
+            "minVoltage": 0.2,
+            "maxVoltage": 4.8
+        }
     })");
     fs.addDirectory("/roles", {"/roles/water.json", "/roles/fuel.json"});
 
@@ -332,7 +352,7 @@ void test_role_manager_get_roles_as_json_config_fields() {
     TEST_ASSERT_FLOAT_WITHIN(0.01, 4.5, config["maxVoltage"]);
 }
 
-// Tests that updateRole updates existing role
+// Tests that applyRoleConfig updates existing role
 void test_role_manager_update_role_config() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -351,29 +371,31 @@ void test_role_manager_update_role_config() {
 
     loadRoleFromJsonString(manager, roleJson, "FluidLevel-abc");
 
-    // Update config
-    StaticJsonDocument<256> updateDoc;
-    updateDoc["fluidType"] = "Fuel";
-    updateDoc["inst"] = 2;
-    updateDoc["capacity"] = 200;
-    updateDoc["minVoltage"] = 0.2;
-    updateDoc["maxVoltage"] = 4.8;
+    // Update config using hierarchical format
+    StaticJsonDocument<512> updateDoc;
+    updateDoc["roleId"] = "FluidLevel-abc";
+    JsonObject config = updateDoc.createNestedObject("config");
+    config["fluidType"] = "Fuel";
+    config["inst"] = 2;
+    config["capacity"] = 200;
+    config["minVoltage"] = 0.2;
+    config["maxVoltage"] = 4.8;
 
-    bool result = manager.updateRole("FluidLevel-abc", updateDoc);
-    TEST_ASSERT_TRUE_MESSAGE(result, "Update succeeded");
+    ApplyConfigResult result = manager.applyRoleConfig(updateDoc);
+    TEST_ASSERT_TRUE_MESSAGE(result.success, "Update succeeded");
 
     // Verify update via getRolesAsJson
     std::string json = manager.getRolesAsJson();
     StaticJsonDocument<512> doc;
     deserializeJson(doc, json);
 
-    JsonObject config = doc[0]["config"];
-    TEST_ASSERT_EQUAL_STRING("Fuel", config["fluidType"]);
-    TEST_ASSERT_EQUAL(2, config["inst"]);
-    TEST_ASSERT_EQUAL(200, config["capacity"]);
+    JsonObject roleConfig = doc[0]["config"];
+    TEST_ASSERT_EQUAL_STRING("Fuel", roleConfig["fluidType"]);
+    TEST_ASSERT_EQUAL(2, roleConfig["inst"]);
+    TEST_ASSERT_EQUAL(200, roleConfig["capacity"]);
 }
 
-// Tests that updateRole returns false for unknown role
+// Tests that applyRoleConfig with unknown roleId creates new role (if roleType provided)
 void test_role_manager_update_role_config_unknown_role() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -381,16 +403,24 @@ void test_role_manager_update_role_config_unknown_role() {
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
-    StaticJsonDocument<256> updateDoc;
-    updateDoc["fluidType"] = "Water";
-    updateDoc["minVoltage"] = 0.5;
-    updateDoc["maxVoltage"] = 4.5;
+    // Without roleType, should fail for unknown roleId
+    StaticJsonDocument<512> updateDoc;
+    updateDoc["roleId"] = "NonExistentRole";
+    JsonObject config = updateDoc.createNestedObject("config");
+    config["fluidType"] = "Water";
+    config["inst"] = 0;
+    config["capacity"] = 100;
+    config["minVoltage"] = 0.5;
+    config["maxVoltage"] = 4.5;
 
-    bool result = manager.updateRole("NonExistentRole", updateDoc);
-    TEST_ASSERT_FALSE(result);
+    ApplyConfigResult result = manager.applyRoleConfig(updateDoc);
+    // Now creates a new role since roleId not found but falls through to create
+    // However, without roleType it should fail
+    TEST_ASSERT_FALSE(result.success);
+    TEST_ASSERT_EQUAL_STRING("Missing roleType for new role", result.error.c_str());
 }
 
-// Tests that updateRole persists to filesystem
+// Tests that applyRoleConfig persists updates to filesystem
 void test_role_manager_update_role_config_persists() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -398,7 +428,7 @@ void test_role_manager_update_role_config_persists() {
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
-    // Load role with specific ID
+    // Load role with specific ID (no persist)
     const char* roleJson = R"({
         "type": "FluidLevel",
         "fluidType": "Water",
@@ -410,16 +440,18 @@ void test_role_manager_update_role_config_persists() {
 
     loadRoleFromJsonString(manager, roleJson, "FluidLevel-abc");
 
-    // Update config
-    StaticJsonDocument<256> updateDoc;
-    updateDoc["fluidType"] = "Fuel";
-    updateDoc["inst"] = 2;
-    updateDoc["capacity"] = 200;
-    updateDoc["minVoltage"] = 0.2;
-    updateDoc["maxVoltage"] = 4.8;
+    // Update config using hierarchical format (with persist)
+    StaticJsonDocument<512> updateDoc;
+    updateDoc["roleId"] = "FluidLevel-abc";
+    JsonObject config = updateDoc.createNestedObject("config");
+    config["fluidType"] = "Fuel";
+    config["inst"] = 2;
+    config["capacity"] = 200;
+    config["minVoltage"] = 0.2;
+    config["maxVoltage"] = 4.8;
 
-    bool result = manager.updateRole("FluidLevel-abc", updateDoc);
-    TEST_ASSERT_TRUE(result);
+    ApplyConfigResult result = manager.applyRoleConfig(updateDoc);
+    TEST_ASSERT_TRUE(result.success);
 
     // Trigger deferred persist via loopAll
     manager.loopAll();
@@ -429,15 +461,18 @@ void test_role_manager_update_role_config_persists() {
         fs.getWrittenFile("/roles/FluidLevel-abc.json");
     TEST_ASSERT_NOT_NULL(written);
 
-    // Parse and verify content
-    StaticJsonDocument<256> savedDoc;
+    // Parse and verify content - now hierarchical format
+    StaticJsonDocument<512> savedDoc;
     deserializeJson(savedDoc, *written);
-    TEST_ASSERT_EQUAL_STRING("Fuel", savedDoc["fluidType"]);
-    TEST_ASSERT_EQUAL(2, savedDoc["inst"]);
-    TEST_ASSERT_EQUAL(200, savedDoc["capacity"]);
+    TEST_ASSERT_EQUAL_STRING("FluidLevel-abc", savedDoc["roleId"]);
+    TEST_ASSERT_EQUAL_STRING("FluidLevel", savedDoc["roleType"]);
+    JsonObject savedConfig = savedDoc["config"];
+    TEST_ASSERT_EQUAL_STRING("Fuel", savedConfig["fluidType"]);
+    TEST_ASSERT_EQUAL(2, savedConfig["inst"]);
+    TEST_ASSERT_EQUAL(200, savedConfig["capacity"]);
 }
 
-// Tests that updateRole returns false for invalid config
+// Tests that applyRoleConfig returns error for invalid config
 void test_role_manager_update_role_config_invalid() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -457,18 +492,20 @@ void test_role_manager_update_role_config_invalid() {
     loadRoleFromJsonString(manager, roleJson, "FluidLevel-abc");
 
     // Invalid: minVoltage >= maxVoltage
-    StaticJsonDocument<256> updateDoc;
-    updateDoc["fluidType"] = "Water";
-    updateDoc["inst"] = 0;
-    updateDoc["capacity"] = 100;
-    updateDoc["minVoltage"] = 5.0;
-    updateDoc["maxVoltage"] = 1.0;
+    StaticJsonDocument<512> updateDoc;
+    updateDoc["roleId"] = "FluidLevel-abc";
+    JsonObject config = updateDoc.createNestedObject("config");
+    config["fluidType"] = "Water";
+    config["inst"] = 0;
+    config["capacity"] = 100;
+    config["minVoltage"] = 5.0;
+    config["maxVoltage"] = 1.0;
 
-    bool result = manager.updateRole("FluidLevel-abc", updateDoc);
-    TEST_ASSERT_FALSE(result);
+    ApplyConfigResult result = manager.applyRoleConfig(updateDoc);
+    TEST_ASSERT_FALSE(result.success);
 }
 
-// Tests that createRole creates a new role and returns generated ID
+// Tests that applyRoleConfig creates a new role and returns generated ID
 void test_role_manager_create_role() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -476,22 +513,25 @@ void test_role_manager_create_role() {
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
-    StaticJsonDocument<256> doc;
-    doc["fluidType"] = "Water";
-    doc["inst"] = 0;
-    doc["capacity"] = 100;
-    doc["minVoltage"] = 0.5;
-    doc["maxVoltage"] = 4.5;
+    StaticJsonDocument<512> doc;
+    doc["roleType"] = "FluidLevel";
+    JsonObject config = doc.createNestedObject("config");
+    config["fluidType"] = "Water";
+    config["inst"] = 0;
+    config["capacity"] = 100;
+    config["minVoltage"] = 0.5;
+    config["maxVoltage"] = 4.5;
 
-    std::string roleId = manager.createRole("FluidLevel", doc);
-    TEST_ASSERT_FALSE(roleId.empty());
+    ApplyConfigResult result = manager.applyRoleConfig(doc);
+    TEST_ASSERT_TRUE(result.success);
+    TEST_ASSERT_FALSE(result.roleId.empty());
     TEST_ASSERT_EQUAL(1, manager.roleCount());
 
     // Verify ID starts with type
-    TEST_ASSERT_TRUE(roleId.rfind("FluidLevel-", 0) == 0);
+    TEST_ASSERT_TRUE(result.roleId.rfind("FluidLevel-", 0) == 0);
 }
 
-// Tests that createRole returns empty string for unknown type
+// Tests that applyRoleConfig fails for unknown type
 void test_role_manager_create_role_unknown_type() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -499,14 +539,17 @@ void test_role_manager_create_role_unknown_type() {
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<512> doc;
+    doc["roleType"] = "UnknownRole";
+    doc.createNestedObject("config");
 
-    std::string roleId = manager.createRole("UnknownRole", doc);
-    TEST_ASSERT_TRUE(roleId.empty());
+    ApplyConfigResult result = manager.applyRoleConfig(doc);
+    TEST_ASSERT_FALSE(result.success);
+    TEST_ASSERT_TRUE(result.roleId.empty());
     TEST_ASSERT_EQUAL(0, manager.roleCount());
 }
 
-// Tests that createRole returns empty string for missing/empty type
+// Tests that applyRoleConfig fails for missing/empty type
 void test_role_manager_create_role_missing_type() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -514,16 +557,19 @@ void test_role_manager_create_role_missing_type() {
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
-    StaticJsonDocument<256> doc;
-    doc["fluidType"] = "Water";
-    doc["inst"] = 0;
+    StaticJsonDocument<512> doc;
+    doc["roleType"] = "";  // Empty type
+    JsonObject config = doc.createNestedObject("config");
+    config["fluidType"] = "Water";
+    config["inst"] = 0;
 
-    std::string roleId = manager.createRole("", doc);
-    TEST_ASSERT_TRUE(roleId.empty());
+    ApplyConfigResult result = manager.applyRoleConfig(doc);
+    TEST_ASSERT_FALSE(result.success);
+    TEST_ASSERT_TRUE(result.roleId.empty());
     TEST_ASSERT_EQUAL(0, manager.roleCount());
 }
 
-// Tests that createRole returns empty string for invalid config
+// Tests that applyRoleConfig fails for invalid config
 void test_role_manager_create_role_invalid_config() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -532,19 +578,22 @@ void test_role_manager_create_role_invalid_config() {
     RoleManager manager(factory, fs);
 
     // Invalid: minVoltage >= maxVoltage
-    StaticJsonDocument<256> doc;
-    doc["fluidType"] = "Water";
-    doc["inst"] = 0;
-    doc["capacity"] = 100;
-    doc["minVoltage"] = 5.0;
-    doc["maxVoltage"] = 1.0;
+    StaticJsonDocument<512> doc;
+    doc["roleType"] = "FluidLevel";
+    JsonObject config = doc.createNestedObject("config");
+    config["fluidType"] = "Water";
+    config["inst"] = 0;
+    config["capacity"] = 100;
+    config["minVoltage"] = 5.0;
+    config["maxVoltage"] = 1.0;
 
-    std::string roleId = manager.createRole("FluidLevel", doc);
-    TEST_ASSERT_TRUE(roleId.empty());
+    ApplyConfigResult result = manager.applyRoleConfig(doc);
+    TEST_ASSERT_FALSE(result.success);
+    TEST_ASSERT_TRUE(result.roleId.empty());
     TEST_ASSERT_EQUAL(0, manager.roleCount());
 }
 
-// Tests that createRole persists the new role to filesystem
+// Tests that applyRoleConfig persists the new role to filesystem
 void test_role_manager_create_role_persists() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -552,34 +601,39 @@ void test_role_manager_create_role_persists() {
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
-    StaticJsonDocument<256> doc;
-    doc["fluidType"] = "Fuel";
-    doc["inst"] = 1;
-    doc["capacity"] = 200;
-    doc["minVoltage"] = 0.2;
-    doc["maxVoltage"] = 4.8;
+    StaticJsonDocument<512> doc;
+    doc["roleType"] = "FluidLevel";
+    JsonObject config = doc.createNestedObject("config");
+    config["fluidType"] = "Fuel";
+    config["inst"] = 1;
+    config["capacity"] = 200;
+    config["minVoltage"] = 0.2;
+    config["maxVoltage"] = 4.8;
 
-    std::string roleId = manager.createRole("FluidLevel", doc);
-    TEST_ASSERT_FALSE(roleId.empty());
+    ApplyConfigResult result = manager.applyRoleConfig(doc);
+    TEST_ASSERT_TRUE(result.success);
+    TEST_ASSERT_FALSE(result.roleId.empty());
 
     // Trigger deferred persist via loopAll
     manager.loopAll();
 
     // Verify file was written
-    std::string path = "/roles/" + roleId + ".json";
+    std::string path = "/roles/" + result.roleId + ".json";
     const std::string* written = fs.getWrittenFile(path);
     TEST_ASSERT_NOT_NULL(written);
 
-    // Parse and verify content
-    StaticJsonDocument<256> savedDoc;
+    // Parse and verify content - now hierarchical format
+    StaticJsonDocument<512> savedDoc;
     deserializeJson(savedDoc, *written);
-    TEST_ASSERT_EQUAL_STRING("FluidLevel", savedDoc["type"]);
-    TEST_ASSERT_EQUAL_STRING("Fuel", savedDoc["fluidType"]);
-    TEST_ASSERT_EQUAL(1, savedDoc["inst"]);
-    TEST_ASSERT_EQUAL(200, savedDoc["capacity"]);
+    TEST_ASSERT_EQUAL_STRING("FluidLevel", savedDoc["roleType"]);
+    TEST_ASSERT_TRUE(std::string(savedDoc["roleId"]).rfind("FluidLevel-", 0) == 0);
+    JsonObject savedConfig = savedDoc["config"];
+    TEST_ASSERT_EQUAL_STRING("Fuel", savedConfig["fluidType"]);
+    TEST_ASSERT_EQUAL(1, savedConfig["inst"]);
+    TEST_ASSERT_EQUAL(200, savedConfig["capacity"]);
 }
 
-// Tests that createRole generates unique IDs for multiple roles
+// Tests that applyRoleConfig generates unique IDs for multiple roles
 void test_role_manager_create_role_unique_ids() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -587,26 +641,32 @@ void test_role_manager_create_role_unique_ids() {
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
-    StaticJsonDocument<256> doc1;
-    doc1["fluidType"] = "Water";
-    doc1["inst"] = 0;
-    doc1["capacity"] = 100;
-    doc1["minVoltage"] = 0.5;
-    doc1["maxVoltage"] = 4.5;
+    StaticJsonDocument<512> doc1;
+    doc1["roleType"] = "FluidLevel";
+    JsonObject config1 = doc1.createNestedObject("config");
+    config1["fluidType"] = "Water";
+    config1["inst"] = 0;
+    config1["capacity"] = 100;
+    config1["minVoltage"] = 0.5;
+    config1["maxVoltage"] = 4.5;
 
-    StaticJsonDocument<256> doc2;
-    doc2["fluidType"] = "Fuel";
-    doc2["inst"] = 1;
-    doc2["capacity"] = 200;
-    doc2["minVoltage"] = 0.2;
-    doc2["maxVoltage"] = 4.8;
+    StaticJsonDocument<512> doc2;
+    doc2["roleType"] = "FluidLevel";
+    JsonObject config2 = doc2.createNestedObject("config");
+    config2["fluidType"] = "Fuel";
+    config2["inst"] = 1;
+    config2["capacity"] = 200;
+    config2["minVoltage"] = 0.2;
+    config2["maxVoltage"] = 4.8;
 
-    std::string id1 = manager.createRole("FluidLevel", doc1);
-    std::string id2 = manager.createRole("FluidLevel", doc2);
+    ApplyConfigResult result1 = manager.applyRoleConfig(doc1);
+    ApplyConfigResult result2 = manager.applyRoleConfig(doc2);
 
-    TEST_ASSERT_FALSE(id1.empty());
-    TEST_ASSERT_FALSE(id2.empty());
-    TEST_ASSERT_TRUE(id1 != id2);
+    TEST_ASSERT_TRUE(result1.success);
+    TEST_ASSERT_TRUE(result2.success);
+    TEST_ASSERT_FALSE(result1.roleId.empty());
+    TEST_ASSERT_FALSE(result2.roleId.empty());
+    TEST_ASSERT_TRUE(result1.roleId != result2.roleId);
     TEST_ASSERT_EQUAL(2, manager.roleCount());
 }
 
@@ -655,22 +715,28 @@ void test_role_manager_factory_reset_deletes_files() {
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
-    // Set up files and directory
+    // Set up files and directory with hierarchical format
     fs.addFile("/roles/FluidLevel-abc.json", R"({
-        "type": "FluidLevel",
-        "fluidType": "Water",
-        "inst": 0,
-        "capacity": 100,
-        "minVoltage": 0.5,
-        "maxVoltage": 4.5
+        "roleId": "FluidLevel-abc",
+        "roleType": "FluidLevel",
+        "config": {
+            "fluidType": "Water",
+            "inst": 0,
+            "capacity": 100,
+            "minVoltage": 0.5,
+            "maxVoltage": 4.5
+        }
     })");
     fs.addFile("/roles/FluidLevel-xyz.json", R"({
-        "type": "FluidLevel",
-        "fluidType": "Fuel",
-        "inst": 1,
-        "capacity": 200,
-        "minVoltage": 0.2,
-        "maxVoltage": 4.8
+        "roleId": "FluidLevel-xyz",
+        "roleType": "FluidLevel",
+        "config": {
+            "fluidType": "Fuel",
+            "inst": 1,
+            "capacity": 200,
+            "minVoltage": 0.2,
+            "maxVoltage": 4.8
+        }
     })");
     fs.addDirectory(
         "/roles", {"/roles/FluidLevel-abc.json", "/roles/FluidLevel-xyz.json"});
@@ -714,15 +780,18 @@ void test_role_manager_factory_reset_clears_pending() {
     RoleManager manager(factory, fs);
 
     // Create a role (adds to pending persist)
-    StaticJsonDocument<256> doc;
-    doc["fluidType"] = "Water";
-    doc["inst"] = 0;
-    doc["capacity"] = 100;
-    doc["minVoltage"] = 0.5;
-    doc["maxVoltage"] = 4.5;
+    StaticJsonDocument<512> doc;
+    doc["roleType"] = "FluidLevel";
+    JsonObject config = doc.createNestedObject("config");
+    config["fluidType"] = "Water";
+    config["inst"] = 0;
+    config["capacity"] = 100;
+    config["minVoltage"] = 0.5;
+    config["maxVoltage"] = 4.5;
 
-    std::string roleId = manager.createRole("FluidLevel", doc);
-    TEST_ASSERT_FALSE(roleId.empty());
+    ApplyConfigResult result = manager.applyRoleConfig(doc);
+    TEST_ASSERT_TRUE(result.success);
+    TEST_ASSERT_FALSE(result.roleId.empty());
 
     // Set up directory for reset
     fs.addDirectory("/roles", {});
@@ -732,7 +801,7 @@ void test_role_manager_factory_reset_clears_pending() {
     manager.loopAll();
 
     // Verify role was not persisted (factory reset cleared pending)
-    std::string path = "/roles/" + roleId + ".json";
+    std::string path = "/roles/" + result.roleId + ".json";
     const std::string* written = fs.getWrittenFile(path);
     TEST_ASSERT_NULL(written);
     TEST_ASSERT_EQUAL(0, manager.roleCount());
@@ -878,7 +947,7 @@ void test_role_manager_apply_config_missing_role_type() {
     TEST_ASSERT_EQUAL(0, manager.roleCount());
 }
 
-// Tests that applyRoleConfig fails on unknown role for update
+// Tests that applyRoleConfig with unknown roleId falls through to create (needs roleType)
 void test_role_manager_apply_config_unknown_role() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -886,6 +955,7 @@ void test_role_manager_apply_config_unknown_role() {
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
+    // Unknown roleId without roleType should fail
     StaticJsonDocument<512> doc;
     doc["roleId"] = "NonExistent-xyz";
     JsonObject config = doc.createNestedObject("config");
@@ -895,5 +965,5 @@ void test_role_manager_apply_config_unknown_role() {
     ApplyConfigResult result = manager.applyRoleConfig(doc);
 
     TEST_ASSERT_FALSE(result.success);
-    TEST_ASSERT_EQUAL_STRING("Failed to update role", result.error.c_str());
+    TEST_ASSERT_EQUAL_STRING("Missing roleType for new role", result.error.c_str());
 }

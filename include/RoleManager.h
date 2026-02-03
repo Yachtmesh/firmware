@@ -29,23 +29,13 @@ class RoleManager {
     void loopAll();
     void stopAll();
 
-    // Load existing role from config (no persistence, ID provided)
-    // Doc must contain "type" field
-    bool loadRole(const JsonDocument& doc, const char* instanceId);
-
-    // Create a new role from JSON, generating a unique ID
-    // Returns the generated role ID, or empty string on failure
-    std::string createRole(const char* roleType, const JsonDocument& doc);
-
-    // Update existing role config
-    bool updateRole(const char* roleId, const JsonDocument& doc);
-
-    // Unified config application - routes to create or update
+    // Unified config application - creates or updates roles
+    // If roleId matches existing role, updates it
     // If roleId is empty/missing, creates a new role using roleType
-    // If roleId is present, updates existing role
+    // persist=true for runtime API calls, false when loading from disk
     // Expected JSON format:
-    // {"roleId": "FluidLevel-abc", "roleType": "FluidLevel", "config": {...}}
-    ApplyConfigResult applyRoleConfig(const JsonDocument& doc);
+    // {"roleId"?: "FluidLevel-abc", "roleType": "FluidLevel", "config": {...}}
+    ApplyConfigResult applyRoleConfig(const JsonDocument& doc, bool persist = true);
 
     size_t roleCount() const { return roles_.size(); }
 
@@ -69,9 +59,8 @@ class RoleManager {
     // Generate a unique instance ID for a role type
     std::string generateInstanceId(const char* type);
 
-    // Core role addition logic - returns instance ID or empty on failure
-    std::string addRoleInternal(const char* type, const JsonDocument& doc,
-                                const char* instanceId, bool persist);
+    // Find existing role by ID, returns nullptr if not found
+    Role* findRole(const char* roleId);
 
     // Deferred persistence - written in loopAll()
     std::set<std::string> pendingPersist_;
