@@ -27,9 +27,9 @@ void setup() {
     nmea.start();
     bluetooth.start();
 
-    // Start role manager, load roles and start all roles.
+    // Load roles from filesystem and start all roles
     // TODO: Add error handling to role status
-    roleManager.loadFromDirectory("/roles");
+    loadRolesFromDirectory(roleManager, fileSystem, "/roles");
     roleManager.startAll();
 }
 

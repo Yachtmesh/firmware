@@ -1,7 +1,5 @@
 #include "RoleManager.h"
 
-// #include <ArduinoJson.h>
-
 #include <cstdio>
 #include <cstdlib>
 
@@ -13,81 +11,14 @@ inline uint32_t esp_random() { return static_cast<uint32_t>(rand()); }
 RoleManager::RoleManager(RoleFactory& factory, FileSystemInterface& fs)
     : factory_(factory), fs_(fs) {}
 
-void RoleManager::loadFromDirectory(const char* path) {
-    auto root = fs_.open(path);
-    if (!root || !root->isDirectory()) {
-        return;
-    }
-
-    auto file = root->openNextFile();
-    while (file) {
-        if (!file->isDirectory()) {
-            // Build full path: path + "/" + filename
-            size_t pathLen = strlen(path);
-            const char* fileName = file->name();
-            size_t nameLen = strlen(fileName);
-            size_t fullLen = pathLen + 1 + nameLen + 1;
-
-            char* fullPath = new char[fullLen];
-            strcpy(fullPath, path);
-            strcat(fullPath, "/");
-            strcat(fullPath, fileName);
-
-            loadRole(fullPath);
-            delete[] fullPath;
-        }
-        file = root->openNextFile();
-    }
-}
-
-bool RoleManager::loadRole(const char* configPath) {
-    auto file = fs_.open(configPath, "r");
-    if (!file || !(*file)) {
-        return false;
-    }
-
-    size_t fileSize = file->size();
-    char* buffer = new char[fileSize + 1];
-    file->readBytes(buffer, fileSize);
-    buffer[fileSize] = '\0';
-    file->close();
-
-    // Extract filename stem as instance ID (e.g., "/roles/FluidLevel-abc.json"
-    // -> "FluidLevel-abc")
-    std::string instanceId;
-    const char* lastSlash = strrchr(configPath, '/');
-    const char* filename = lastSlash ? lastSlash + 1 : configPath;
-    const char* dot = strrchr(filename, '.');
-
-    if (dot) {
-        instanceId = std::string(filename, dot - filename);
-    } else {
-        instanceId = filename;
-    }
-
-    bool result = loadRoleFromJson(buffer, instanceId.c_str());
-    delete[] buffer;
-    return result;
-}
-
-// Loads role from configuration
-bool RoleManager::loadRoleFromJson(const char* json, const char* instanceId) {
-    StaticJsonDocument<512> doc;
-    size_t length = strlen(json);
-
-    if (deserializeJson(doc, json, length)) {
-        return false;
-    }
-
+bool RoleManager::loadRole(const JsonDocument& doc, const char* instanceId) {
     const char* type = doc["type"] | "";
-    doc.remove("type");  // Not needed for further
-
     return !addRoleInternal(type, doc, instanceId, false).empty();
 }
 
 std::string RoleManager::createRole(const char* roleType,
                                     const JsonDocument& doc) {
-    addRoleInternal(roleType, doc, nullptr, true);
+    return addRoleInternal(roleType, doc, nullptr, true);
 }
 
 std::string RoleManager::addRoleInternal(const char* type,
@@ -198,7 +129,7 @@ void RoleManager::rebuildCache() const {
 
 bool RoleManager::updateRole(const char* roleId, const JsonDocument& doc) {
     for (auto& role : roles_) {
-        if (strcmp(role->id(), roleId) == 0) {  // Locate mathcing role
+        if (strcmp(role->id(), roleId) == 0) {  // Locate matching role
             bool result = role->configureFromJson(doc);
             if (result) {
                 cacheValid_ = false;
@@ -271,4 +202,44 @@ void RoleManager::executeFactoryReset() {
     roles_.clear();
     pendingPersist_.clear();
     cacheValid_ = false;
+}
+
+// Free function for bootstrapping
+void loadRolesFromDirectory(RoleManager& manager, FileSystemInterface& fs,
+                            const char* path) {
+    auto root = fs.open(path);
+    if (!root || !root->isDirectory()) {
+        return;
+    }
+
+    auto file = root->openNextFile();
+    while (file) {
+        if (!file->isDirectory()) {
+            // Read file contents
+            size_t fileSize = file->size();
+            char* buffer = new char[fileSize + 1];
+            file->readBytes(buffer, fileSize);
+            buffer[fileSize] = '\0';
+
+            // Extract instance ID from filename (e.g., "FluidLevel-abc.json" ->
+            // "FluidLevel-abc")
+            std::string instanceId;
+            const char* filename = file->name();
+            const char* dot = strrchr(filename, '.');
+            if (dot) {
+                instanceId = std::string(filename, dot - filename);
+            } else {
+                instanceId = filename;
+            }
+
+            // Parse and load
+            StaticJsonDocument<512> doc;
+            if (!deserializeJson(doc, buffer, fileSize)) {
+                manager.loadRole(doc, instanceId.c_str());
+            }
+
+            delete[] buffer;
+        }
+        file = root->openNextFile();
+    }
 }

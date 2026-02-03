@@ -1,4 +1,6 @@
 #pragma once
+#include <ArduinoJson.h>
+
 #include <memory>
 #include <set>
 #include <string>
@@ -15,31 +17,26 @@ class RoleManager {
    public:
     RoleManager(RoleFactory& factory, FileSystemInterface& fs);
 
-    // Scan /roles/ directory and load all configs
-    void loadFromDirectory(const char* path = "/roles");
-
     // Lifecycle management
     void startAll();
     void loopAll();
     void stopAll();
 
-    // Load from a single config file path
-    bool loadRole(const char* configPath);
-
-    // Load from JSON string (for testing)
-    // instanceId is optional; if not provided, generates ID
-    bool loadRoleFromJson(const char* json, const char* instanceId = nullptr);
+    // Load existing role from config (no persistence, ID provided)
+    // Doc must contain "type" field
+    bool loadRole(const JsonDocument& doc, const char* instanceId);
 
     // Create a new role from JSON, generating a unique ID
     // Returns the generated role ID, or empty string on failure
     std::string createRole(const char* roleType, const JsonDocument& doc);
 
+    // Update existing role config
+    bool updateRole(const char* roleId, const JsonDocument& doc);
+
     size_t roleCount() const { return roles_.size(); }
 
     // Returns JSON array of all roles with id, type, running status, and config
     std::string getRolesAsJson() const;
-
-    bool updateRole(const char* roleId, const JsonDocument& doc);
 
     // Factory reset - clears all roles and their config files
     void factoryReset();
@@ -70,3 +67,7 @@ class RoleManager {
     bool pendingFactoryReset_ = false;
     void executeFactoryReset();
 };
+
+// Free function for bootstrapping - loads all role configs from a directory
+void loadRolesFromDirectory(RoleManager& manager, FileSystemInterface& fs,
+                            const char* path = "/roles");

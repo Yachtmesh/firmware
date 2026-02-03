@@ -9,6 +9,19 @@
 #include "RoleManager.h"
 #include "test_fluid_level_sensor_role.h"  // For FakeAnalogInput, FakeNmea2000Service
 
+// Test helper: parse JSON string and load role
+// Returns true if parsing and loading succeeded
+inline bool loadRoleFromJsonString(RoleManager& manager, const char* json,
+                                   const char* instanceId = nullptr) {
+    StaticJsonDocument<512> doc;
+    if (deserializeJson(doc, json)) {
+        return false;
+    }
+    const char* type = doc["type"] | "";
+    std::string id = instanceId ? instanceId : (std::string(type) + "-test");
+    return manager.loadRole(doc, id.c_str());
+}
+
 // Tests that RoleManager can load a valid JSON config
 void test_role_manager_loads_valid_config() {
     FakeAnalogInput analog;
@@ -26,7 +39,7 @@ void test_role_manager_loads_valid_config() {
         "maxVoltage": 4.5
     })";
 
-    bool loaded = manager.loadRoleFromJson(json);
+    bool loaded = loadRoleFromJsonString(manager, json);
     TEST_ASSERT_TRUE(loaded);
     TEST_ASSERT_EQUAL(1, manager.roleCount());
 }
@@ -41,7 +54,7 @@ void test_role_manager_rejects_unknown_type() {
 
     const char* json = R"({"type": "UnknownRole"})";
 
-    bool loaded = manager.loadRoleFromJson(json);
+    bool loaded = loadRoleFromJsonString(manager, json);
     TEST_ASSERT_FALSE(loaded);
     TEST_ASSERT_EQUAL(0, manager.roleCount());
 }
@@ -56,7 +69,7 @@ void test_role_manager_rejects_invalid_json() {
 
     const char* json = "{ invalid json }";
 
-    bool loaded = manager.loadRoleFromJson(json);
+    bool loaded = loadRoleFromJsonString(manager, json);
     TEST_ASSERT_FALSE(loaded);
     TEST_ASSERT_EQUAL(0, manager.roleCount());
 }
@@ -86,8 +99,8 @@ void test_role_manager_starts_all_roles() {
         "maxVoltage": 4.8
     })";
 
-    manager.loadRoleFromJson(json1);
-    manager.loadRoleFromJson(json2);
+    loadRoleFromJsonString(manager, json1, "FluidLevel-001");
+    loadRoleFromJsonString(manager, json2, "FluidLevel-002");
     TEST_ASSERT_EQUAL(2, manager.roleCount());
 
     // Should not throw when starting multiple roles
@@ -111,7 +124,7 @@ void test_role_manager_loops_all_roles() {
         "maxVoltage": 5.0
     })";
 
-    manager.loadRoleFromJson(json);
+    loadRoleFromJsonString(manager, json);
     manager.startAll();
 
     analog.voltage = 3.0f;  // 50%
@@ -122,7 +135,7 @@ void test_role_manager_loops_all_roles() {
     TEST_ASSERT_FLOAT_WITHIN(1.0f, 50.0f, nmea.lastMetric.value);
 }
 
-// Tests that loadRole loads from filesystem
+// Tests that loadRolesFromDirectory loads from filesystem
 void test_role_manager_loads_from_file() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -138,13 +151,13 @@ void test_role_manager_loads_from_file() {
         "minVoltage": 0.1,
         "maxVoltage": 3.3
     })");
+    fs.addDirectory("/roles", {"/roles/FluidLevel-atd.json"});
 
-    bool loaded = manager.loadRole("/roles/FluidLevel-atd.json");
-    TEST_ASSERT_TRUE(loaded);
+    loadRolesFromDirectory(manager, fs, "/roles");
     TEST_ASSERT_EQUAL(1, manager.roleCount());
 }
 
-// Tests that loadFromDirectory loads all files
+// Tests that loadRolesFromDirectory loads all files
 void test_role_manager_loads_from_directory() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -170,7 +183,7 @@ void test_role_manager_loads_from_directory() {
     })");
     fs.addDirectory("/roles", {"/roles/water.json", "/roles/fuel.json"});
 
-    manager.loadFromDirectory("/roles");
+    loadRolesFromDirectory(manager, fs, "/roles");
     TEST_ASSERT_EQUAL(2, manager.roleCount());
 }
 
@@ -203,7 +216,7 @@ void test_role_manager_get_roles_as_json_not_started() {
         "maxVoltage": 4.5
     })";
 
-    manager.loadRoleFromJson(roleJson);
+    loadRoleFromJsonString(manager, roleJson, "FluidLevel-y01");
 
     std::string json = manager.getRolesAsJson();
     StaticJsonDocument<512> doc;
@@ -213,9 +226,7 @@ void test_role_manager_get_roles_as_json_not_started() {
     TEST_ASSERT_EQUAL(1, doc.size());
 
     JsonObject role = doc[0];
-    TEST_ASSERT_EQUAL_STRING(
-        "FluidLevel-y01",
-        role["id"]);  // In tests randomizer is actually not random.
+    TEST_ASSERT_EQUAL_STRING("FluidLevel-y01", role["id"]);
     TEST_ASSERT_EQUAL_STRING("FluidLevel", role["type"]);
     TEST_ASSERT_FALSE(role["running"]);
 }
@@ -237,7 +248,7 @@ void test_role_manager_get_roles_as_json_after_start() {
         "maxVoltage": 4.5
     })";
 
-    manager.loadRoleFromJson(roleJson);
+    loadRoleFromJsonString(manager, roleJson);
     manager.startAll();
 
     std::string json = manager.getRolesAsJson();
@@ -273,8 +284,8 @@ void test_role_manager_get_roles_as_json_multiple() {
         "maxVoltage": 4.8
     })";
 
-    manager.loadRoleFromJson(json1, "FluidLevel-abc");
-    manager.loadRoleFromJson(json2, "FluidLevel-xyz");
+    loadRoleFromJsonString(manager, json1, "FluidLevel-abc");
+    loadRoleFromJsonString(manager, json2, "FluidLevel-xyz");
     manager.startAll();
 
     std::string json = manager.getRolesAsJson();
@@ -303,7 +314,7 @@ void test_role_manager_get_roles_as_json_config_fields() {
         "maxVoltage": 4.5
     })";
 
-    manager.loadRoleFromJson(roleJson);
+    loadRoleFromJsonString(manager, roleJson);
 
     std::string json = manager.getRolesAsJson();
     StaticJsonDocument<512> doc;
@@ -338,7 +349,7 @@ void test_role_manager_update_role_config() {
         "maxVoltage": 4.5
     })";
 
-    manager.loadRoleFromJson(roleJson, "FluidLevel-abc");
+    loadRoleFromJsonString(manager, roleJson, "FluidLevel-abc");
 
     // Update config
     StaticJsonDocument<256> updateDoc;
@@ -387,17 +398,17 @@ void test_role_manager_update_role_config_persists() {
     RoleFactory factory(analog, nmea);
     RoleManager manager(factory, fs);
 
-    // Load from file so ID matches filename
-    fs.addFile("/roles/FluidLevel-abc.json", R"({
+    // Load role with specific ID
+    const char* roleJson = R"({
         "type": "FluidLevel",
         "fluidType": "Water",
         "inst": 0,
         "capacity": 100,
         "minVoltage": 0.5,
         "maxVoltage": 4.5
-    })");
+    })";
 
-    manager.loadRole("/roles/FluidLevel-abc.json");
+    loadRoleFromJsonString(manager, roleJson, "FluidLevel-abc");
 
     // Update config
     StaticJsonDocument<256> updateDoc;
@@ -443,7 +454,7 @@ void test_role_manager_update_role_config_invalid() {
         "maxVoltage": 4.5
     })";
 
-    manager.loadRoleFromJson(roleJson);
+    loadRoleFromJsonString(manager, roleJson, "FluidLevel-abc");
 
     // Invalid: minVoltage >= maxVoltage
     StaticJsonDocument<256> updateDoc;
@@ -453,7 +464,7 @@ void test_role_manager_update_role_config_invalid() {
     updateDoc["minVoltage"] = 5.0;
     updateDoc["maxVoltage"] = 1.0;
 
-    bool result = manager.updateRole("FluidLevel", updateDoc);
+    bool result = manager.updateRole("FluidLevel-abc", updateDoc);
     TEST_ASSERT_FALSE(result);
 }
 
@@ -624,8 +635,8 @@ void test_role_manager_factory_reset_clears_roles() {
         "maxVoltage": 4.8
     })";
 
-    manager.loadRoleFromJson(json1);
-    manager.loadRoleFromJson(json2);
+    loadRoleFromJsonString(manager, json1, "FluidLevel-001");
+    loadRoleFromJsonString(manager, json2, "FluidLevel-002");
     manager.startAll();
     TEST_ASSERT_EQUAL(2, manager.roleCount());
 
@@ -664,7 +675,7 @@ void test_role_manager_factory_reset_deletes_files() {
     fs.addDirectory(
         "/roles", {"/roles/FluidLevel-abc.json", "/roles/FluidLevel-xyz.json"});
 
-    manager.loadFromDirectory("/roles");
+    loadRolesFromDirectory(manager, fs, "/roles");
     TEST_ASSERT_EQUAL(2, manager.roleCount());
 
     // Trigger factory reset
