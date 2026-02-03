@@ -39,7 +39,7 @@ class RoleManager {
     // Returns JSON array of all roles with id, type, running status, and config
     std::string getRolesAsJson() const;
 
-    bool updateRoleConfig(const char* roleId, const JsonDocument& doc);
+    bool updateRole(const char* roleId, const JsonDocument& doc);
 
     // Factory reset - clears all roles and their config files
     void factoryReset();
@@ -57,6 +57,10 @@ class RoleManager {
 
     // Generate a unique instance ID for a role type
     std::string generateInstanceId(const char* type);
+
+    // Core role addition logic - returns instance ID or empty on failure
+    std::string addRoleInternal(const char* type, const JsonDocument& doc,
+                                const char* instanceId, bool persist);
 
     // Deferred persistence - written in loopAll()
     std::set<std::string> pendingPersist_;

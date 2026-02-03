@@ -238,7 +238,7 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
             }
         } else {
             // Update existing role
-            if (roleManager_->updateRoleConfig(roleId, configDoc)) {
+            if (roleManager_->updateRole(roleId, configDoc)) {
                 Serial.printf("BLE config updated for role: %s\n", roleId);
             } else {
                 Serial.printf("BLE config update failed for role: %s\n",

@@ -58,6 +58,7 @@ bool RoleManager::loadRole(const char* configPath) {
     const char* lastSlash = strrchr(configPath, '/');
     const char* filename = lastSlash ? lastSlash + 1 : configPath;
     const char* dot = strrchr(filename, '.');
+
     if (dot) {
         instanceId = std::string(filename, dot - filename);
     } else {
@@ -69,54 +70,40 @@ bool RoleManager::loadRole(const char* configPath) {
     return result;
 }
 
-// Load existing role from json, expect id to be provided otherwise generate.
-// Here we expect the `type` key to be in the configuration json doc stored in
-// flash.
+// Loads role from configuration
 bool RoleManager::loadRoleFromJson(const char* json, const char* instanceId) {
+    StaticJsonDocument<512> doc;
     size_t length = strlen(json);
 
-    StaticJsonDocument<512> doc;
     if (deserializeJson(doc, json, length)) {
         return false;
     }
 
-    // Get type and create configured role
     const char* type = doc["type"] | "";
-    auto role = factory_.createRole(type, doc);
-    if (!role) {
-        return false;
-    }
+    doc.remove("type");  // Not needed for further
 
-    // Set the instance ID from filename if provided, otherwise generate
-    // (normally not needed to generate)
-    if (instanceId) {
-        role->setInstanceId(instanceId);
-    } else {
-        role->setInstanceId(generateInstanceId(role->type()));
-    }
-
-    if (!role->validate()) {
-        return false;
-    }
-
-    roles_.push_back(std::move(role));
-    cacheValid_ = false;  // Invalidate cache when roles change
-    return true;
+    return !addRoleInternal(type, doc, instanceId, false).empty();
 }
 
 std::string RoleManager::createRole(const char* roleType,
                                     const JsonDocument& doc) {
-    if (!roleType || strlen(roleType) == 0) {
+    addRoleInternal(roleType, doc, nullptr, true);
+}
+
+std::string RoleManager::addRoleInternal(const char* type,
+                                         const JsonDocument& doc,
+                                         const char* instanceId, bool persist) {
+    if (!type || strlen(type) == 0) {
         return "";
     }
 
-    auto role = factory_.createRole(roleType, doc);
+    auto role = factory_.createRole(type, doc);
     if (!role) {
         return "";
     }
 
-    std::string instanceId = generateInstanceId(roleType);
-    role->setInstanceId(instanceId);
+    std::string id = instanceId ? instanceId : generateInstanceId(type);
+    role->setInstanceId(id);
 
     if (!role->validate()) {
         return "";
@@ -124,9 +111,12 @@ std::string RoleManager::createRole(const char* roleType,
 
     roles_.push_back(std::move(role));
     cacheValid_ = false;
-    pendingPersist_.insert(instanceId);
 
-    return instanceId;
+    if (persist) {
+        pendingPersist_.insert(id);
+    }
+
+    return id;
 }
 
 std::string RoleManager::generateInstanceId(const char* type) {
@@ -206,13 +196,12 @@ void RoleManager::rebuildCache() const {
     cacheValid_ = true;
 }
 
-bool RoleManager::updateRoleConfig(const char* roleId,
-                                   const JsonDocument& doc) {
+bool RoleManager::updateRole(const char* roleId, const JsonDocument& doc) {
     for (auto& role : roles_) {
-        if (strcmp(role->id(), roleId) == 0) {
+        if (strcmp(role->id(), roleId) == 0) {  // Locate mathcing role
             bool result = role->configureFromJson(doc);
             if (result) {
-                cacheValid_ = false;  // Invalidate cache on config change
+                cacheValid_ = false;
                 pendingPersist_.insert(roleId);  // Defer write to loopAll()
             }
             return result;

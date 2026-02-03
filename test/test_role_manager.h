@@ -321,7 +321,7 @@ void test_role_manager_get_roles_as_json_config_fields() {
     TEST_ASSERT_FLOAT_WITHIN(0.01, 4.5, config["maxVoltage"]);
 }
 
-// Tests that updateRoleConfig updates existing role
+// Tests that updateRole updates existing role
 void test_role_manager_update_role_config() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -348,7 +348,7 @@ void test_role_manager_update_role_config() {
     updateDoc["minVoltage"] = 0.2;
     updateDoc["maxVoltage"] = 4.8;
 
-    bool result = manager.updateRoleConfig("FluidLevel-abc", updateDoc);
+    bool result = manager.updateRole("FluidLevel-abc", updateDoc);
     TEST_ASSERT_TRUE_MESSAGE(result, "Update succeeded");
 
     // Verify update via getRolesAsJson
@@ -362,7 +362,7 @@ void test_role_manager_update_role_config() {
     TEST_ASSERT_EQUAL(200, config["capacity"]);
 }
 
-// Tests that updateRoleConfig returns false for unknown role
+// Tests that updateRole returns false for unknown role
 void test_role_manager_update_role_config_unknown_role() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -375,11 +375,11 @@ void test_role_manager_update_role_config_unknown_role() {
     updateDoc["minVoltage"] = 0.5;
     updateDoc["maxVoltage"] = 4.5;
 
-    bool result = manager.updateRoleConfig("NonExistentRole", updateDoc);
+    bool result = manager.updateRole("NonExistentRole", updateDoc);
     TEST_ASSERT_FALSE(result);
 }
 
-// Tests that updateRoleConfig persists to filesystem
+// Tests that updateRole persists to filesystem
 void test_role_manager_update_role_config_persists() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -407,7 +407,7 @@ void test_role_manager_update_role_config_persists() {
     updateDoc["minVoltage"] = 0.2;
     updateDoc["maxVoltage"] = 4.8;
 
-    bool result = manager.updateRoleConfig("FluidLevel-abc", updateDoc);
+    bool result = manager.updateRole("FluidLevel-abc", updateDoc);
     TEST_ASSERT_TRUE(result);
 
     // Trigger deferred persist via loopAll
@@ -426,7 +426,7 @@ void test_role_manager_update_role_config_persists() {
     TEST_ASSERT_EQUAL(200, savedDoc["capacity"]);
 }
 
-// Tests that updateRoleConfig returns false for invalid config
+// Tests that updateRole returns false for invalid config
 void test_role_manager_update_role_config_invalid() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
@@ -453,7 +453,7 @@ void test_role_manager_update_role_config_invalid() {
     updateDoc["minVoltage"] = 5.0;
     updateDoc["maxVoltage"] = 1.0;
 
-    bool result = manager.updateRoleConfig("FluidLevel", updateDoc);
+    bool result = manager.updateRole("FluidLevel", updateDoc);
     TEST_ASSERT_FALSE(result);
 }
 
