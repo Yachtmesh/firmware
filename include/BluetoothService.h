@@ -1,11 +1,11 @@
 #pragma once
 
 #include <NimBLEDevice.h>
-#include <Preferences.h>
 
 #include <set>
 #include <string>
 
+#include "DeviceInfo.h"
 #include "RoleManager.h"
 
 class BluetoothServiceInterface {
@@ -27,7 +27,8 @@ class BluetoothService : public BluetoothServiceInterface,
                          public NimBLEServerCallbacks,
                          public NimBLECharacteristicCallbacks {
    public:
-    BluetoothService(RoleManager* roleManager = nullptr);
+    BluetoothService(RoleManager* roleManager = nullptr,
+                     DeviceInfo* deviceInfo = nullptr);
 
     void start() override;
     void stop() override;
@@ -72,21 +73,9 @@ class BluetoothService : public BluetoothServiceInterface,
     static constexpr const char* NVS_NAMESPACE = "yachtmesh";
     static constexpr const char* NVS_DEVICE_ID_KEY = "ble_device_id";
 
-    // Firmware version
-    static constexpr uint8_t FW_VERSION_MAJOR = 0;
-    static constexpr uint8_t FW_VERSION_MINOR = 1;
-    static constexpr uint8_t FW_VERSION_PATCH = 0;
-
-    // Default NMEA address (will be configurable later)
-    static constexpr uint8_t DEFAULT_NMEA_ADDRESS = 22;
-
     // Dependencies
     RoleManager* roleManager_ = nullptr;
-
-    // State
-    std::string deviceId_;
-    uint8_t statusSeq_ = 0;
-    uint32_t startTime_ = 0;
+    DeviceInfo* deviceInfo_ = nullptr;
 
     // BLE objects
     NimBLEServer* pServer_ = nullptr;
@@ -101,12 +90,7 @@ class BluetoothService : public BluetoothServiceInterface,
     std::set<uint16_t> authenticatedClients_;
 
     // Private methods
-    void loadOrGenerateDeviceId();
-    std::string generateDeviceId();
     bool isClientAuthenticated(uint16_t connHandle) const;
     void updateStatus();
-    void buildDeviceInfo(uint8_t* buffer);
-    void buildDeviceStatus(uint8_t* buffer);
     std::string buildRolesJson();
-    uint32_t getUptime() const;
 };

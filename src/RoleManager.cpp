@@ -141,6 +141,54 @@ bool RoleManager::updateRole(const char* roleId, const JsonDocument& doc) {
     return false;
 }
 
+ApplyConfigResult RoleManager::applyRoleConfig(const JsonDocument& doc) {
+    ApplyConfigResult result;
+
+    // Extract fields from doc
+    const char* roleId = doc["roleId"] | "";
+    const char* roleType = doc["roleType"] | "";
+    JsonObjectConst configObj = doc["config"];
+
+    if (configObj.isNull()) {
+        result.error = "Missing config object";
+        return result;
+    }
+
+    // Create a new doc for just the config
+    StaticJsonDocument<256> configDoc;
+    for (JsonPairConst kv : configObj) {
+        configDoc[kv.key()] = kv.value();
+    }
+
+    if (strlen(roleId) == 0) {
+        // No roleId - create a new role
+        if (strlen(roleType) == 0) {
+            result.error = "Missing roleType for new role";
+            return result;
+        }
+
+        std::string newId = createRole(roleType, configDoc);
+        if (newId.empty()) {
+            result.error = "Failed to create role";
+            return result;
+        }
+
+        result.success = true;
+        result.roleId = newId;
+    } else {
+        // Update existing role
+        if (!updateRole(roleId, configDoc)) {
+            result.error = "Failed to update role";
+            return result;
+        }
+
+        result.success = true;
+        result.roleId = roleId;
+    }
+
+    return result;
+}
+
 void RoleManager::persistPendingConfigs() {
     for (const auto& roleId : pendingPersist_) {
         for (auto& role : roles_) {

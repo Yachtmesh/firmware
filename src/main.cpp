@@ -2,6 +2,8 @@
 
 #include "AnalogInputService.h"
 #include "BluetoothService.h"
+#include "DeviceInfo.h"
+#include "Esp32Platform.h"
 #include "LittleFSAdapter.h"
 #include "NMEA2000Service.h"
 #include "RoleFactory.h"
@@ -10,10 +12,12 @@
 Nmea2000Service nmea;
 AnalogInputService analogInput;
 LittleFSAdapter fileSystem;
+Esp32Platform platform;
 
 RoleFactory roleFactory(analogInput, nmea);
 RoleManager roleManager(roleFactory, fileSystem);
-BluetoothService bluetooth(&roleManager);
+DeviceInfo deviceInfo(platform);
+BluetoothService bluetooth(&roleManager, &deviceInfo);
 
 void setup() {
     Serial.begin(115200);

@@ -2,75 +2,21 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include <esp_mac.h>
-#include <nvs_flash.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-uint8_t temprature_sens_read();
-#ifdef __cplusplus
-}
-#endif
 
 #ifndef DEFAULT_BLE_PASSWORD
 #define DEFAULT_BLE_PASSWORD "yachtmesh123"
 #endif
 
-// Data structure sizes
-static constexpr size_t DEVICE_INFO_SIZE = 20;
-static constexpr size_t STATUS_SIZE = 9;
-
-BluetoothService::BluetoothService(RoleManager* roleManager)
-    : roleManager_(roleManager) {
-    loadOrGenerateDeviceId();
-}
-
-void BluetoothService::loadOrGenerateDeviceId() {
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
-        err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        nvs_flash_erase();
-        nvs_flash_init();
-    }
-
-    Preferences prefs;
-    prefs.begin(NVS_NAMESPACE, false);
-
-    if (prefs.isKey(NVS_DEVICE_ID_KEY)) {
-        deviceId_ = prefs.getString(NVS_DEVICE_ID_KEY, "").c_str();
-    }
-
-    if (deviceId_.empty() || deviceId_.length() != 6) {
-        deviceId_ = generateDeviceId();
-        prefs.putString(NVS_DEVICE_ID_KEY, deviceId_.c_str());
-    }
-
-    prefs.end();
-}
-
-std::string BluetoothService::generateDeviceId() {
-    uint8_t mac[6];
-    esp_read_mac(mac, ESP_MAC_BT);
-
-    // Use last 4 bytes (32 bits) - first bytes are manufacturer prefix
-    uint32_t id = (mac[2] << 24) | (mac[3] << 16) | (mac[4] << 8) | mac[5];
-
-    static const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    std::string result;
-    result.reserve(6);
-
-    for (int i = 0; i < 6; i++) {
-        result += charset[id % 36];
-        id /= 36;
-    }
-
-    return result;
-}
+BluetoothService::BluetoothService(RoleManager* roleManager,
+                                   DeviceInfo* deviceInfo)
+    : roleManager_(roleManager), deviceInfo_(deviceInfo) {}
 
 void BluetoothService::start() {
-    startTime_ = millis();
-    std::string deviceName = "Yachtmesh-" + deviceId_;
+    if (deviceInfo_) {
+        deviceInfo_->start();
+    }
+    std::string deviceName = "Yachtmesh-";
+    deviceName += deviceInfo_ ? deviceInfo_->getDeviceId() : "Unknown";
 
     NimBLEDevice::init(deviceName);
     NimBLEDevice::setPower(ESP_PWR_LVL_P9);
@@ -135,7 +81,9 @@ void BluetoothService::stop() {
 
 void BluetoothService::loop() { updateStatus(); }
 
-std::string BluetoothService::getDeviceId() const { return deviceId_; }
+std::string BluetoothService::getDeviceId() const {
+    return deviceInfo_ ? deviceInfo_->getDeviceId() : "";
+}
 
 bool BluetoothService::isConnected() const {
     return pServer_ && pServer_->getConnectedCount() > 0;
@@ -146,12 +94,7 @@ bool BluetoothService::hasAuthenticatedClient() const {
 }
 
 float BluetoothService::getCpuTemperature() {
-    uint8_t raw = temprature_sens_read();
-    return (raw - 32) / 1.8f;
-}
-
-uint32_t BluetoothService::getUptime() const {
-    return (millis() - startTime_) / 1000;
+    return deviceInfo_ ? deviceInfo_->getCpuTemperature() : 0.0f;
 }
 
 void BluetoothService::onConnect(NimBLEServer* pServer,
@@ -205,45 +148,15 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
             return;
         }
 
-        // Expected format: {"roleId": "FluidLevel-trq", "roleType":
-        // "FluidLevel", "config": {...}} If roleId is omitted, creates a new
-        // role using roleType
-        const char* roleId = doc["roleId"] | "";
-        const char* roleType = doc["roleType"] | "";
-        JsonObject configObj = doc["config"];
+        // Use unified applyRoleConfig method
+        ApplyConfigResult result = roleManager_->applyRoleConfig(doc);
 
-        if (configObj.isNull()) {
-            Serial.println("BLE config update failed: missing config");
-            return;
-        }
-
-        // Create a new doc for just the config
-        StaticJsonDocument<256> configDoc;
-        for (JsonPair kv : configObj) {
-            configDoc[kv.key()] = kv.value();
-        }
-
-        if (strlen(roleId) == 0) {
-            // No roleId - create a new role
-            if (strlen(roleType) == 0) {
-                Serial.println("BLE role creation failed: missing roleType");
-                return;
-            }
-            std::string newId = roleManager_->createRole(roleType, configDoc);
-
-            if (!newId.empty()) {
-                Serial.printf("BLE created new role: %s\n", newId.c_str());
-            } else {
-                Serial.println("BLE role creation failed");
-            }
+        if (result.success) {
+            Serial.printf("BLE config applied for role: %s\n",
+                          result.roleId.c_str());
         } else {
-            // Update existing role
-            if (roleManager_->updateRole(roleId, configDoc)) {
-                Serial.printf("BLE config updated for role: %s\n", roleId);
-            } else {
-                Serial.printf("BLE config update failed for role: %s\n",
-                              roleId);
-            }
+            Serial.printf("BLE config update failed: %s\n",
+                          result.error.c_str());
         }
     } else if (pCharacteristic == pFactoryResetChar_) {
         // Require authentication for factory reset
@@ -277,10 +190,10 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
     // Device info, status, and roles require authentication
     if (!authenticated) {
         if (pCharacteristic == pDeviceInfoChar_) {
-            uint8_t empty[DEVICE_INFO_SIZE] = {0};
+            uint8_t empty[DeviceInfo::DEVICE_INFO_SIZE] = {0};
             pCharacteristic->setValue(empty, sizeof(empty));
         } else if (pCharacteristic == pStatusChar_) {
-            uint8_t empty[STATUS_SIZE] = {0};
+            uint8_t empty[DeviceInfo::STATUS_SIZE] = {0};
             pCharacteristic->setValue(empty, sizeof(empty));
         } else if (pCharacteristic == pRolesChar_) {
             pCharacteristic->setValue("[]");
@@ -290,12 +203,20 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
 
     // Authenticated - return real data
     if (pCharacteristic == pDeviceInfoChar_) {
-        uint8_t buffer[DEVICE_INFO_SIZE];
-        buildDeviceInfo(buffer);
+        uint8_t buffer[DeviceInfo::DEVICE_INFO_SIZE];
+        if (deviceInfo_) {
+            deviceInfo_->buildDeviceInfo(buffer);
+        } else {
+            memset(buffer, 0, sizeof(buffer));
+        }
         pCharacteristic->setValue(buffer, sizeof(buffer));
     } else if (pCharacteristic == pStatusChar_) {
-        uint8_t buffer[STATUS_SIZE];
-        buildDeviceStatus(buffer);
+        uint8_t buffer[DeviceInfo::STATUS_SIZE];
+        if (deviceInfo_) {
+            deviceInfo_->buildDeviceStatus(buffer);
+        } else {
+            memset(buffer, 0, sizeof(buffer));
+        }
         pCharacteristic->setValue(buffer, sizeof(buffer));
     } else if (pCharacteristic == pRolesChar_) {
         std::string json = buildRolesJson();
@@ -308,49 +229,18 @@ bool BluetoothService::isClientAuthenticated(uint16_t connHandle) const {
            authenticatedClients_.end();
 }
 
-void BluetoothService::buildDeviceInfo(uint8_t* buffer) {
-    memset(buffer, 0, DEVICE_INFO_SIZE);
-
-    // Device ID (6 bytes, ASCII)
-    memcpy(buffer, deviceId_.c_str(), 6);
-
-    // MAC address (6 bytes)
-    esp_read_mac(buffer + 6, ESP_MAC_BT);
-
-    // NMEA address (1 byte)
-    buffer[12] = DEFAULT_NMEA_ADDRESS;
-
-    // Firmware version (3 bytes)
-    buffer[13] = FW_VERSION_MAJOR;
-    buffer[14] = FW_VERSION_MINOR;
-    buffer[15] = FW_VERSION_PATCH;
-
-    // Reserved (4 bytes) - already zeroed
-}
-
-void BluetoothService::buildDeviceStatus(uint8_t* buffer) {
-    memset(buffer, 0, STATUS_SIZE);
-
-    // Sequence (1 byte)
-    buffer[0] = statusSeq_++;
-
-    // Temperature (4 bytes, float32)
-    float temp = getCpuTemperature();
-    memcpy(buffer + 1, &temp, sizeof(float));
-
-    // Uptime (4 bytes, uint32)
-    uint32_t uptime = getUptime();
-    memcpy(buffer + 5, &uptime, sizeof(uint32_t));
-}
-
 void BluetoothService::updateStatus() {
     if (!pServer_ || pServer_->getConnectedCount() == 0) {
         return;
     }
 
+    if (!deviceInfo_) {
+        return;
+    }
+
     // Build and send status update
-    uint8_t buffer[STATUS_SIZE];
-    buildDeviceStatus(buffer);
+    uint8_t buffer[DeviceInfo::STATUS_SIZE];
+    deviceInfo_->buildDeviceStatus(buffer);
     pStatusChar_->setValue(buffer, sizeof(buffer));
     pStatusChar_->notify();
 }

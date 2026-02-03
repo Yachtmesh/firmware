@@ -1,5 +1,6 @@
 #include <unity.h>
 
+#include "test_device_info.h"
 #include "test_fluid_level_sensor_role.h"
 #include "test_role_manager.h"
 
@@ -55,6 +56,26 @@ int main() {
     RUN_TEST(test_role_manager_factory_reset_deletes_files);
     RUN_TEST(test_role_manager_factory_reset_empty);
     RUN_TEST(test_role_manager_factory_reset_clears_pending);
+
+    // applyRoleConfig tests
+    RUN_TEST(test_role_manager_apply_config_creates_role);
+    RUN_TEST(test_role_manager_apply_config_updates_role);
+    RUN_TEST(test_role_manager_apply_config_returns_role_id);
+    RUN_TEST(test_role_manager_apply_config_missing_config);
+    RUN_TEST(test_role_manager_apply_config_missing_role_type);
+    RUN_TEST(test_role_manager_apply_config_unknown_role);
+
+    // DeviceInfo tests
+    RUN_TEST(test_device_info_generates_id_from_mac);
+    RUN_TEST(test_device_info_id_format);
+    RUN_TEST(test_device_info_loads_stored_id);
+    RUN_TEST(test_device_info_regenerates_invalid_id);
+    RUN_TEST(test_device_info_build_device_info_format);
+    RUN_TEST(test_device_info_build_device_status_format);
+    RUN_TEST(test_device_info_status_sequence_increments);
+    RUN_TEST(test_device_info_uptime_calculation);
+    RUN_TEST(test_device_info_cpu_temperature);
+    RUN_TEST(test_device_info_id_deterministic);
 
     return UNITY_END();
 }

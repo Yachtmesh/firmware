@@ -13,6 +13,13 @@
 // Nmea2000ServiceInterface. If we add a new role type that needs GPSInterface,
 // only RoleFactory changes - RoleManager remains untouched.
 
+// Result of applyRoleConfig operation
+struct ApplyConfigResult {
+    bool success = false;
+    std::string roleId;  // New ID on create, existing ID on update
+    std::string error;
+};
+
 class RoleManager {
    public:
     RoleManager(RoleFactory& factory, FileSystemInterface& fs);
@@ -32,6 +39,13 @@ class RoleManager {
 
     // Update existing role config
     bool updateRole(const char* roleId, const JsonDocument& doc);
+
+    // Unified config application - routes to create or update
+    // If roleId is empty/missing, creates a new role using roleType
+    // If roleId is present, updates existing role
+    // Expected JSON format:
+    // {"roleId": "FluidLevel-abc", "roleType": "FluidLevel", "config": {...}}
+    ApplyConfigResult applyRoleConfig(const JsonDocument& doc);
 
     size_t roleCount() const { return roles_.size(); }
 
