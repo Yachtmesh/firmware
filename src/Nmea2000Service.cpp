@@ -14,35 +14,43 @@
 #include <NMEA2000_CAN.h>
 
 const unsigned long TransmitMessages[] PROGMEM = {130310L, 130311L, 130312L, 0};
+const uint32_t kIndustryCode = 2040;
 
 tN2kSyncScheduler FluidLevelScheduler(false, 2000, 500);
-tN2kSyncScheduler EnvironmentalScheduler(false, 500, 510);
-tN2kSyncScheduler OutsideEnvironmentalScheduler(false, 500, 520);
 
 void OnN2kOpen() {
     // Start schedulers now.
     FluidLevelScheduler.UpdateNextTime();
-    EnvironmentalScheduler.UpdateNextTime();
-    OutsideEnvironmentalScheduler.UpdateNextTime();
+}
+
+// Generate unique number from industry code 2040 and ESP32 chip ID
+// NMEA2000 unique number is 21 bits (0-2097151)
+static uint32_t generateUniqueNumber() {
+    uint64_t chipId = ESP.getEfuseMac();
+    // Use industry code as base, add lower bits of chip ID for uniqueness
+    // 2040 * 1000 = 2,040,000 leaves room for ~57,000 devices within 21-bit
+    // limit
+    uint32_t uniqueNumber = (kIndustryCode * 1000) + (chipId & 0xFFFF) % 57000;
+    return uniqueNumber & 0x1FFFFF;  // Mask to 21 bits
 }
 
 // begin(): actually start hardware (Serial, CAN bus)
 void Nmea2000Service::start() {
     // Set Product information
     NMEA2000.SetProductInformation(
-        "00000001",               // Manufacturer's Model serial code
-        100,                      // Manufacturer's product code
-        "Simple temp monitor",    // Manufacturer's Model ID
-        "1.2.0.21 (2022-09-30)",  // Software version
-        "1.1.0.0 (2022-09-30)"    // Model version
+        "00000001",   // Manufacturer's Model serial code
+        100,          // Manufacturer's product code
+        "Yachtmesh",  // Manufacturer's Model ID
+        "0.0.1",      // Software version
+        "1"           // Model version
     );
 
     // Set device information
     NMEA2000.SetDeviceInformation(
-        112233,  // Unique number / Serial number
-        130,     // Device function = Temperature
-        75,      // Device class = Sensor Communication Interface
-        2040     // Industry code / free from registry
+        generateUniqueNumber(),  // Unique number derived from ESP32 chip ID
+        130,                     // Device function = Temperature
+        75,            // Device class = Sensor Communication Interface
+        kIndustryCode  // Industry code / manufacturer ID
     );
 
     // Configure CAN/NMEA mode
@@ -65,16 +73,17 @@ void Nmea2000Service::sendMetric(const Metric& metric) {
 
     switch (metric.type) {
         case MetricType::FluidLevel: {
-            FluidLevelScheduler.UpdateNextTime();
+            if (FluidLevelScheduler.IsTime()) {
+                tN2kFluidType fluidType = static_cast<tN2kFluidType>(
+                    toN2kFluidType(metric.context.fluidLevel.fluidType));
+                uint16_t capacity = metric.context.fluidLevel.capacity;
+                unsigned char inst = metric.context.fluidLevel.inst;
 
-            tN2kFluidType fluidType = static_cast<tN2kFluidType>(
-                toN2kFluidType(metric.context.fluidLevel.fluidType));
-            uint16_t capacity = metric.context.fluidLevel.capacity;
-            unsigned char inst = metric.context.fluidLevel.inst;
+                SetN2kFluidLevel(N2kMsg, inst, fluidType,
+                                 static_cast<double>(metric.value), capacity);
 
-            SetN2kFluidLevel(N2kMsg, inst, fluidType,
-                             static_cast<double>(metric.value), capacity);
-
+                FluidLevelScheduler.UpdateNextTime();
+            }
             break;
         }
 
