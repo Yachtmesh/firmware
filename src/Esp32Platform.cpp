@@ -1,8 +1,8 @@
 #include "Esp32Platform.h"
 
-#include <Arduino.h>
-#include <Preferences.h>
 #include <esp_mac.h>
+#include <esp_timer.h>
+#include <nvs.h>
 #include <nvs_flash.h>
 
 #ifdef __cplusplus
@@ -25,23 +25,41 @@ std::string Esp32Platform::loadDeviceId() {
         nvs_flash_init();
     }
 
-    Preferences prefs;
-    prefs.begin(NVS_NAMESPACE, true);  // read-only
-
-    std::string id;
-    if (prefs.isKey(NVS_DEVICE_ID_KEY)) {
-        id = prefs.getString(NVS_DEVICE_ID_KEY, "").c_str();
+    nvs_handle_t handle;
+    err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &handle);
+    if (err != ESP_OK) {
+        return "";
     }
 
-    prefs.end();
+    size_t required_size = 0;
+    err = nvs_get_str(handle, NVS_DEVICE_ID_KEY, nullptr, &required_size);
+    if (err != ESP_OK || required_size == 0) {
+        nvs_close(handle);
+        return "";
+    }
+
+    char* buf = new char[required_size];
+    err = nvs_get_str(handle, NVS_DEVICE_ID_KEY, buf, &required_size);
+    nvs_close(handle);
+
+    std::string id;
+    if (err == ESP_OK) {
+        id = buf;
+    }
+    delete[] buf;
     return id;
 }
 
 void Esp32Platform::saveDeviceId(const std::string& id) {
-    Preferences prefs;
-    prefs.begin(NVS_NAMESPACE, false);  // read-write
-    prefs.putString(NVS_DEVICE_ID_KEY, id.c_str());
-    prefs.end();
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        return;
+    }
+
+    nvs_set_str(handle, NVS_DEVICE_ID_KEY, id.c_str());
+    nvs_commit(handle);
+    nvs_close(handle);
 }
 
 float Esp32Platform::getCpuTemperature() {
@@ -50,5 +68,5 @@ float Esp32Platform::getCpuTemperature() {
 }
 
 uint32_t Esp32Platform::getMillis() {
-    return millis();
+    return (uint32_t)(esp_timer_get_time() / 1000);
 }
