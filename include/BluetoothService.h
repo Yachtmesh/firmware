@@ -90,8 +90,8 @@ class BluetoothService : public BluetoothServiceInterface,
     std::set<uint16_t> authenticatedClients_;
 
     // Status update rate limiting
-    unsigned long lastStatusUpdate_ = 0;
-    static constexpr unsigned long STATUS_UPDATE_INTERVAL_MS = 1000;
+    uint32_t lastStatusUpdate_ = 0;
+    static constexpr uint32_t STATUS_UPDATE_INTERVAL_MS = 1000;
 
     // Private methods
     bool isClientAuthenticated(uint16_t connHandle) const;

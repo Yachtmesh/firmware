@@ -1,11 +1,14 @@
 #include "BluetoothService.h"
 
-#include <Arduino.h>
 #include <ArduinoJson.h>
+#include <esp_log.h>
+#include <esp_timer.h>
 
 #ifndef DEFAULT_BLE_PASSWORD
 #define DEFAULT_BLE_PASSWORD "yachtmesh123"
 #endif
+
+static const char* TAG = "ble";
 
 BluetoothService::BluetoothService(RoleManager* roleManager,
                                    DeviceInfo* deviceInfo)
@@ -69,7 +72,7 @@ void BluetoothService::start() {
     pAdvertising->setScanResponse(true);
     pAdvertising->start();
 
-    Serial.printf("BLE started as %s\n", deviceName.c_str());
+    ESP_LOGI(TAG, "BLE started as %s", deviceName.c_str());
 }
 
 void BluetoothService::stop() {
@@ -99,14 +102,14 @@ float BluetoothService::getCpuTemperature() {
 
 void BluetoothService::onConnect(NimBLEServer* pServer,
                                  ble_gap_conn_desc* desc) {
-    Serial.printf("BLE client connected: %d\n", desc->conn_handle);
+    ESP_LOGI(TAG, "BLE client connected: %d", desc->conn_handle);
 }
 
 void BluetoothService::onDisconnect(NimBLEServer* pServer,
                                     ble_gap_conn_desc* desc) {
     uint16_t connHandle = desc->conn_handle;
     authenticatedClients_.erase(connHandle);
-    Serial.printf("BLE client disconnected: %d\n", connHandle);
+    ESP_LOGI(TAG, "BLE client disconnected: %d", connHandle);
 
     NimBLEDevice::startAdvertising();
 }
@@ -120,9 +123,9 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
         if (value == DEFAULT_BLE_PASSWORD) {
             authenticatedClients_.insert(desc->conn_handle);
             authResult = 1;
-            Serial.printf("BLE client %d authenticated\n", desc->conn_handle);
+            ESP_LOGI(TAG, "BLE client %d authenticated", desc->conn_handle);
         } else {
-            Serial.printf("BLE client %d auth failed\n", desc->conn_handle);
+            ESP_LOGW(TAG, "BLE client %d auth failed", desc->conn_handle);
         }
 
         // Notify auth status change
@@ -131,12 +134,12 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
     } else if (pCharacteristic == pConfigUpdateChar_) {
         // Require authentication for config updates
         if (!isClientAuthenticated(desc->conn_handle)) {
-            Serial.println("BLE config update rejected: not authenticated");
+            ESP_LOGW(TAG, "BLE config update rejected: not authenticated");
             return;
         }
 
         if (!roleManager_) {
-            Serial.println("BLE config update rejected: no role manager");
+            ESP_LOGW(TAG, "BLE config update rejected: no role manager");
             return;
         }
 
@@ -144,7 +147,7 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
 
         StaticJsonDocument<512> doc;
         if (deserializeJson(doc, value)) {
-            Serial.println("BLE config update failed: invalid JSON");
+            ESP_LOGW(TAG, "BLE config update failed: invalid JSON");
             return;
         }
 
@@ -152,26 +155,26 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
         ApplyConfigResult result = roleManager_->applyRoleConfig(doc);
 
         if (result.success) {
-            Serial.printf("BLE config applied for role: %s\n",
-                          result.roleId.c_str());
+            ESP_LOGI(TAG, "BLE config applied for role: %s",
+                     result.roleId.c_str());
         } else {
-            Serial.printf("BLE config update failed: %s\n",
-                          result.error.c_str());
+            ESP_LOGW(TAG, "BLE config update failed: %s",
+                     result.error.c_str());
         }
     } else if (pCharacteristic == pFactoryResetChar_) {
         // Require authentication for factory reset
         if (!isClientAuthenticated(desc->conn_handle)) {
-            Serial.println("BLE factory reset rejected: not authenticated");
+            ESP_LOGW(TAG, "BLE factory reset rejected: not authenticated");
             return;
         }
 
         if (!roleManager_) {
-            Serial.println("BLE factory reset rejected: no role manager");
+            ESP_LOGW(TAG, "BLE factory reset rejected: no role manager");
             return;
         }
 
         roleManager_->factoryReset();
-        Serial.println("BLE factory reset initiated");
+        ESP_LOGI(TAG, "BLE factory reset initiated");
     }
 }
 
@@ -235,7 +238,7 @@ void BluetoothService::updateStatus() {
     }
 
     // Rate limit status updates to avoid flooding the connection
-    unsigned long now = millis();
+    uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
     if (now - lastStatusUpdate_ < STATUS_UPDATE_INTERVAL_MS) {
         return;
     }

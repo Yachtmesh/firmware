@@ -12,6 +12,7 @@
 
 #include <N2KMessages.h>
 #include <NMEA2000_CAN.h>
+#include <esp_mac.h>
 
 const unsigned long TransmitMessages[] PROGMEM = {130310L, 130311L, 130312L, 0};
 const uint32_t kIndustryCode = 2040;
@@ -26,7 +27,11 @@ void OnN2kOpen() {
 // Generate unique number from industry code 2040 and ESP32 chip ID
 // NMEA2000 unique number is 21 bits (0-2097151)
 static uint32_t generateUniqueNumber() {
-    uint64_t chipId = ESP.getEfuseMac();
+    uint8_t mac[6];
+    esp_efuse_mac_get_default(mac);
+    uint64_t chipId = ((uint64_t)mac[0] << 40) | ((uint64_t)mac[1] << 32) |
+                      ((uint64_t)mac[2] << 24) | ((uint64_t)mac[3] << 16) |
+                      ((uint64_t)mac[4] << 8) | mac[5];
     // Use industry code as base, add lower bits of chip ID for uniqueness
     // 2040 * 1000 = 2,040,000 leaves room for ~57,000 devices within 21-bit
     // limit
@@ -56,9 +61,9 @@ void Nmea2000Service::start() {
     // Configure CAN/NMEA mode
     NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 22);
 
-    // Forwarding and messages
-    NMEA2000.SetForwardStream(&Serial);
-    NMEA2000.EnableForward(false);  // disable USB forwarding
+    // Disable USB forwarding
+    NMEA2000.SetForwardStream(nullptr);
+    NMEA2000.EnableForward(false);
     NMEA2000.ExtendTransmitMessages(TransmitMessages);
 
     // Set callback
