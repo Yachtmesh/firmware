@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <esp_log.h>
 
 #include "AnalogInputService.h"
 #include "BluetoothService.h"
@@ -8,6 +9,8 @@
 #include "NMEA2000Service.h"
 #include "RoleFactory.h"
 #include "RoleManager.h"
+
+static const char* TAG = "main";
 
 Nmea2000Service nmea;
 AnalogInputService analogInput;
@@ -20,10 +23,8 @@ DeviceInfo deviceInfo(platform);
 BluetoothService bluetooth(&roleManager, &deviceInfo);
 
 void setup() {
-    Serial.begin(115200);
-
     if (!fileSystem.begin()) {
-        Serial.println("LittleFS mount failed");
+        ESP_LOGE(TAG, "LittleFS mount failed");
     }
     fileSystem.mkdir("/roles");
 
@@ -32,7 +33,6 @@ void setup() {
     bluetooth.start();
 
     // Load roles from filesystem and start all roles
-    // TODO: Add error handling to role status
     loadRolesFromDirectory(roleManager, fileSystem, "/roles");
     roleManager.startAll();
 }
