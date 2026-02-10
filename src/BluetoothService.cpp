@@ -22,7 +22,7 @@ void BluetoothService::start() {
     deviceName += deviceInfo_ ? deviceInfo_->getDeviceId() : "Unknown";
 
     NimBLEDevice::init(deviceName);
-    NimBLEDevice::setPower(ESP_PWR_LVL_P9);
+    NimBLEDevice::setPower(9);  // 9 dBm
 
     pServer_ = NimBLEDevice::createServer();
     pServer_->setCallbacks(this);
@@ -69,7 +69,7 @@ void BluetoothService::start() {
 
     NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
     pAdvertising->addServiceUUID(SERVICE_UUID);
-    pAdvertising->setScanResponse(true);
+    pAdvertising->enableScanResponse(true);
     pAdvertising->start();
 
     ESP_LOGI(TAG, "BLE started as %s", deviceName.c_str());
@@ -101,39 +101,42 @@ float BluetoothService::getCpuTemperature() {
 }
 
 void BluetoothService::onConnect(NimBLEServer* pServer,
-                                 ble_gap_conn_desc* desc) {
-    ESP_LOGI(TAG, "BLE client connected: %d", desc->conn_handle);
+                                 NimBLEConnInfo& connInfo) {
+    ESP_LOGI(TAG, "BLE client connected: %d", connInfo.getConnHandle());
 }
 
 void BluetoothService::onDisconnect(NimBLEServer* pServer,
-                                    ble_gap_conn_desc* desc) {
-    uint16_t connHandle = desc->conn_handle;
+                                    NimBLEConnInfo& connInfo, int reason) {
+    uint16_t connHandle = connInfo.getConnHandle();
     authenticatedClients_.erase(connHandle);
-    ESP_LOGI(TAG, "BLE client disconnected: %d", connHandle);
+    ESP_LOGI(TAG, "BLE client disconnected: %d (reason %d)", connHandle,
+             reason);
 
     NimBLEDevice::startAdvertising();
 }
 
 void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
-                               ble_gap_conn_desc* desc) {
+                               NimBLEConnInfo& connInfo) {
+    uint16_t connHandle = connInfo.getConnHandle();
+
     if (pCharacteristic == pPasswordChar_) {
         std::string value = pCharacteristic->getValue();
         uint8_t authResult = 0;
 
         if (value == DEFAULT_BLE_PASSWORD) {
-            authenticatedClients_.insert(desc->conn_handle);
+            authenticatedClients_.insert(connHandle);
             authResult = 1;
-            ESP_LOGI(TAG, "BLE client %d authenticated", desc->conn_handle);
+            ESP_LOGI(TAG, "BLE client %d authenticated", connHandle);
         } else {
-            ESP_LOGW(TAG, "BLE client %d auth failed", desc->conn_handle);
+            ESP_LOGW(TAG, "BLE client %d auth failed", connHandle);
         }
 
         // Notify auth status change
         pAuthStatusChar_->setValue(&authResult, 1);
-        pAuthStatusChar_->notify(desc->conn_handle);
+        pAuthStatusChar_->notify(connHandle);
     } else if (pCharacteristic == pConfigUpdateChar_) {
         // Require authentication for config updates
-        if (!isClientAuthenticated(desc->conn_handle)) {
+        if (!isClientAuthenticated(connHandle)) {
             ESP_LOGW(TAG, "BLE config update rejected: not authenticated");
             return;
         }
@@ -158,12 +161,11 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
             ESP_LOGI(TAG, "BLE config applied for role: %s",
                      result.roleId.c_str());
         } else {
-            ESP_LOGW(TAG, "BLE config update failed: %s",
-                     result.error.c_str());
+            ESP_LOGW(TAG, "BLE config update failed: %s", result.error.c_str());
         }
     } else if (pCharacteristic == pFactoryResetChar_) {
         // Require authentication for factory reset
-        if (!isClientAuthenticated(desc->conn_handle)) {
+        if (!isClientAuthenticated(connHandle)) {
             ESP_LOGW(TAG, "BLE factory reset rejected: not authenticated");
             return;
         }
@@ -179,8 +181,8 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
 }
 
 void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
-                              ble_gap_conn_desc* desc) {
-    uint16_t connHandle = desc->conn_handle;
+                              NimBLEConnInfo& connInfo) {
+    uint16_t connHandle = connInfo.getConnHandle();
     bool authenticated = isClientAuthenticated(connHandle);
 
     // Auth status - always readable

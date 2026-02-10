@@ -14,11 +14,11 @@ struct FluidLevelConfig : public RoleConfig {
     FluidLevelConfig() = default;
     FluidLevelConfig(FluidType ft, unsigned char i, uint16_t cap, float minV,
                      float maxV)
-        : fluidType(ft),
+        : minVoltage(minV),
+          maxVoltage(maxV),
           inst(i),
-          capacity(cap),
-          minVoltage(minV),
-          maxVoltage(maxV) {}
+          fluidType(ft),
+          capacity(cap) {}
 
     void toJson(JsonDocument& doc) const;
 };

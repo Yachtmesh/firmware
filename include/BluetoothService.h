@@ -41,14 +41,15 @@ class BluetoothService : public BluetoothServiceInterface,
     float getCpuTemperature() override;
 
     // NimBLEServerCallbacks
-    void onConnect(NimBLEServer* pServer, ble_gap_conn_desc* desc) override;
-    void onDisconnect(NimBLEServer* pServer, ble_gap_conn_desc* desc) override;
+    void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override;
+    void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo,
+                      int reason) override;
 
     // NimBLECharacteristicCallbacks
     void onWrite(NimBLECharacteristic* pCharacteristic,
-                 ble_gap_conn_desc* desc) override;
+                 NimBLEConnInfo& connInfo) override;
     void onRead(NimBLECharacteristic* pCharacteristic,
-                ble_gap_conn_desc* desc) override;
+                NimBLEConnInfo& connInfo) override;
 
    private:
     // UUIDs

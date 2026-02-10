@@ -1,5 +1,6 @@
-#include <Arduino.h>
 #include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include "AnalogInputService.h"
 #include "BluetoothService.h"
@@ -22,7 +23,7 @@ RoleManager roleManager(roleFactory, fileSystem);
 DeviceInfo deviceInfo(platform);
 BluetoothService bluetooth(&roleManager, &deviceInfo);
 
-void setup() {
+extern "C" void app_main() {
     if (!fileSystem.begin()) {
         ESP_LOGE(TAG, "LittleFS mount failed");
     }
@@ -35,9 +36,11 @@ void setup() {
     // Load roles from filesystem and start all roles
     loadRolesFromDirectory(roleManager, fileSystem, "/roles");
     roleManager.startAll();
-}
 
-void loop() {
-    roleManager.loopAll();
-    bluetooth.loop();
+    // Main loop
+    while (true) {
+        roleManager.loopAll();
+        bluetooth.loop();
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
 }

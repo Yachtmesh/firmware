@@ -1,0 +1,23 @@
+idf_component_register(
+    SRCS
+        "main.cpp"
+        "AnalogInputService.cpp"
+        "BluetoothService.cpp"
+        "DeviceInfo.cpp"
+        "Esp32Platform.cpp"
+        "FluidLevelSensorRole.cpp"
+        "Nmea2000Service.cpp"
+        "RoleFactory.cpp"
+        "RoleManager.cpp"
+    INCLUDE_DIRS
+        "../include"
+    REQUIRES
+        nvs_flash
+        esp_timer
+        driver
+        esp_littlefs
+        esp-nimble-cpp
+        ArduinoJson
+        NMEA2000-library
+        NMEA2000_esp32
+)

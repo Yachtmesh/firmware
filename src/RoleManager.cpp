@@ -3,7 +3,9 @@
 #include <cstdio>
 #include <cstdlib>
 
-#ifndef ESP32
+#ifdef ESP32
+#include <esp_random.h>
+#else
 // esp_random() not available in native tests, stubbing it out here.
 inline uint32_t esp_random() { return static_cast<uint32_t>(rand()); }
 #endif

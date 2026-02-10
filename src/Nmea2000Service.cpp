@@ -1,18 +1,10 @@
-// #define N2k_SPI_CS_PIN 53    // If you use mcp_can and CS pin is not 53,
-// uncomment this and modify definition to match your CS pin. #define
-// N2k_CAN_INT_PIN 21   // If you use mcp_can and interrupt pin is not 21,
-// uncomment this and modify definition to match your interrupt pin. #define
-// USE_MCP_CAN_CLOCK_SET 8  // If you use mcp_can and your mcp_can shield has
-// 8MHz chrystal, uncomment this.
-
-#define ESP32_CAN_TX_PIN GPIO_NUM_5
-#define ESP32_CAN_RX_PIN GPIO_NUM_4
-
 #include "NMEA2000Service.h"
 
-#include <N2KMessages.h>
-#include <NMEA2000_CAN.h>
+#include <N2kMessages.h>
+#include <NMEA2000_esp32.h>
 #include <esp_mac.h>
+
+static tNMEA2000_esp32 NMEA2000(GPIO_NUM_5, GPIO_NUM_4);
 
 const unsigned long TransmitMessages[] PROGMEM = {130310L, 130311L, 130312L, 0};
 const uint32_t kIndustryCode = 2040;
