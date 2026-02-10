@@ -15,9 +15,9 @@ idf_component_register(
         nvs_flash
         esp_timer
         driver
-        esp_littlefs
+        littlefs
         esp-nimble-cpp
-        ArduinoJson
-        NMEA2000-library
-        NMEA2000_esp32
-)
+        arduinojson
+        NMEA2000
+        NMEA2000_twai
+    )

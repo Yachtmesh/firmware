@@ -1,4 +1,6 @@
+.DS_STORE
 .pio
 .vscode
 /data
-/components
+/managed_components
+/dependencies.lock

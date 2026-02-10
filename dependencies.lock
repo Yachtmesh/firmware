@@ -1,10 +1,74 @@
 dependencies:
+  NMEA2000:
+    component_hash: 24102e8d790203e5c50164580d991826b055298fc9d27ceff369635dc4678401
+    dependencies: []
+    source:
+      git: https://github.com/ttlappalainen/NMEA2000.git
+      path: .
+      type: git
+    version: 5b7b9fc3ccc18e30ebfba92da6486cffc6251595
+  NMEA2000_twai:
+    component_hash: c058d71ce67193ccba941c334f963c2b151477d7184ef39e69b9a662f8482a3b
+    dependencies:
+    - name: idf
+      version: '>=5.2.0'
+    source:
+      git: https://github.com/skarlsson/NMEA2000_twai.git
+      path: .
+      type: git
+    version: bdd97a7befed561aff81475003b0829eebefa4ce
+  bblanchon/arduinojson:
+    component_hash: 463812931f99cb7a554d64311288f537b43daaca3eed2427557b907af393447c
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 6.21.5
+  h2zero/esp-nimble-cpp:
+    component_hash: ecdcabe83333948495103f9d62e4ecb651bff866fce123d00bfc106baa383e54
+    dependencies:
+    - name: espressif/esp_hosted
+      registry_url: https://components.espressif.com
+      require: private
+      rules:
+      - if: target in [esp32p4]
+      version: '*'
+    - name: espressif/esp_wifi_remote
+      registry_url: https://components.espressif.com
+      require: private
+      rules:
+      - if: target in [esp32p4]
+      version: '>=0.5.3'
+    - name: idf
+      require: private
+      rules:
+      - if: target in [esp32p4]
+      version: '>=5.3.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 2.3.4
   idf:
     source:
       type: idf
     version: 5.5.0
+  joltwallet/littlefs:
+    component_hash: dcea25bcef2de023f089f5f01e8d8c46ad1b8ffef75861ad5ffb4098555839df
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.20.4
 direct_dependencies:
+- NMEA2000
+- NMEA2000_twai
+- bblanchon/arduinojson
+- h2zero/esp-nimble-cpp
 - idf
-manifest_hash: 23f1305fce1f7f538d154de100454f33100f77a59dc0bc8d8195b77bfee07d7c
+- joltwallet/littlefs
+manifest_hash: 2ff78802b7ea5fc267f7a4f302f97c368ac2bb30662135c35ac5ac8c10a40cbc
 target: esp32
 version: 2.0.0

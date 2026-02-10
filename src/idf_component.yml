@@ -1,0 +1,16 @@
+dependencies:
+  idf:
+    version: "5.5.0"
+
+  # ESP-IDF Component Registry
+  joltwallet/littlefs: "1.14"
+  h2zero/esp-nimble-cpp: "2.3"
+  bblanchon/arduinojson: "6.21"
+
+  # Git dependencies
+  NMEA2000:
+    git: https://github.com/ttlappalainen/NMEA2000.git
+    version: master
+  NMEA2000_twai:
+    git: https://github.com/skarlsson/NMEA2000_twai.git
+    version: main
