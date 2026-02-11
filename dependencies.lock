@@ -53,15 +53,15 @@ dependencies:
       type: idf
     version: 5.5.0
   joltwallet/littlefs:
-    component_hash: dcea25bcef2de023f089f5f01e8d8c46ad1b8ffef75861ad5ffb4098555839df
+    component_hash: 362f1f5beb5087b0c60169aff82676d2d0ffc991ead975212b0cba95959181c5
     dependencies:
     - name: idf
       require: private
-      version: '>=5.0'
+      version: '>=4.3'
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 1.20.4
+    version: 1.14.8
 direct_dependencies:
 - NMEA2000
 - NMEA2000_twai
@@ -69,6 +69,6 @@ direct_dependencies:
 - h2zero/esp-nimble-cpp
 - idf
 - joltwallet/littlefs
-manifest_hash: 2ff78802b7ea5fc267f7a4f302f97c368ac2bb30662135c35ac5ac8c10a40cbc
+manifest_hash: 5267e8b767f6f426316a44fd47bec64a65dad50b49275e84b0636adc2212dfa6
 target: esp32
 version: 2.0.0

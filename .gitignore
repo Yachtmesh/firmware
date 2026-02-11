@@ -4,3 +4,4 @@
 /data
 /managed_components
 /dependencies.lock
+sdkconfig.esp32dev
