@@ -92,6 +92,11 @@ int main() {
     RUN_TEST(test_wifi_gateway_unregisters_listener_on_stop);
     RUN_TEST(test_wifi_gateway_connects_wifi_on_start);
     RUN_TEST(test_wifi_gateway_disconnects_wifi_on_stop);
+    RUN_TEST(test_wifi_gateway_starts_tcp_when_wifi_connected);
+    RUN_TEST(test_wifi_gateway_stops_tcp_on_stop);
+    RUN_TEST(test_wifi_gateway_sends_seasmart_to_tcp);
+    RUN_TEST(test_wifi_gateway_stops_tcp_on_wifi_disconnect);
+    RUN_TEST(test_wifi_gateway_restarts_tcp_on_wifi_reconnect);
 
     return UNITY_END();
 }

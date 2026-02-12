@@ -10,6 +10,7 @@
 #include "NMEA2000Service.h"
 #include "RoleFactory.h"
 #include "RoleManager.h"
+#include "TcpServer.h"
 #include "WifiService.h"
 
 static const char* TAG = "main";
@@ -17,10 +18,11 @@ static const char* TAG = "main";
 Nmea2000Service nmea;
 AnalogInputService analogInput;
 WifiService wifi;
+TcpServer tcpServer;
 LittleFSAdapter fileSystem;
 Esp32Platform platform;
 
-RoleFactory roleFactory(analogInput, nmea, wifi);
+RoleFactory roleFactory(analogInput, nmea, wifi, tcpServer);
 RoleManager roleManager(roleFactory, fileSystem);
 DeviceInfo deviceInfo(platform);
 BluetoothService bluetooth(&roleManager, &deviceInfo);

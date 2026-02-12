@@ -39,8 +39,9 @@ void test_role_manager_loads_valid_config() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     const char* json = R"({
@@ -62,8 +63,9 @@ void test_role_manager_rejects_unknown_type() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     const char* json = R"({"type": "UnknownRole"})";
@@ -78,8 +80,9 @@ void test_role_manager_rejects_invalid_json() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     const char* json = "{ invalid json }";
@@ -94,8 +97,9 @@ void test_role_manager_starts_all_roles() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     const char* json1 = R"({
@@ -128,8 +132,9 @@ void test_role_manager_loops_all_roles() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     const char* json = R"({
@@ -157,8 +162,9 @@ void test_role_manager_loads_from_file() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     fs.addFile("/roles/FluidLevel-atd.json", R"({
@@ -183,8 +189,9 @@ void test_role_manager_loads_from_directory() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     fs.addFile("/roles/water.json", R"({
@@ -220,8 +227,9 @@ void test_role_manager_get_roles_as_json_empty() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     std::string json = manager.getRolesAsJson();
@@ -233,8 +241,9 @@ void test_role_manager_get_roles_as_json_not_started() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -266,8 +275,9 @@ void test_role_manager_get_roles_as_json_after_start() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -295,8 +305,9 @@ void test_role_manager_get_roles_as_json_multiple() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     const char* json1 = R"({
@@ -334,8 +345,9 @@ void test_role_manager_get_roles_as_json_config_fields() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -370,8 +382,9 @@ void test_role_manager_update_role_config() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -414,8 +427,9 @@ void test_role_manager_update_role_config_unknown_role() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     // Without roleType, should fail for unknown roleId
@@ -440,8 +454,9 @@ void test_role_manager_update_role_config_persists() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     // Load role with specific ID (no persist)
@@ -493,8 +508,9 @@ void test_role_manager_update_role_config_invalid() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -527,8 +543,9 @@ void test_role_manager_create_role() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -554,8 +571,9 @@ void test_role_manager_create_role_unknown_type() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -573,8 +591,9 @@ void test_role_manager_create_role_missing_type() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -594,8 +613,9 @@ void test_role_manager_create_role_invalid_config() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     // Invalid: minVoltage >= maxVoltage
@@ -619,8 +639,9 @@ void test_role_manager_create_role_persists() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -660,8 +681,9 @@ void test_role_manager_create_role_unique_ids() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc1;
@@ -698,8 +720,9 @@ void test_role_manager_factory_reset_clears_roles() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     const char* json1 = R"({
@@ -736,8 +759,9 @@ void test_role_manager_factory_reset_deletes_files() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     // Set up files and directory with hierarchical format
@@ -784,8 +808,9 @@ void test_role_manager_factory_reset_empty() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     fs.addDirectory("/roles", {});
@@ -802,8 +827,9 @@ void test_role_manager_factory_reset_clears_pending() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     // Create a role (adds to pending persist)
@@ -839,8 +865,9 @@ void test_role_manager_apply_config_creates_role() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -865,8 +892,9 @@ void test_role_manager_apply_config_updates_role() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     // First create a role
@@ -910,8 +938,9 @@ void test_role_manager_apply_config_returns_role_id() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -939,8 +968,9 @@ void test_role_manager_apply_config_missing_config() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<256> doc;
@@ -960,8 +990,9 @@ void test_role_manager_apply_config_missing_role_type() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -984,8 +1015,9 @@ void test_role_manager_apply_config_unknown_role() {
     FakeAnalogInput analog;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
+    FakeTcpServer tcp;
     MockFileSystem fs;
-    RoleFactory factory(analog, nmea, wifi);
+    RoleFactory factory(analog, nmea, wifi, tcp);
     RoleManager manager(factory, fs);
 
     // Unknown roleId without roleType should fail

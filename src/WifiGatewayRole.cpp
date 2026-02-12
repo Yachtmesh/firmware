@@ -1,127 +1,74 @@
 #include "WifiGatewayRole.h"
 
-#include <esp_log.h>
-#include <fcntl.h>
-#include <lwip/sockets.h>
-#include <unistd.h>
+#include <cstdio>
 #include <cstring>
 
-static const char* TAG = "WifiGateway";
+WifiGatewayRole::WifiGatewayRole(Nmea2000ServiceInterface& nmea,
+                                 WifiServiceInterface& wifi,
+                                 TcpServerInterface& tcpServer)
+    : nmea_(nmea), wifi_(wifi), tcpServer_(tcpServer) {}
+
+void WifiGatewayConfig::toJson(JsonDocument& doc) const {
+    doc["type"] = "WifiGateway";
+    doc["ssid"] = ssid;
+    doc["password"] = password;
+    doc["port"] = port;
+}
+
+const char* WifiGatewayRole::type() {
+    return "WifiGateway";
+}
+
+void WifiGatewayRole::configure(const RoleConfig& cfg) {
+    const auto& c = static_cast<const WifiGatewayConfig&>(cfg);
+    config = c;
+}
+
+bool WifiGatewayRole::configureFromJson(const JsonDocument& doc) {
+    const char* ssid = doc["ssid"] | "";
+    const char* password = doc["password"] | "";
+    uint16_t port = doc["port"] | 10110;
+
+    strncpy(config.ssid, ssid, sizeof(config.ssid) - 1);
+    config.ssid[sizeof(config.ssid) - 1] = '\0';
+    strncpy(config.password, password, sizeof(config.password) - 1);
+    config.password[sizeof(config.password) - 1] = '\0';
+    config.port = port;
+
+    return validate();
+}
+
+bool WifiGatewayRole::validate() {
+    return config.ssid[0] != '\0';
+}
+
+void WifiGatewayRole::getConfigJson(JsonDocument& doc) {
+    config.toJson(doc);
+}
 
 void WifiGatewayRole::start() {
     wifi_.connect(config.ssid, config.password);
     nmea_.addListener(this);
     status_.running = true;
-    ESP_LOGI(TAG, "Started, connecting to SSID: %s", config.ssid);
 }
 
 void WifiGatewayRole::stop() {
     nmea_.removeListener(this);
-
-    // Close all client sockets
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (clientSockets_[i] >= 0) {
-            close(clientSockets_[i]);
-            clientSockets_[i] = -1;
-        }
-    }
-
-    // Close server socket
-    if (serverSocket_ >= 0) {
-        close(serverSocket_);
-        serverSocket_ = -1;
-    }
-
+    tcpServer_.stop();
+    tcpStarted_ = false;
     wifi_.disconnect();
     status_.running = false;
-    ESP_LOGI(TAG, "Stopped");
 }
 
 void WifiGatewayRole::loop() {
-    // Start TCP server once WiFi is connected
-    if (wifi_.isConnected() && serverSocket_ < 0) {
-        startTcpServer();
-    }
-
-    if (serverSocket_ >= 0) {
-        acceptNewClients();
-    }
-}
-
-void WifiGatewayRole::startTcpServer() {
-    serverSocket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (serverSocket_ < 0) {
-        ESP_LOGE(TAG, "Failed to create socket");
-        return;
-    }
-
-    int opt = 1;
-    setsockopt(serverSocket_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
-    // Set non-blocking
-    int flags = fcntl(serverSocket_, F_GETFL, 0);
-    fcntl(serverSocket_, F_SETFL, flags | O_NONBLOCK);
-
-    struct sockaddr_in addr = {};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(config.port);
-    addr.sin_addr.s_addr = INADDR_ANY;
-
-    if (bind(serverSocket_, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        ESP_LOGE(TAG, "Bind failed on port %d", config.port);
-        close(serverSocket_);
-        serverSocket_ = -1;
-        return;
-    }
-
-    if (listen(serverSocket_, 4) < 0) {
-        ESP_LOGE(TAG, "Listen failed");
-        close(serverSocket_);
-        serverSocket_ = -1;
-        return;
-    }
-
-    ESP_LOGI(TAG, "TCP server listening on port %d", config.port);
-}
-
-void WifiGatewayRole::acceptNewClients() {
-    struct sockaddr_in clientAddr;
-    socklen_t clientLen = sizeof(clientAddr);
-
-    int clientSocket =
-        accept(serverSocket_, (struct sockaddr*)&clientAddr, &clientLen);
-    if (clientSocket < 0) {
-        return;  // No pending connection (non-blocking)
-    }
-
-    // Set client socket non-blocking
-    int flags = fcntl(clientSocket, F_GETFL, 0);
-    fcntl(clientSocket, F_SETFL, flags | O_NONBLOCK);
-
-    // Find a free slot
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (clientSockets_[i] < 0) {
-            clientSockets_[i] = clientSocket;
-            ESP_LOGI(TAG, "Client connected (slot %d)", i);
-            return;
+    if (wifi_.isConnected()) {
+        if (!tcpStarted_) {
+            tcpStarted_ = tcpServer_.start(config.port);
         }
-    }
-
-    // No free slots, close the connection
-    ESP_LOGW(TAG, "Max clients reached, rejecting connection");
-    close(clientSocket);
-}
-
-void WifiGatewayRole::sendToClients(const char* data, size_t len) {
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (clientSockets_[i] >= 0) {
-            int sent = send(clientSockets_[i], data, len, MSG_NOSIGNAL);
-            if (sent < 0) {
-                ESP_LOGI(TAG, "Client disconnected (slot %d)", i);
-                close(clientSockets_[i]);
-                clientSockets_[i] = -1;
-            }
-        }
+        tcpServer_.loop();
+    } else if (tcpStarted_) {
+        tcpServer_.stop();
+        tcpStarted_ = false;
     }
 }
 
@@ -133,6 +80,33 @@ void WifiGatewayRole::onN2kMessage(unsigned long pgn, unsigned char source,
     size_t len = encodeSeasmart(pgn, source, dataLen, data, msgTime, buffer,
                                 sizeof(buffer));
     if (len > 0) {
-        sendToClients(buffer, len);
+        tcpServer_.sendToAll(buffer, len);
     }
+}
+
+// Seasmart $PCDIN encoding
+// Format: $PCDIN,<PGN 6hex>,<timestamp 8hex>,<source 2hex>,<data hex>*<checksum 2hex>\r\n
+size_t encodeSeasmart(unsigned long pgn, unsigned char source, int dataLen,
+                      const unsigned char* data, unsigned long timestamp,
+                      char* buffer, size_t bufSize) {
+    size_t needed = 7 + 6 + 1 + 8 + 1 + 2 + 1 + (dataLen * 2) + 1 + 2 + 2 + 1;
+    if (bufSize < needed) {
+        return 0;
+    }
+
+    int pos = snprintf(buffer, bufSize, "$PCDIN,%06lX,%08lX,%02X,",
+                       pgn, timestamp, source);
+
+    for (int i = 0; i < dataLen; i++) {
+        pos += snprintf(buffer + pos, bufSize - pos, "%02X", data[i]);
+    }
+
+    unsigned char checksum = 0;
+    for (int i = 1; i < pos; i++) {
+        checksum ^= static_cast<unsigned char>(buffer[i]);
+    }
+
+    pos += snprintf(buffer + pos, bufSize - pos, "*%02X\r\n", checksum);
+
+    return pos;
 }

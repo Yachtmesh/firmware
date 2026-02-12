@@ -7,8 +7,9 @@
 
 RoleFactory::RoleFactory(AnalogInputInterface& analog,
                          Nmea2000ServiceInterface& nmea,
-                         WifiServiceInterface& wifi)
-    : analog_(analog), nmea_(nmea), wifi_(wifi) {}
+                         WifiServiceInterface& wifi,
+                         TcpServerInterface& tcpServer)
+    : analog_(analog), nmea_(nmea), wifi_(wifi), tcpServer_(tcpServer) {}
 
 std::unique_ptr<Role> RoleFactory::createRole(const char* type,
                                               const JsonDocument& doc) {
@@ -26,7 +27,7 @@ std::unique_ptr<Role> RoleFactory::createRoleInstance(const char* type) {
         return std::make_unique<FluidLevelSensorRole>(analog_, nmea_);
     }
     if (strcmp(type, "WifiGateway") == 0) {
-        return std::make_unique<WifiGatewayRole>(nmea_, wifi_);
+        return std::make_unique<WifiGatewayRole>(nmea_, wifi_, tcpServer_);
     }
 
     return nullptr;

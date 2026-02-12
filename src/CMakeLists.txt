@@ -10,7 +10,7 @@ idf_component_register(
         "RoleFactory.cpp"
         "RoleManager.cpp"
         "WifiService.cpp"
-        "WifiGatewayConfig.cpp"
+        "TcpServer.cpp"
         "WifiGatewayRole.cpp"
     INCLUDE_DIRS
         "../include"

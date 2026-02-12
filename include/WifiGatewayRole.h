@@ -4,6 +4,7 @@
 
 #include "NMEA2000Service.h"
 #include "Role.h"
+#include "TcpServer.h"
 #include "WifiService.h"
 
 struct WifiGatewayConfig : public RoleConfig {
@@ -23,7 +24,8 @@ size_t encodeSeasmart(unsigned long pgn, unsigned char source, int dataLen,
 class WifiGatewayRole : public Role, public N2kListenerInterface {
    public:
     WifiGatewayRole(Nmea2000ServiceInterface& nmea,
-                    WifiServiceInterface& wifi);
+                    WifiServiceInterface& wifi,
+                    TcpServerInterface& tcpServer);
 
     // Role interface
     const char* type() override;
@@ -46,14 +48,6 @@ class WifiGatewayRole : public Role, public N2kListenerInterface {
    private:
     Nmea2000ServiceInterface& nmea_;
     WifiServiceInterface& wifi_;
-
-#ifdef ESP32
-    int serverSocket_ = -1;
-    static constexpr int MAX_CLIENTS = 8;
-    int clientSockets_[MAX_CLIENTS];
-
-    void startTcpServer();
-    void acceptNewClients();
-    void sendToClients(const char* data, size_t len);
-#endif
+    TcpServerInterface& tcpServer_;
+    bool tcpStarted_ = false;
 };

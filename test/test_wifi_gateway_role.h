@@ -4,6 +4,8 @@
 #include <unity.h>
 
 #include <cstring>
+#include <string>
+#include <vector>
 
 #include "WifiGatewayRole.h"
 #include "test_fluid_level_sensor_role.h"  // For FakeNmea2000Service
@@ -32,12 +34,38 @@ class FakeWifiService : public WifiServiceInterface {
     bool isConnected() const override { return connected; }
 };
 
+class FakeTcpServer : public TcpServerInterface {
+   public:
+    bool started = false;
+    bool stopped = false;
+    uint16_t lastPort = 0;
+    std::vector<std::string> sentData;
+
+    bool start(uint16_t port) override {
+        started = true;
+        lastPort = port;
+        return true;
+    }
+
+    void stop() override {
+        stopped = true;
+        started = false;
+    }
+
+    void loop() override {}
+
+    void sendToAll(const char* data, size_t len) override {
+        sentData.emplace_back(data, len);
+    }
+};
+
 // --- Config parsing tests ---
 
 void test_wifi_gateway_config_from_json() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
-    WifiGatewayRole role(nmea, wifi);
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
 
     StaticJsonDocument<256> doc;
     doc["ssid"] = "BoatWifi";
@@ -54,7 +82,8 @@ void test_wifi_gateway_config_from_json() {
 void test_wifi_gateway_config_default_port() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
-    WifiGatewayRole role(nmea, wifi);
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
 
     StaticJsonDocument<256> doc;
     doc["ssid"] = "TestNet";
@@ -68,7 +97,8 @@ void test_wifi_gateway_config_default_port() {
 void test_wifi_gateway_config_empty_ssid_fails() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
-    WifiGatewayRole role(nmea, wifi);
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
 
     StaticJsonDocument<256> doc;
     doc["ssid"] = "";
@@ -81,7 +111,8 @@ void test_wifi_gateway_config_empty_ssid_fails() {
 void test_wifi_gateway_config_missing_ssid_fails() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
-    WifiGatewayRole role(nmea, wifi);
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
 
     StaticJsonDocument<256> doc;
     doc["password"] = "pass";
@@ -95,7 +126,8 @@ void test_wifi_gateway_config_missing_ssid_fails() {
 void test_wifi_gateway_config_json_roundtrip() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
-    WifiGatewayRole role(nmea, wifi);
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
 
     StaticJsonDocument<256> doc;
     doc["ssid"] = "MyBoat";
@@ -118,7 +150,8 @@ void test_wifi_gateway_config_json_roundtrip() {
 void test_wifi_gateway_type() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
-    WifiGatewayRole role(nmea, wifi);
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
 
     TEST_ASSERT_EQUAL_STRING("WifiGateway", role.type());
 }
@@ -133,12 +166,9 @@ void test_seasmart_encode_known_input() {
                                 sizeof(buffer));
 
     TEST_ASSERT_GREATER_THAN(0, len);
-    // Verify format: $PCDIN,<PGN>,<timestamp>,<source>,<data>*<checksum>\r\n
     TEST_ASSERT_TRUE(strncmp(buffer, "$PCDIN,", 7) == 0);
-    // Verify ends with checksum and \r\n
     TEST_ASSERT_TRUE(buffer[len - 1] == '\n');
     TEST_ASSERT_TRUE(buffer[len - 2] == '\r');
-    // Verify '*' before checksum
     TEST_ASSERT_NOT_NULL(strchr(buffer, '*'));
 }
 
@@ -150,13 +180,11 @@ void test_seasmart_encode_checksum() {
         encodeSeasmart(130311, 0x02, 2, data, 0x00000001, buffer, sizeof(buffer));
     TEST_ASSERT_GREATER_THAN(0, len);
 
-    // Parse out the checksum
     char* star = strchr(buffer, '*');
     TEST_ASSERT_NOT_NULL(star);
     unsigned int parsedChecksum;
     sscanf(star + 1, "%02X", &parsedChecksum);
 
-    // Verify checksum by computing XOR of everything between '$' and '*'
     unsigned char computed = 0;
     for (const char* p = buffer + 1; p < star; p++) {
         computed ^= static_cast<unsigned char>(*p);
@@ -166,18 +194,19 @@ void test_seasmart_encode_checksum() {
 
 void test_seasmart_encode_buffer_too_small() {
     unsigned char data[] = {0x01, 0x02, 0x03};
-    char buffer[5];  // Way too small
+    char buffer[5];
 
     size_t len = encodeSeasmart(127505, 0x01, 3, data, 0, buffer, sizeof(buffer));
     TEST_ASSERT_EQUAL(0, len);
 }
 
-// --- Listener registration ---
+// --- Lifecycle tests ---
 
 void test_wifi_gateway_registers_listener_on_start() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
-    WifiGatewayRole role(nmea, wifi);
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
 
     StaticJsonDocument<256> doc;
     doc["ssid"] = "TestNet";
@@ -189,7 +218,6 @@ void test_wifi_gateway_registers_listener_on_start() {
     role.start();
     TEST_ASSERT_EQUAL(1, nmea.listeners_.size());
 
-    // Verify the registered listener is the role (via N2kListenerInterface*)
     N2kListenerInterface* expected = &role;
     TEST_ASSERT_EQUAL(expected, nmea.listeners_[0]);
 }
@@ -197,7 +225,8 @@ void test_wifi_gateway_registers_listener_on_start() {
 void test_wifi_gateway_unregisters_listener_on_stop() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
-    WifiGatewayRole role(nmea, wifi);
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
 
     StaticJsonDocument<256> doc;
     doc["ssid"] = "TestNet";
@@ -214,7 +243,8 @@ void test_wifi_gateway_unregisters_listener_on_stop() {
 void test_wifi_gateway_connects_wifi_on_start() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
-    WifiGatewayRole role(nmea, wifi);
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
 
     StaticJsonDocument<256> doc;
     doc["ssid"] = "BoatNet";
@@ -231,7 +261,8 @@ void test_wifi_gateway_connects_wifi_on_start() {
 void test_wifi_gateway_disconnects_wifi_on_stop() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
-    WifiGatewayRole role(nmea, wifi);
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
 
     StaticJsonDocument<256> doc;
     doc["ssid"] = "TestNet";
@@ -242,4 +273,113 @@ void test_wifi_gateway_disconnects_wifi_on_stop() {
     role.stop();
 
     TEST_ASSERT_TRUE(wifi.disconnectCalled);
+}
+
+void test_wifi_gateway_starts_tcp_when_wifi_connected() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    doc["port"] = 9999;
+    role.configureFromJson(doc);
+
+    role.start();
+    // WiFi is connected (FakeWifiService sets connected=true on connect)
+    role.loop();
+
+    TEST_ASSERT_TRUE(tcp.started);
+    TEST_ASSERT_EQUAL_UINT16(9999, tcp.lastPort);
+}
+
+void test_wifi_gateway_stops_tcp_on_stop() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+
+    role.start();
+    role.loop();
+    role.stop();
+
+    TEST_ASSERT_TRUE(tcp.stopped);
+}
+
+void test_wifi_gateway_sends_seasmart_to_tcp() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+
+    role.start();
+
+    unsigned char data[] = {0x01, 0x02, 0x03};
+    role.onN2kMessage(127505, 0x01, 3, 3, data, 1000);
+
+    TEST_ASSERT_EQUAL(1, tcp.sentData.size());
+    TEST_ASSERT_TRUE(tcp.sentData[0].find("$PCDIN,") == 0);
+}
+
+void test_wifi_gateway_stops_tcp_on_wifi_disconnect() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+
+    role.start();
+    role.loop();
+    TEST_ASSERT_TRUE(tcp.started);
+
+    // Simulate WiFi dropping
+    wifi.connected = false;
+    role.loop();
+
+    TEST_ASSERT_TRUE(tcp.stopped);
+}
+
+void test_wifi_gateway_restarts_tcp_on_wifi_reconnect() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    FakeTcpServer tcp;
+    WifiGatewayRole role(nmea, wifi, tcp);
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    doc["port"] = 10110;
+    role.configureFromJson(doc);
+
+    role.start();
+    role.loop();
+    TEST_ASSERT_TRUE(tcp.started);
+
+    // WiFi drops
+    wifi.connected = false;
+    role.loop();
+    TEST_ASSERT_TRUE(tcp.stopped);
+
+    // WiFi reconnects
+    tcp.stopped = false;
+    wifi.connected = true;
+    role.loop();
+    TEST_ASSERT_TRUE(tcp.started);
+    TEST_ASSERT_EQUAL_UINT16(10110, tcp.lastPort);
 }
