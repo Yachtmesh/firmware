@@ -10,15 +10,17 @@
 #include "NMEA2000Service.h"
 #include "RoleFactory.h"
 #include "RoleManager.h"
+#include "WifiService.h"
 
 static const char* TAG = "main";
 
 Nmea2000Service nmea;
 AnalogInputService analogInput;
+WifiService wifi;
 LittleFSAdapter fileSystem;
 Esp32Platform platform;
 
-RoleFactory roleFactory(analogInput, nmea);
+RoleFactory roleFactory(analogInput, nmea, wifi);
 RoleManager roleManager(roleFactory, fileSystem);
 DeviceInfo deviceInfo(platform);
 BluetoothService bluetooth(&roleManager, &deviceInfo);
@@ -39,6 +41,7 @@ extern "C" void app_main() {
 
     // Main loop
     while (true) {
+        nmea.loop();
         roleManager.loopAll();
         bluetooth.loop();
         vTaskDelay(pdMS_TO_TICKS(1));

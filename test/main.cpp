@@ -3,6 +3,7 @@
 #include "test_device_info.h"
 #include "test_fluid_level_sensor_role.h"
 #include "test_role_manager.h"
+#include "test_wifi_gateway_role.h"
 
 int main() {
     UNITY_BEGIN();
@@ -76,6 +77,21 @@ int main() {
     RUN_TEST(test_device_info_uptime_calculation);
     RUN_TEST(test_device_info_cpu_temperature);
     RUN_TEST(test_device_info_id_deterministic);
+
+    // WifiGatewayRole tests
+    RUN_TEST(test_wifi_gateway_config_from_json);
+    RUN_TEST(test_wifi_gateway_config_default_port);
+    RUN_TEST(test_wifi_gateway_config_empty_ssid_fails);
+    RUN_TEST(test_wifi_gateway_config_missing_ssid_fails);
+    RUN_TEST(test_wifi_gateway_config_json_roundtrip);
+    RUN_TEST(test_wifi_gateway_type);
+    RUN_TEST(test_seasmart_encode_known_input);
+    RUN_TEST(test_seasmart_encode_checksum);
+    RUN_TEST(test_seasmart_encode_buffer_too_small);
+    RUN_TEST(test_wifi_gateway_registers_listener_on_start);
+    RUN_TEST(test_wifi_gateway_unregisters_listener_on_stop);
+    RUN_TEST(test_wifi_gateway_connects_wifi_on_start);
+    RUN_TEST(test_wifi_gateway_disconnects_wifi_on_stop);
 
     return UNITY_END();
 }

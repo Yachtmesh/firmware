@@ -9,11 +9,16 @@ idf_component_register(
         "Nmea2000Service.cpp"
         "RoleFactory.cpp"
         "RoleManager.cpp"
+        "WifiService.cpp"
+        "WifiGatewayConfig.cpp"
+        "WifiGatewayRole.cpp"
     INCLUDE_DIRS
         "../include"
     REQUIRES
         nvs_flash
         esp_timer
+        esp_wifi
+        esp_netif
         driver
         littlefs
         esp-nimble-cpp

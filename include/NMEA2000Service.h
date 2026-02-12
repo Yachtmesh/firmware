@@ -1,4 +1,6 @@
 #pragma once
+#include <vector>
+
 #include "types.h"
 
 struct FluidLevelContext {
@@ -27,10 +29,23 @@ struct Metric {
         : type(t), value(v), priority(prio) {}
 };
 
+// Listener interface for raw N2K messages (uses primitives — native-testable)
+class N2kListenerInterface {
+   public:
+    virtual void onN2kMessage(unsigned long pgn, unsigned char source,
+                              unsigned char priority, int dataLen,
+                              const unsigned char* data,
+                              unsigned long msgTime) = 0;
+    virtual ~N2kListenerInterface() = default;
+};
+
 class Nmea2000ServiceInterface {
    public:
     virtual void sendMetric(const Metric& metric) = 0;
     virtual void start() = 0;
+    virtual void addListener(N2kListenerInterface*) {}
+    virtual void removeListener(N2kListenerInterface*) {}
+    virtual void loop() {}
 
     virtual ~Nmea2000ServiceInterface() = default;
 };
@@ -39,7 +54,11 @@ class Nmea2000Service : public Nmea2000ServiceInterface {
    public:
     void start() override;
     void sendMetric(const Metric& metric) override;
+    void addListener(N2kListenerInterface* listener) override;
+    void removeListener(N2kListenerInterface* listener) override;
+    void loop() override;
 
    private:
     int toN2kFluidType(FluidType t);
+    std::vector<N2kListenerInterface*> listeners_;
 };

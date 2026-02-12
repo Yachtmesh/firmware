@@ -3,6 +3,9 @@
 #include <ArduinoJson.h>
 #include <unity.h>
 
+#include <algorithm>
+#include <vector>
+
 #include "FluidLevelSensorRole.h"
 #include "NMEA2000Service.h"
 
@@ -18,6 +21,7 @@ class FakeNmea2000Service : public Nmea2000ServiceInterface {
     bool sent = false;
     Metric lastMetric{MetricType::FluidLevel, 0.0f};
     float lastPercent = -1;
+    std::vector<N2kListenerInterface*> listeners_;
 
     void start() override {}
 
@@ -25,6 +29,18 @@ class FakeNmea2000Service : public Nmea2000ServiceInterface {
         sent = true;
         lastMetric = metric;
     }
+
+    void addListener(N2kListenerInterface* listener) override {
+        listeners_.push_back(listener);
+    }
+
+    void removeListener(N2kListenerInterface* listener) override {
+        listeners_.erase(
+            std::remove(listeners_.begin(), listeners_.end(), listener),
+            listeners_.end());
+    }
+
+    void loop() override {}
 };
 
 void test_fluid_level_sensor_role_basic_flow() {

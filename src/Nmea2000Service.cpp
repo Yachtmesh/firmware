@@ -2,9 +2,31 @@
 
 #include <N2kMessages.h>
 #include <NMEA2000_esp32.h>
+#include <algorithm>
 #include <esp_mac.h>
+#include <esp_timer.h>
 
 static tNMEA2000_esp32 NMEA2000(GPIO_NUM_5, GPIO_NUM_4);
+
+// Bridge that receives all N2K messages and dispatches to listeners
+class MsgBridge : public tNMEA2000::tMsgHandler {
+   public:
+    MsgBridge(std::vector<N2kListenerInterface*>& listeners)
+        : tNMEA2000::tMsgHandler(0, &NMEA2000), listeners_(listeners) {}
+
+    void HandleMsg(const tN2kMsg& msg) override {
+        for (auto* listener : listeners_) {
+            unsigned long ms = (unsigned long)(esp_timer_get_time() / 1000);
+            listener->onN2kMessage(msg.PGN, msg.Source, msg.Priority,
+                                   msg.DataLen, msg.Data, ms);
+        }
+    }
+
+   private:
+    std::vector<N2kListenerInterface*>& listeners_;
+};
+
+static MsgBridge* msgBridge = nullptr;
 
 const unsigned long TransmitMessages[] PROGMEM = {130310L, 130311L, 130312L, 0};
 const uint32_t kIndustryCode = 2040;
@@ -61,6 +83,12 @@ void Nmea2000Service::start() {
     // Set callback
     NMEA2000.SetOnOpen(OnN2kOpen);
 
+    // Attach message bridge for listener dispatch
+    if (!msgBridge) {
+        msgBridge = new MsgBridge(listeners_);
+    }
+    NMEA2000.AttachMsgHandler(msgBridge);
+
     // Open NMEA2000 bus
     NMEA2000.Open();
 }
@@ -91,6 +119,19 @@ void Nmea2000Service::sendMetric(const Metric& metric) {
 
     NMEA2000.SendMsg(N2kMsg);
     NMEA2000.ParseMessages();  // parse incoming messages
+}
+
+void Nmea2000Service::addListener(N2kListenerInterface* listener) {
+    listeners_.push_back(listener);
+}
+
+void Nmea2000Service::removeListener(N2kListenerInterface* listener) {
+    listeners_.erase(std::remove(listeners_.begin(), listeners_.end(), listener),
+                     listeners_.end());
+}
+
+void Nmea2000Service::loop() {
+    NMEA2000.ParseMessages();
 }
 
 int Nmea2000Service::toN2kFluidType(FluidType t) {
