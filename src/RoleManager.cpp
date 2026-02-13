@@ -249,11 +249,21 @@ void loadRolesFromDirectory(RoleManager& manager, FileSystemInterface& fs,
         return;
     }
 
+    static constexpr size_t kMaxConfigSize = 2048;
+
     auto file = root->openNextFile();
     while (file) {
         if (!file->isDirectory()) {
-            // Read file contents
+            const char* fileName = file->name();
             size_t fileSize = file->size();
+
+            // Skip if file is huge, config json files are typically below 2kb
+            if (fileSize == 0 || fileSize > kMaxConfigSize) {
+                file = root->openNextFile();
+                continue;
+            }
+
+            // Read file contents
             char* buffer = new char[fileSize + 1];
             file->readBytes(buffer, fileSize);
             buffer[fileSize] = '\0';
@@ -261,7 +271,10 @@ void loadRolesFromDirectory(RoleManager& manager, FileSystemInterface& fs,
             // Parse and load - file contains hierarchical format
             // {roleId, roleType, config}
             StaticJsonDocument<512> doc;
-            if (!deserializeJson(doc, buffer, fileSize)) {
+            DeserializationError err = deserializeJson(doc, buffer, fileSize);
+            if (err) {
+                printf("loadRoles: JSON error in %s: %s\n", fileName, err.c_str());
+            } else {
                 manager.applyRoleConfig(doc, false);  // No persist - already on disk
             }
 
