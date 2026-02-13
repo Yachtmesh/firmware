@@ -1,15 +1,16 @@
 #pragma once
-#include "FileSystem.h"
-
+#include <dirent.h>
 #include <esp_littlefs.h>
+#include <sys/stat.h>
+
 #include <cstdio>
 #include <cstring>
-#include <dirent.h>
-#include <sys/stat.h>
+
+#include "FileSystem.h"
 
 // Wraps POSIX FILE* to implement FileInterface
 class LittleFSFile : public FileInterface {
-public:
+   public:
     // For regular files
     LittleFSFile(FILE* fp, const char* name, bool isDir = false)
         : fp_(fp), isDir_(isDir) {
@@ -19,16 +20,13 @@ public:
     }
 
     // For directories
-    LittleFSFile(DIR* dir, const char* path)
-        : dir_(dir), isDir_(true) {
+    LittleFSFile(DIR* dir, const char* path) : dir_(dir), isDir_(true) {
         dirPath_ = path;
         const char* slash = strrchr(path, '/');
         name_ = slash ? slash + 1 : path;
     }
 
-    ~LittleFSFile() override {
-        close();
-    }
+    ~LittleFSFile() override { close(); }
 
     operator bool() const override { return fp_ != nullptr || dir_ != nullptr; }
 
@@ -40,7 +38,8 @@ public:
         struct dirent* entry;
         while ((entry = readdir(dir_)) != nullptr) {
             // Skip . and ..
-            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            if (strcmp(entry->d_name, ".") == 0 ||
+                strcmp(entry->d_name, "..") == 0) {
                 continue;
             }
 
@@ -50,7 +49,8 @@ public:
             if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
                 DIR* subDir = opendir(fullPath.c_str());
                 if (subDir) {
-                    return std::make_unique<LittleFSFile>(subDir, fullPath.c_str());
+                    return std::make_unique<LittleFSFile>(subDir,
+                                                          fullPath.c_str());
                 }
             } else {
                 FILE* fp = fopen(fullPath.c_str(), "r");
@@ -94,7 +94,7 @@ public:
         return static_cast<size_t>(sz);
     }
 
-private:
+   private:
     FILE* fp_ = nullptr;
     DIR* dir_ = nullptr;
     bool isDir_ = false;
@@ -104,11 +104,12 @@ private:
 
 // Wraps ESP-IDF VFS + LittleFS to implement FileSystemInterface
 class LittleFSAdapter : public FileSystemInterface {
-public:
+   public:
     bool begin(bool formatOnFail = true) {
         esp_vfs_littlefs_conf_t conf = {};
         conf.base_path = "/littlefs";
-        conf.partition_label = "spiffs";  // partition label in partition table
+        conf.partition_label =
+            "littlefs";  // partition label in partition table
         conf.format_if_mount_failed = formatOnFail ? 1 : 0;
         conf.dont_mount = 0;
 
@@ -116,7 +117,8 @@ public:
         return ret == ESP_OK;
     }
 
-    std::unique_ptr<FileInterface> open(const char* path, const char* mode = "r") override {
+    std::unique_ptr<FileInterface> open(const char* path,
+                                        const char* mode = "r") override {
         std::string fullPath = std::string(basePath_) + path;
 
         struct stat st;
@@ -143,6 +145,6 @@ public:
         return ::remove(fullPath.c_str()) == 0;
     }
 
-private:
+   private:
     static constexpr const char* basePath_ = "/littlefs";
 };
