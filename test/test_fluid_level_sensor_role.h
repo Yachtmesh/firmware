@@ -28,6 +28,11 @@ class FakeNmea2000Service : public Nmea2000ServiceInterface {
     void sendMetric(const Metric& metric) override {
         sent = true;
         lastMetric = metric;
+        // Local echo: notify listeners like the real Nmea2000Service does
+        unsigned char dummy[] = {0x10, 0x02, 0x93};
+        for (auto* listener : listeners_) {
+            listener->onN2kData(dummy, sizeof(dummy));
+        }
     }
 
     void addListener(N2kListenerInterface* listener) override {

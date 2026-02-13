@@ -119,32 +119,43 @@ void Nmea2000Service::start() {
     NMEA2000.Open();
 }
 
+void Nmea2000Service::notifyListeners(const tN2kMsg& msg) {
+    if (listeners_.empty()) return;
+    BufferStream stream;
+    msg.SendInActisenseFormat(&stream);
+    if (stream.len > 0) {
+        for (auto* listener : listeners_) {
+            listener->onN2kData(stream.buf, stream.len);
+        }
+    }
+}
+
 void Nmea2000Service::sendMetric(const Metric& metric) {
     tN2kMsg N2kMsg;
 
     switch (metric.type) {
         case MetricType::FluidLevel: {
-            if (FluidLevelScheduler.IsTime()) {
-                tN2kFluidType fluidType = static_cast<tN2kFluidType>(
-                    toN2kFluidType(metric.context.fluidLevel.fluidType));
-                uint16_t capacity = metric.context.fluidLevel.capacity;
-                unsigned char inst = metric.context.fluidLevel.inst;
+            if (!FluidLevelScheduler.IsTime()) return;
 
-                SetN2kFluidLevel(N2kMsg, inst, fluidType,
-                                 static_cast<double>(metric.value), capacity);
+            tN2kFluidType fluidType = static_cast<tN2kFluidType>(
+                toN2kFluidType(metric.context.fluidLevel.fluidType));
+            uint16_t capacity = metric.context.fluidLevel.capacity;
+            unsigned char inst = metric.context.fluidLevel.inst;
 
-                FluidLevelScheduler.UpdateNextTime();
-            }
+            SetN2kFluidLevel(N2kMsg, inst, fluidType,
+                             static_cast<double>(metric.value), capacity);
+
+            FluidLevelScheduler.UpdateNextTime();
             break;
         }
 
         default:
-            // Nothing to send, return
             return;
     }
 
+    notifyListeners(N2kMsg);
     NMEA2000.SendMsg(N2kMsg);
-    NMEA2000.ParseMessages();  // parse incoming messages
+    NMEA2000.ParseMessages();
 }
 
 void Nmea2000Service::addListener(N2kListenerInterface* listener) {

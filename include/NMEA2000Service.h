@@ -47,6 +47,9 @@ class Nmea2000ServiceInterface {
     virtual ~Nmea2000ServiceInterface() = default;
 };
 
+#ifdef ESP32
+#include <N2kMsg.h>
+
 class Nmea2000Service : public Nmea2000ServiceInterface {
    public:
     void start() override;
@@ -56,6 +59,8 @@ class Nmea2000Service : public Nmea2000ServiceInterface {
     void loop() override;
 
    private:
+    void notifyListeners(const tN2kMsg& msg);
     int toN2kFluidType(FluidType t);
     std::vector<N2kListenerInterface*> listeners_;
 };
+#endif

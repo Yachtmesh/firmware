@@ -7,8 +7,9 @@
 #include <string>
 #include <vector>
 
+#include "FluidLevelSensorRole.h"
 #include "WifiGatewayRole.h"
-#include "test_fluid_level_sensor_role.h"  // For FakeNmea2000Service
+#include "test_fluid_level_sensor_role.h"  // For FakeNmea2000Service, FakeAnalogInput
 
 class FakeWifiService : public WifiServiceInterface {
    public:
@@ -339,4 +340,38 @@ void test_wifi_gateway_restarts_tcp_on_wifi_reconnect() {
     role.loop();
     TEST_ASSERT_TRUE(tcp.started);
     TEST_ASSERT_EQUAL_UINT16(10110, tcp.lastPort);
+}
+
+// --- Integration: local echo from sensor to gateway ---
+
+void test_wifi_gateway_receives_local_sensor_data() {
+    // Shared NMEA service so sensor and gateway are co-located
+    FakeNmea2000Service nmea;
+    FakeAnalogInput analog;
+    FakeWifiService wifi;
+    FakeTcpServer tcp;
+
+    FluidLevelSensorRole sensor(analog, nmea);
+    WifiGatewayRole gateway(nmea, wifi, tcp);
+
+    // Configure sensor
+    FluidLevelConfig sensorCfg{FluidType::Fuel, 1, 200, 1.0f, 5.0f};
+    sensor.configure(sensorCfg);
+    sensor.start();
+
+    // Configure and start gateway (registers as listener)
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    gateway.configureFromJson(doc);
+    gateway.start();
+
+    // Simulate sensor reading
+    analog.voltage = 3.0f;
+    sensor.loop();
+
+    // Gateway should have received data via local echo and forwarded to TCP
+    TEST_ASSERT_TRUE(nmea.sent);
+    TEST_ASSERT_EQUAL(1, tcp.sentData.size());
+    TEST_ASSERT_TRUE(tcp.sentData[0].size() > 0);
 }

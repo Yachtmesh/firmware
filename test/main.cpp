@@ -94,6 +94,7 @@ int main() {
     RUN_TEST(test_wifi_gateway_forwards_data_to_tcp);
     RUN_TEST(test_wifi_gateway_stops_tcp_on_wifi_disconnect);
     RUN_TEST(test_wifi_gateway_restarts_tcp_on_wifi_reconnect);
+    RUN_TEST(test_wifi_gateway_receives_local_sensor_data);
 
     return UNITY_END();
 }
