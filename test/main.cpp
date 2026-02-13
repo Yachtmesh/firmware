@@ -85,16 +85,13 @@ int main() {
     RUN_TEST(test_wifi_gateway_config_missing_ssid_fails);
     RUN_TEST(test_wifi_gateway_config_json_roundtrip);
     RUN_TEST(test_wifi_gateway_type);
-    RUN_TEST(test_seasmart_encode_known_input);
-    RUN_TEST(test_seasmart_encode_checksum);
-    RUN_TEST(test_seasmart_encode_buffer_too_small);
     RUN_TEST(test_wifi_gateway_registers_listener_on_start);
     RUN_TEST(test_wifi_gateway_unregisters_listener_on_stop);
     RUN_TEST(test_wifi_gateway_connects_wifi_on_start);
     RUN_TEST(test_wifi_gateway_disconnects_wifi_on_stop);
     RUN_TEST(test_wifi_gateway_starts_tcp_when_wifi_connected);
     RUN_TEST(test_wifi_gateway_stops_tcp_on_stop);
-    RUN_TEST(test_wifi_gateway_sends_seasmart_to_tcp);
+    RUN_TEST(test_wifi_gateway_forwards_data_to_tcp);
     RUN_TEST(test_wifi_gateway_stops_tcp_on_wifi_disconnect);
     RUN_TEST(test_wifi_gateway_restarts_tcp_on_wifi_reconnect);
 

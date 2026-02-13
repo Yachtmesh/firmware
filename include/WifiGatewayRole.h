@@ -15,12 +15,6 @@ struct WifiGatewayConfig : public RoleConfig {
     void toJson(JsonDocument& doc) const override;
 };
 
-// Encode an N2K message as a Seasmart $PCDIN sentence.
-// Returns number of chars written (excluding null terminator), or 0 on error.
-size_t encodeSeasmart(unsigned long pgn, unsigned char source, int dataLen,
-                      const unsigned char* data, unsigned long timestamp,
-                      char* buffer, size_t bufSize);
-
 class WifiGatewayRole : public Role, public N2kListenerInterface {
    public:
     WifiGatewayRole(Nmea2000ServiceInterface& nmea,
@@ -38,10 +32,7 @@ class WifiGatewayRole : public Role, public N2kListenerInterface {
     void getConfigJson(JsonDocument& doc) override;
 
     // N2kListenerInterface
-    void onN2kMessage(unsigned long pgn, unsigned char source,
-                      unsigned char priority, int dataLen,
-                      const unsigned char* data,
-                      unsigned long msgTime) override;
+    void onN2kData(const unsigned char* data, size_t len) override;
 
     WifiGatewayConfig config;
 

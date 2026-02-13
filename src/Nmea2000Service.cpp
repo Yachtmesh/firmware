@@ -3,27 +3,53 @@
 #include <N2kMessages.h>
 #include <NMEA2000_esp32.h>
 #include <algorithm>
+#include <esp_log.h>
 #include <esp_mac.h>
 #include <esp_timer.h>
 
+static const char* TAG = "N2kSvc";
+
 static tNMEA2000_esp32 NMEA2000(GPIO_NUM_5, GPIO_NUM_4);
 
-// Bridge that receives all N2K messages and dispatches to listeners
+// N2kStream that captures output into a fixed buffer
+class BufferStream : public N2kStream {
+   public:
+    unsigned char buf[300];
+    size_t len = 0;
+
+    void reset() { len = 0; }
+    int read() override { return -1; }
+    int peek() override { return -1; }
+    size_t write(const uint8_t* data, size_t size) override {
+        size_t n = (len + size <= sizeof(buf)) ? size : sizeof(buf) - len;
+        memcpy(buf + len, data, n);
+        len += n;
+        return n;
+    }
+};
+
+// Bridge that receives all N2K messages, encodes as Actisense, and dispatches
 class MsgBridge : public tNMEA2000::tMsgHandler {
    public:
     MsgBridge(std::vector<N2kListenerInterface*>& listeners)
         : tNMEA2000::tMsgHandler(0, &NMEA2000), listeners_(listeners) {}
 
     void HandleMsg(const tN2kMsg& msg) override {
-        for (auto* listener : listeners_) {
-            unsigned long ms = (unsigned long)(esp_timer_get_time() / 1000);
-            listener->onN2kMessage(msg.PGN, msg.Source, msg.Priority,
-                                   msg.DataLen, msg.Data, ms);
+        ESP_LOGI(TAG, "RX PGN=%lu src=%u dst=%u len=%d listeners=%d",
+                 msg.PGN, msg.Source, msg.Destination, msg.DataLen,
+                 (int)listeners_.size());
+        stream_.reset();
+        msg.SendInActisenseFormat(&stream_);
+        if (stream_.len > 0) {
+            for (auto* listener : listeners_) {
+                listener->onN2kData(stream_.buf, stream_.len);
+            }
         }
     }
 
    private:
     std::vector<N2kListenerInterface*>& listeners_;
+    BufferStream stream_;
 };
 
 static MsgBridge* msgBridge = nullptr;

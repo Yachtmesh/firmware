@@ -156,50 +156,6 @@ void test_wifi_gateway_type() {
     TEST_ASSERT_EQUAL_STRING("WifiGateway", role.type());
 }
 
-// --- Seasmart encoding ---
-
-void test_seasmart_encode_known_input() {
-    unsigned char data[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-    char buffer[128];
-
-    size_t len = encodeSeasmart(127505, 0x01, 8, data, 0x12345678, buffer,
-                                sizeof(buffer));
-
-    TEST_ASSERT_GREATER_THAN(0, len);
-    TEST_ASSERT_TRUE(strncmp(buffer, "$PCDIN,", 7) == 0);
-    TEST_ASSERT_TRUE(buffer[len - 1] == '\n');
-    TEST_ASSERT_TRUE(buffer[len - 2] == '\r');
-    TEST_ASSERT_NOT_NULL(strchr(buffer, '*'));
-}
-
-void test_seasmart_encode_checksum() {
-    unsigned char data[] = {0xAA, 0xBB};
-    char buffer[128];
-
-    size_t len =
-        encodeSeasmart(130311, 0x02, 2, data, 0x00000001, buffer, sizeof(buffer));
-    TEST_ASSERT_GREATER_THAN(0, len);
-
-    char* star = strchr(buffer, '*');
-    TEST_ASSERT_NOT_NULL(star);
-    unsigned int parsedChecksum;
-    sscanf(star + 1, "%02X", &parsedChecksum);
-
-    unsigned char computed = 0;
-    for (const char* p = buffer + 1; p < star; p++) {
-        computed ^= static_cast<unsigned char>(*p);
-    }
-    TEST_ASSERT_EQUAL_UINT8(computed, static_cast<unsigned char>(parsedChecksum));
-}
-
-void test_seasmart_encode_buffer_too_small() {
-    unsigned char data[] = {0x01, 0x02, 0x03};
-    char buffer[5];
-
-    size_t len = encodeSeasmart(127505, 0x01, 3, data, 0, buffer, sizeof(buffer));
-    TEST_ASSERT_EQUAL(0, len);
-}
-
 // --- Lifecycle tests ---
 
 void test_wifi_gateway_registers_listener_on_start() {
@@ -313,7 +269,7 @@ void test_wifi_gateway_stops_tcp_on_stop() {
     TEST_ASSERT_TRUE(tcp.stopped);
 }
 
-void test_wifi_gateway_sends_seasmart_to_tcp() {
+void test_wifi_gateway_forwards_data_to_tcp() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     FakeTcpServer tcp;
@@ -326,11 +282,12 @@ void test_wifi_gateway_sends_seasmart_to_tcp() {
 
     role.start();
 
-    unsigned char data[] = {0x01, 0x02, 0x03};
-    role.onN2kMessage(127505, 0x01, 3, 3, data, 1000);
+    unsigned char frame[] = {0x10, 0x02, 0x93, 0x05, 0xAA, 0xBB, 0x10, 0x03};
+    role.onN2kData(frame, sizeof(frame));
 
     TEST_ASSERT_EQUAL(1, tcp.sentData.size());
-    TEST_ASSERT_TRUE(tcp.sentData[0].find("$PCDIN,") == 0);
+    TEST_ASSERT_EQUAL(sizeof(frame), tcp.sentData[0].size());
+    TEST_ASSERT_EQUAL_MEMORY(frame, tcp.sentData[0].data(), sizeof(frame));
 }
 
 void test_wifi_gateway_stops_tcp_on_wifi_disconnect() {
