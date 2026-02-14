@@ -12,6 +12,9 @@ idf_component_register(
         "WifiService.cpp"
         "TcpServer.cpp"
         "WifiGatewayRole.cpp"
+        "AisEncoder.cpp"
+        "BoatSimulator.cpp"
+        "AisSimulatorRole.cpp"
     INCLUDE_DIRS
         "../include"
     REQUIRES

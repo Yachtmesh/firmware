@@ -22,7 +22,7 @@ TcpServer tcpServer;
 LittleFSAdapter fileSystem;
 Esp32Platform platform;
 
-RoleFactory roleFactory(analogInput, nmea, wifi, tcpServer);
+RoleFactory roleFactory(analogInput, nmea, wifi, tcpServer, platform);
 RoleManager roleManager(roleFactory, fileSystem);
 DeviceInfo deviceInfo(platform, nmea);
 BluetoothService bluetooth(&roleManager, &deviceInfo);

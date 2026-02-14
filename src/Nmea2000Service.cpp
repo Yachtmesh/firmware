@@ -54,7 +54,7 @@ class MsgBridge : public tNMEA2000::tMsgHandler {
 
 static MsgBridge* msgBridge = nullptr;
 
-const unsigned long TransmitMessages[] PROGMEM = {130310L, 130311L, 130312L, 0};
+const unsigned long TransmitMessages[] PROGMEM = {129039L, 129809L, 130310L, 130311L, 130312L, 0};
 const uint32_t kIndustryCode = 2040;
 
 tN2kSyncScheduler FluidLevelScheduler(false, 2000, 500);
@@ -156,6 +156,18 @@ void Nmea2000Service::sendMetric(const Metric& metric) {
     notifyListeners(N2kMsg);
     NMEA2000.SendMsg(N2kMsg);
     NMEA2000.ParseMessages();
+}
+
+void Nmea2000Service::sendMsg(uint32_t pgn, uint8_t priority,
+                              const unsigned char* data, size_t len) {
+    tN2kMsg msg;
+    msg.SetPGN(pgn);
+    msg.Priority = priority;
+    for (size_t i = 0; i < len; i++) {
+        msg.AddByte(data[i]);
+    }
+    notifyListeners(msg);
+    NMEA2000.SendMsg(msg);
 }
 
 void Nmea2000Service::addListener(N2kListenerInterface* listener) {

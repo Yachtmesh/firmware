@@ -5,6 +5,7 @@
 
 #include "AnalogInputService.h"
 #include "NMEA2000Service.h"
+#include "Platform.h"
 #include "Role.h"
 #include "TcpServer.h"
 #include "WifiService.h"
@@ -14,7 +15,8 @@
 class RoleFactory {
    public:
     RoleFactory(AnalogInputInterface& analog, Nmea2000ServiceInterface& nmea,
-                WifiServiceInterface& wifi, TcpServerInterface& tcpServer);
+                WifiServiceInterface& wifi, TcpServerInterface& tcpServer,
+                PlatformInterface& platform);
 
     // Creates a configured Role from type string and JSON config
     // Returns nullptr if type is unknown or configuration fails
@@ -28,4 +30,5 @@ class RoleFactory {
     Nmea2000ServiceInterface& nmea_;
     WifiServiceInterface& wifi_;
     TcpServerInterface& tcpServer_;
+    PlatformInterface& platform_;
 };

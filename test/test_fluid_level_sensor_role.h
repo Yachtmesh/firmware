@@ -23,6 +23,12 @@ class FakeNmea2000Service : public Nmea2000ServiceInterface {
     Metric lastMetric{MetricType::FluidLevel, 0.0f};
     float lastPercent = -1;
     std::vector<N2kListenerInterface*> listeners_;
+    struct SentMsg {
+        uint32_t pgn;
+        uint8_t priority;
+        std::vector<uint8_t> data;
+    };
+    std::vector<SentMsg> msgsSent;
 
     void start() override {}
 
@@ -33,6 +39,15 @@ class FakeNmea2000Service : public Nmea2000ServiceInterface {
         unsigned char dummy[] = {0x10, 0x02, 0x93};
         for (auto* listener : listeners_) {
             listener->onN2kData(dummy, sizeof(dummy));
+        }
+    }
+
+    void sendMsg(uint32_t pgn, uint8_t priority, const unsigned char* data,
+                 size_t len) override {
+        msgsSent.push_back(
+            {pgn, priority, std::vector<uint8_t>(data, data + len)});
+        for (auto* listener : listeners_) {
+            listener->onN2kData(data, len);
         }
     }
 

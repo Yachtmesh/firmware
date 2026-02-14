@@ -1,5 +1,8 @@
 #include <unity.h>
 
+#include "test_ais_encoder.h"
+#include "test_ais_simulator_role.h"
+#include "test_boat_simulator.h"
 #include "test_device_info.h"
 #include "test_fluid_level_sensor_role.h"
 #include "test_role_manager.h"
@@ -96,6 +99,50 @@ int main() {
     RUN_TEST(test_wifi_gateway_stops_tcp_on_wifi_disconnect);
     RUN_TEST(test_wifi_gateway_restarts_tcp_on_wifi_reconnect);
     RUN_TEST(test_wifi_gateway_receives_local_sensor_data);
+
+    // AIS N2K encoder tests (PGN 129039)
+    RUN_TEST(test_pgn129039_returns_correct_size);
+    RUN_TEST(test_pgn129039_buffer_too_small);
+    RUN_TEST(test_pgn129039_message_id);
+    RUN_TEST(test_pgn129039_mmsi_encoding);
+    RUN_TEST(test_pgn129039_position_encoding);
+    RUN_TEST(test_pgn129039_negative_position);
+    RUN_TEST(test_pgn129039_sog_encoding);
+    RUN_TEST(test_pgn129039_cog_encoding);
+    RUN_TEST(test_pgn129039_heading_encoding);
+    RUN_TEST(test_pgn129039_seconds_encoding);
+
+    // AIS N2K encoder tests (PGN 129809 - Static Data Part A)
+    RUN_TEST(test_pgn129809_returns_correct_size);
+    RUN_TEST(test_pgn129809_buffer_too_small);
+    RUN_TEST(test_pgn129809_mmsi_encoding);
+    RUN_TEST(test_pgn129809_message_id);
+    RUN_TEST(test_pgn129809_name_uppercase_padded);
+    RUN_TEST(test_pgn129809_null_name);
+
+    // BoatSimulator tests
+    RUN_TEST(test_boat_simulator_init_count);
+    RUN_TEST(test_boat_simulator_initial_positions_in_northsea);
+    RUN_TEST(test_boat_simulator_unique_mmsi);
+    RUN_TEST(test_boat_simulator_update_moves_boats);
+    RUN_TEST(test_boat_simulator_zero_delta_no_change);
+    RUN_TEST(test_boat_simulator_dead_reckoning_west);
+    RUN_TEST(test_boat_simulator_bounding_box_reversal);
+    RUN_TEST(test_boat_simulator_heading_follows_cog);
+    RUN_TEST(test_boat_simulator_custom_bounding_box);
+
+    // AisSimulatorRole tests
+    RUN_TEST(test_ais_simulator_type);
+    RUN_TEST(test_ais_simulator_config_from_json);
+    RUN_TEST(test_ais_simulator_config_defaults);
+    RUN_TEST(test_ais_simulator_config_json_roundtrip);
+    RUN_TEST(test_ais_simulator_start_sets_running);
+    RUN_TEST(test_ais_simulator_stop_clears_running);
+    RUN_TEST(test_ais_simulator_sends_n2k_on_interval);
+    RUN_TEST(test_ais_simulator_round_robin_boats);
+    RUN_TEST(test_ais_simulator_no_send_before_interval);
+    RUN_TEST(test_ais_simulator_forwarded_to_listener);
+    RUN_TEST(test_ais_simulator_mmsi_in_payload);
 
     return UNITY_END();
 }

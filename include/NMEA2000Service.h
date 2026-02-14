@@ -39,6 +39,8 @@ class N2kListenerInterface {
 class Nmea2000ServiceInterface {
    public:
     virtual void sendMetric(const Metric& metric) = 0;
+    virtual void sendMsg(uint32_t pgn, uint8_t priority,
+                         const unsigned char* data, size_t len) {}
     virtual void start() = 0;
     virtual void addListener(N2kListenerInterface*) {}
     virtual void removeListener(N2kListenerInterface*) {}
@@ -55,6 +57,8 @@ class Nmea2000Service : public Nmea2000ServiceInterface {
    public:
     void start() override;
     void sendMetric(const Metric& metric) override;
+    void sendMsg(uint32_t pgn, uint8_t priority, const unsigned char* data,
+                 size_t len) override;
     void addListener(N2kListenerInterface* listener) override;
     void removeListener(N2kListenerInterface* listener) override;
     void loop() override;
