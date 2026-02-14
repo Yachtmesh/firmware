@@ -37,12 +37,26 @@ Each role has an instance ID (e.g., `FluidLevel-axv`) and persists configuration
 - **RoleFactory** - Creates Role instances from type strings and JSON config
 - **FileSystemInterface** - Abstract filesystem for testability (LittleFS in production, MockFileSystem in tests)
 
-### Service Injection
+### Services Layer
 
-Services are injected into Roles via interfaces:
+Services wrap ESP32 platform functionality behind abstract interfaces so Roles remain hardware-independent and native-testable. Each service follows the same pattern:
 
-- `Nmea2000ServiceInterface` - Sends metrics to NMEA2000 bus
-- `AnalogInputInterface` - Reads analog sensor values
+1. **Abstract interface** — pure virtual class defining the API (e.g., `Nmea2000ServiceInterface`)
+2. **ESP32 implementation** — concrete class guarded by `#ifdef ESP32` in the same header (e.g., `Nmea2000Service`)
+3. **Wired in `main.cpp`** — instantiated as globals, injected into `RoleFactory` by reference
+
+Current services:
+
+| Interface | Implementation | Purpose |
+|---|---|---|
+| `Nmea2000ServiceInterface` | `Nmea2000Service` | Send/receive NMEA 2000 messages via CAN/TWAI bus |
+| `AnalogInputInterface` | `AnalogInputService` | Read analog sensor voltage (ADC) |
+| `WifiServiceInterface` | `WifiService` | Connect/disconnect Wi-Fi STA mode |
+| `TcpServerInterface` | `TcpServer` | Accept TCP connections and broadcast data |
+| `PlatformInterface` | `Esp32Platform` | MAC address, device ID persistence, CPU temp, millis |
+| `BluetoothServiceInterface` | `BluetoothService` | BLE GATT server for mobile app config |
+
+Services are injected into Roles through `RoleFactory`, which holds references to all service interfaces and passes the relevant ones to each Role's constructor.
 
 ### Enum Code Generation
 
@@ -68,13 +82,108 @@ void loopAll() {
 }
 ```
 
+## Adding a New Service
+
+1. **Define the interface** in `include/NewService.h` — a pure virtual class with `virtual ~NewServiceInterface() = default;`
+2. **Add the ESP32 implementation** in the same header, guarded by `#ifdef ESP32`, extending the interface
+3. **Implement** in `src/NewService.cpp` — add the file to `src/CMakeLists.txt` SRCS list
+4. **Wire into `main.cpp`** — instantiate the concrete service and pass it to `RoleFactory`
+5. **Add to `RoleFactory`** — accept the new interface reference in the constructor and store it
+6. **Create a mock** in `test/MockNewService.h` for native tests (implement the interface with test-controllable behavior)
+7. **Never put ESP32 headers in the interface** — keep `#include <esp_*.h>` etc. inside the `#ifdef ESP32` block only so native tests compile cleanly
+
+Key rules:
+- Interfaces must be pure virtual (no ESP32 dependencies) so Roles using them remain native-testable
+- The `#ifdef ESP32` / concrete implementation pattern keeps everything in one header file per service
+- Services that need a `loop()` call should have it invoked from the main loop in `main.cpp`
+
 ## Adding a New Role Type
 
-1. Create `NewSensorRole.h/.cpp` extending `Role`
-2. Implement all virtual methods including `configureFromJson()` and `getConfigJson()`
-3. Add the type to `RoleFactory::createRoleInstance()`
-4. Write tests in `test/test_new_sensor_role.h`
-5. Include test header in `test/main.cpp`
+### 1. Define types in `include/types.h` (if the role introduces new enums)
+
+Use the macro generator pattern. Every enum **must** include `Unavailable` as the last value (used as the fallback for unknown strings):
+
+```cpp
+#define MY_TYPE_LIST(X) \
+    X(ValueA)           \
+    X(ValueB)           \
+    X(Unavailable)
+
+#define CURRENT_ENUM_NAME MyType
+GENERATE_ENUM(MyType, MY_TYPE_LIST)
+GENERATE_TO_STRING(MyType, MY_TYPE_LIST)    // MyTypeToString()
+GENERATE_FROM_STRING(MyType, MY_TYPE_LIST)  // MyTypeFromString()
+#undef CURRENT_ENUM_NAME
+```
+
+Key rules for types:
+- The `#define CURRENT_ENUM_NAME` / `#undef` pair is required — the macros use it internally
+- String conversion is case-sensitive and matches the enum value name exactly
+- `FromString()` returns `Unavailable` for any unrecognized input
+- Write round-trip tests: `FromString(ToString(value)) == value`
+
+### 2. Create the config struct and role class in `include/NewRole.h`
+
+```cpp
+struct NewRoleConfig : public RoleConfig {
+    // Config fields with sensible defaults
+    void toJson(JsonDocument& doc) const override;
+};
+
+class NewRole : public Role {
+   public:
+    // Constructor takes only service interfaces — never ESP32 types directly
+    NewRole(Nmea2000ServiceInterface& nmea);
+
+    // All Role virtuals
+    const char* type() override;
+    void configure(const RoleConfig& cfg) override;
+    bool configureFromJson(const JsonDocument& doc) override;
+    bool validate() override;
+    void start() override;
+    void stop() override;
+    void loop() override;
+    void getConfigJson(JsonDocument& doc) override;
+
+    NewRoleConfig config;  // public for test access
+
+   private:
+    Nmea2000ServiceInterface& nmea_;
+};
+```
+
+Key rules:
+- Roles must **never** include ESP32 headers — all platform access goes through injected service interfaces
+- `configureFromJson()` must call `validate()` and return false if validation fails
+- `getConfigJson()` must include `"type"` in the output (used for persistence round-trip)
+- Store service dependencies as references (`&`), not pointers
+- Config struct is public for direct test access
+
+### 3. Implement in `src/NewRole.cpp`
+
+- `type()` returns a short string matching the factory key (e.g., `"FluidLevel"`, `"WifiGateway"`)
+- Add the `.cpp` file to `src/CMakeLists.txt` SRCS list
+
+### 4. Register in `RoleFactory`
+
+In `src/RoleFactory.cpp`:
+- Include the header
+- Add a branch in `createRoleInstance()` matching the type string, passing the needed service references
+
+### 5. Write tests in `test/test_new_role.h`
+
+Create Fake/Mock implementations of any service interfaces the role needs. Follow existing patterns (see `FakeAnalogInput`, `FakeNmea2000Service` in `test/test_fluid_level_sensor_role.h`). Tests should cover:
+
+- `type()` returns correct string
+- `configureFromJson()` / `getConfigJson()` round-trip
+- `validate()` rejects invalid configs
+- `start()` / `loop()` / `stop()` lifecycle behavior
+- Enum `ToString` / `FromString` round-trip (if new types added)
+
+### 6. Register tests in `test/main.cpp`
+
+- Include the test header
+- Add `RUN_TEST()` calls for each test function
 
 ## Current Roles
 
@@ -83,6 +192,18 @@ void loopAll() {
 Reads analog voltage from tank level sensor, broadcasts as NMEA2000 PGN 127505.
 
 Config: `fluidType`, `inst` (instance), `capacity` (liters), `minVoltage`/`maxVoltage` (calibration)
+
+### WifiGatewayRole
+
+Bridges NMEA2000 data to TCP clients over Wi-Fi (Actisense format). Implements `N2kListenerInterface` to receive bus data.
+
+Config: `ssid`, `password`, `port` (default 10110)
+
+### AisSimulatorRole
+
+Simulates AIS vessel targets on the NMEA2000 bus for testing chart plotters.
+
+Config: `intervalMs` (broadcast interval, default 5000)
 
 ## Dependencies
 
