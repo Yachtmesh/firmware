@@ -2,7 +2,8 @@
 
 #include <cstring>
 
-DeviceInfo::DeviceInfo(PlatformInterface& platform) : platform_(platform) {
+DeviceInfo::DeviceInfo(PlatformInterface& platform, Nmea2000ServiceInterface& nmea)
+    : platform_(platform), nmea_(nmea) {
     loadOrGenerateDeviceId();
 }
 
@@ -60,7 +61,7 @@ void DeviceInfo::buildDeviceInfo(uint8_t* buffer) {
     platform_.getMacAddress(buffer + 6);
 
     // NMEA address (1 byte)
-    buffer[12] = DEFAULT_NMEA_ADDRESS;
+    buffer[12] = nmea_.getAddress();
 
     // Firmware version (3 bytes)
     buffer[13] = FW_VERSION_MAJOR;

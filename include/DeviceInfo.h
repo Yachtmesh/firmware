@@ -3,13 +3,14 @@
 #include <cstdint>
 #include <string>
 
+#include "NMEA2000Service.h"
 #include "Platform.h"
 
 // DeviceInfo handles device identity and status serialization
 // Extracted from BluetoothService for testability
 class DeviceInfo {
    public:
-    explicit DeviceInfo(PlatformInterface& platform);
+    DeviceInfo(PlatformInterface& platform, Nmea2000ServiceInterface& nmea);
 
     // Get 6-character alphanumeric device ID
     std::string getDeviceId() const;
@@ -46,11 +47,9 @@ class DeviceInfo {
     static constexpr uint8_t FW_VERSION_MINOR = 1;
     static constexpr uint8_t FW_VERSION_PATCH = 0;
 
-    // Default NMEA address (will be configurable later)
-    static constexpr uint8_t DEFAULT_NMEA_ADDRESS = 22;
-
    private:
     PlatformInterface& platform_;
+    Nmea2000ServiceInterface& nmea_;
     std::string deviceId_;
     uint8_t statusSeq_ = 0;
     uint32_t startTime_ = 0;

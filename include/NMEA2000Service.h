@@ -43,6 +43,7 @@ class Nmea2000ServiceInterface {
     virtual void addListener(N2kListenerInterface*) {}
     virtual void removeListener(N2kListenerInterface*) {}
     virtual void loop() {}
+    virtual uint8_t getAddress() const { return 255; }
 
     virtual ~Nmea2000ServiceInterface() = default;
 };
@@ -57,6 +58,7 @@ class Nmea2000Service : public Nmea2000ServiceInterface {
     void addListener(N2kListenerInterface* listener) override;
     void removeListener(N2kListenerInterface* listener) override;
     void loop() override;
+    uint8_t getAddress() const override;
 
    private:
     void notifyListeners(const tN2kMsg& msg);

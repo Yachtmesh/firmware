@@ -171,6 +171,10 @@ void Nmea2000Service::loop() {
     NMEA2000.ParseMessages();
 }
 
+uint8_t Nmea2000Service::getAddress() const {
+    return NMEA2000.GetN2kSource();
+}
+
 int Nmea2000Service::toN2kFluidType(FluidType t) {
     switch (t) {
         case FluidType::Fuel:

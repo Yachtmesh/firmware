@@ -4,15 +4,25 @@
 
 #include "DeviceInfo.h"
 #include "MockPlatform.h"
+#include "NMEA2000Service.h"
+
+class MockNmea2000Service : public Nmea2000ServiceInterface {
+   public:
+    uint8_t address = 22;
+    void sendMetric(const Metric&) override {}
+    void start() override {}
+    uint8_t getAddress() const override { return address; }
+};
 
 // Tests that DeviceInfo generates ID from MAC when no stored ID
 void test_device_info_generates_id_from_mac() {
     MockPlatform platform;
+    MockNmea2000Service nmea;
     // Set a specific MAC address
     uint8_t mac[] = {0xAA, 0xBB, 0x12, 0x34, 0x56, 0x78};
     platform.setMacAddress(mac);
 
-    DeviceInfo info(platform);
+    DeviceInfo info(platform, nmea);
 
     std::string id = info.getDeviceId();
     TEST_ASSERT_EQUAL(6, id.length());
@@ -22,7 +32,8 @@ void test_device_info_generates_id_from_mac() {
 // Tests that DeviceInfo ID is 6 characters alphanumeric
 void test_device_info_id_format() {
     MockPlatform platform;
-    DeviceInfo info(platform);
+    MockNmea2000Service nmea;
+    DeviceInfo info(platform, nmea);
 
     std::string id = info.getDeviceId();
     TEST_ASSERT_EQUAL(6, id.length());
@@ -37,9 +48,10 @@ void test_device_info_id_format() {
 // Tests that DeviceInfo loads existing ID from storage
 void test_device_info_loads_stored_id() {
     MockPlatform platform;
+    MockNmea2000Service nmea;
     platform.setStoredDeviceId("ABC123");
 
-    DeviceInfo info(platform);
+    DeviceInfo info(platform, nmea);
 
     TEST_ASSERT_EQUAL_STRING("ABC123", info.getDeviceId().c_str());
     TEST_ASSERT_FALSE(platform.wasSaveDeviceIdCalled());
@@ -48,9 +60,10 @@ void test_device_info_loads_stored_id() {
 // Tests that DeviceInfo regenerates invalid stored ID (wrong length)
 void test_device_info_regenerates_invalid_id() {
     MockPlatform platform;
+    MockNmea2000Service nmea;
     platform.setStoredDeviceId("TOO_LONG_ID");
 
-    DeviceInfo info(platform);
+    DeviceInfo info(platform, nmea);
 
     std::string id = info.getDeviceId();
     TEST_ASSERT_EQUAL(6, id.length());
@@ -60,11 +73,12 @@ void test_device_info_regenerates_invalid_id() {
 // Tests that buildDeviceInfo produces correct 20-byte format
 void test_device_info_build_device_info_format() {
     MockPlatform platform;
+    MockNmea2000Service nmea;
     platform.setStoredDeviceId("DEVICE");
     uint8_t mac[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
     platform.setMacAddress(mac);
 
-    DeviceInfo info(platform);
+    DeviceInfo info(platform, nmea);
 
     uint8_t buffer[20];
     info.buildDeviceInfo(buffer);
@@ -103,11 +117,12 @@ void test_device_info_build_device_info_format() {
 // Tests that buildDeviceStatus produces correct 9-byte format
 void test_device_info_build_device_status_format() {
     MockPlatform platform;
+    MockNmea2000Service nmea;
     platform.setStoredDeviceId("DEVICE");
     platform.setTemperature(45.5f);
     platform.setMillis(0);
 
-    DeviceInfo info(platform);
+    DeviceInfo info(platform, nmea);
     info.start();
 
     // Advance time by 5 seconds
@@ -133,9 +148,10 @@ void test_device_info_build_device_status_format() {
 // Tests that status sequence increments on each build
 void test_device_info_status_sequence_increments() {
     MockPlatform platform;
+    MockNmea2000Service nmea;
     platform.setStoredDeviceId("DEVICE");
 
-    DeviceInfo info(platform);
+    DeviceInfo info(platform, nmea);
 
     uint8_t buffer[9];
 
@@ -152,10 +168,11 @@ void test_device_info_status_sequence_increments() {
 // Tests that uptime calculation is correct
 void test_device_info_uptime_calculation() {
     MockPlatform platform;
+    MockNmea2000Service nmea;
     platform.setStoredDeviceId("DEVICE");
     platform.setMillis(1000);  // Start at 1 second
 
-    DeviceInfo info(platform);
+    DeviceInfo info(platform, nmea);
     info.start();
 
     TEST_ASSERT_EQUAL_UINT32(0, info.getUptime());
@@ -170,10 +187,11 @@ void test_device_info_uptime_calculation() {
 // Tests that getCpuTemperature returns platform value
 void test_device_info_cpu_temperature() {
     MockPlatform platform;
+    MockNmea2000Service nmea;
     platform.setStoredDeviceId("DEVICE");
     platform.setTemperature(55.5f);
 
-    DeviceInfo info(platform);
+    DeviceInfo info(platform, nmea);
 
     TEST_ASSERT_FLOAT_WITHIN(0.1f, 55.5f, info.getCpuTemperature());
 }
@@ -182,14 +200,30 @@ void test_device_info_cpu_temperature() {
 void test_device_info_id_deterministic() {
     MockPlatform platform1;
     MockPlatform platform2;
+    MockNmea2000Service nmea;
 
     uint8_t mac[] = {0x00, 0x11, 0xAA, 0xBB, 0xCC, 0xDD};
     platform1.setMacAddress(mac);
     platform2.setMacAddress(mac);
 
-    DeviceInfo info1(platform1);
-    DeviceInfo info2(platform2);
+    DeviceInfo info1(platform1, nmea);
+    DeviceInfo info2(platform2, nmea);
 
     TEST_ASSERT_EQUAL_STRING(info1.getDeviceId().c_str(),
                              info2.getDeviceId().c_str());
+}
+
+// Tests that buildDeviceInfo uses NMEA address from injected service
+void test_device_info_nmea_address_from_service() {
+    MockPlatform platform;
+    MockNmea2000Service nmea;
+    platform.setStoredDeviceId("DEVICE");
+
+    nmea.address = 42;
+    DeviceInfo info(platform, nmea);
+
+    uint8_t buffer[20];
+    info.buildDeviceInfo(buffer);
+
+    TEST_ASSERT_EQUAL_UINT8(42, buffer[12]);
 }

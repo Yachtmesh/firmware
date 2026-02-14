@@ -18,6 +18,7 @@ class FakeAnalogInput : public AnalogInputInterface {
 
 class FakeNmea2000Service : public Nmea2000ServiceInterface {
    public:
+    uint8_t address = 22;
     bool sent = false;
     Metric lastMetric{MetricType::FluidLevel, 0.0f};
     float lastPercent = -1;
@@ -46,6 +47,8 @@ class FakeNmea2000Service : public Nmea2000ServiceInterface {
     }
 
     void loop() override {}
+
+    uint8_t getAddress() const override { return address; }
 };
 
 void test_fluid_level_sensor_role_basic_flow() {

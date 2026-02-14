@@ -24,7 +24,7 @@ Esp32Platform platform;
 
 RoleFactory roleFactory(analogInput, nmea, wifi, tcpServer);
 RoleManager roleManager(roleFactory, fileSystem);
-DeviceInfo deviceInfo(platform);
+DeviceInfo deviceInfo(platform, nmea);
 BluetoothService bluetooth(&roleManager, &deviceInfo);
 
 extern "C" void app_main() {

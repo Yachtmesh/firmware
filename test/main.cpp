@@ -77,6 +77,7 @@ int main() {
     RUN_TEST(test_device_info_uptime_calculation);
     RUN_TEST(test_device_info_cpu_temperature);
     RUN_TEST(test_device_info_id_deterministic);
+    RUN_TEST(test_device_info_nmea_address_from_service);
 
     // WifiGatewayRole tests
     RUN_TEST(test_wifi_gateway_config_from_json);
