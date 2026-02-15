@@ -50,9 +50,13 @@ void WifiService::eventHandler(void* arg, esp_event_base_t eventBase,
 bool WifiService::connect(const char* ssid, const char* password) {
     initWifi();
 
-    // If already connected, disconnect first
+    // WiFi is a shared resource — multiple roles may call connect/disconnect.
+    // Reference counting ensures we only tear down when the last user disconnects.
+    refCount_++;
+
     if (connected_) {
-        disconnect();
+        ESP_LOGI(TAG, "WiFi already connected (refCount=%d)", refCount_);
+        return true;
     }
 
     wifi_config_t wifiConfig = {};
@@ -65,15 +69,24 @@ bool WifiService::connect(const char* ssid, const char* password) {
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifiConfig));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "Connecting to SSID: %s", ssid);
+    ESP_LOGI(TAG, "Connecting to SSID: %s (refCount=%d)", ssid, refCount_);
     return true;
 }
 
 void WifiService::disconnect() {
+    if (refCount_ > 0) {
+        refCount_--;
+    }
+
+    if (refCount_ > 0) {
+        ESP_LOGI(TAG, "WiFi still in use (refCount=%d), keeping connection", refCount_);
+        return;
+    }
+
     connected_ = false;
     esp_wifi_disconnect();
     esp_wifi_stop();
-    ESP_LOGI(TAG, "Disconnected");
+    ESP_LOGI(TAG, "Disconnected (last user)");
 }
 
 bool WifiService::isConnected() const { return connected_; }

@@ -26,5 +26,6 @@ class WifiService : public WifiServiceInterface {
 
     bool initialized_ = false;
     volatile bool connected_ = false;
+    int refCount_ = 0;  // Number of active users; actual disconnect at zero
 };
 #endif

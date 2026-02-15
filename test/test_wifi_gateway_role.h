@@ -13,16 +13,20 @@
 #include "WifiGatewayRole.h"
 #include "test_fluid_level_sensor_role.h"  // For FakeNmea2000Service, FakeAnalogInput
 
+// Mirrors WifiService ref-counting: multiple roles can connect/disconnect
+// without stomping on each other. Actual disconnect only at refCount 0.
 class FakeWifiService : public WifiServiceInterface {
    public:
     bool connectCalled = false;
     bool disconnectCalled = false;
     bool connected = false;
+    int refCount = 0;
     char lastSsid[33] = {0};
     char lastPassword[65] = {0};
 
     bool connect(const char* ssid, const char* password) override {
         connectCalled = true;
+        refCount++;
         strncpy(lastSsid, ssid, sizeof(lastSsid) - 1);
         strncpy(lastPassword, password, sizeof(lastPassword) - 1);
         connected = true;
@@ -31,7 +35,8 @@ class FakeWifiService : public WifiServiceInterface {
 
     void disconnect() override {
         disconnectCalled = true;
-        connected = false;
+        if (refCount > 0) refCount--;
+        if (refCount == 0) connected = false;
     }
 
     bool isConnected() const override { return connected; }
@@ -249,6 +254,9 @@ void test_wifi_gateway_disconnects_wifi_on_stop() {
     role.stop();
 
     TEST_ASSERT_TRUE(wifi.disconnectCalled);
+    // Single role: refCount drops to 0, WiFi actually disconnects
+    TEST_ASSERT_FALSE(wifi.connected);
+    TEST_ASSERT_EQUAL(0, wifi.refCount);
 }
 
 void test_wifi_gateway_starts_tcp_when_wifi_connected() {
