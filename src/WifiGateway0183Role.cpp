@@ -4,8 +4,8 @@
 
 WifiGateway0183Role::WifiGateway0183Role(Nmea2000ServiceInterface& nmea,
                                          WifiServiceInterface& wifi,
-                                         TcpServerInterface& tcpServer)
-    : nmea_(nmea), wifi_(wifi), tcpServer_(tcpServer) {}
+                                         std::unique_ptr<TcpServerInterface> tcpServer)
+    : nmea_(nmea), wifi_(wifi), tcpServer_(std::move(tcpServer)) {}
 
 void WifiGateway0183Config::toJson(JsonDocument& doc) const {
     doc["type"] = "WifiGateway0183";
@@ -53,7 +53,7 @@ void WifiGateway0183Role::start() {
 
 void WifiGateway0183Role::stop() {
     nmea_.removeListener(this);
-    tcpServer_.stop();
+    tcpServer_->stop();
     tcpStarted_ = false;
     wifi_.disconnect();
     status_.running = false;
@@ -62,11 +62,11 @@ void WifiGateway0183Role::stop() {
 void WifiGateway0183Role::loop() {
     if (wifi_.isConnected()) {
         if (!tcpStarted_) {
-            tcpStarted_ = tcpServer_.start(config.port);
+            tcpStarted_ = tcpServer_->start(config.port);
         }
-        tcpServer_.loop();
+        tcpServer_->loop();
     } else if (tcpStarted_) {
-        tcpServer_.stop();
+        tcpServer_->stop();
         tcpStarted_ = false;
     }
 }
@@ -76,6 +76,6 @@ void WifiGateway0183Role::onN2kMessage(uint32_t pgn, uint8_t priority,
                                        const unsigned char* data, size_t len) {
     std::string sentence = converter_.convert(pgn, data, len);
     if (!sentence.empty()) {
-        tcpServer_.sendToAll(sentence.c_str(), sentence.size());
+        tcpServer_->sendToAll(sentence.c_str(), sentence.size());
     }
 }

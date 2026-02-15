@@ -6,8 +6,8 @@
 
 WifiGatewayRole::WifiGatewayRole(Nmea2000ServiceInterface& nmea,
                                  WifiServiceInterface& wifi,
-                                 TcpServerInterface& tcpServer)
-    : nmea_(nmea), wifi_(wifi), tcpServer_(tcpServer) {}
+                                 std::unique_ptr<TcpServerInterface> tcpServer)
+    : nmea_(nmea), wifi_(wifi), tcpServer_(std::move(tcpServer)) {}
 
 void WifiGatewayConfig::toJson(JsonDocument& doc) const {
     doc["type"] = "WifiGateway";
@@ -55,7 +55,7 @@ void WifiGatewayRole::start() {
 
 void WifiGatewayRole::stop() {
     nmea_.removeListener(this);
-    tcpServer_.stop();
+    tcpServer_->stop();
     tcpStarted_ = false;
     wifi_.disconnect();
     status_.running = false;
@@ -64,11 +64,11 @@ void WifiGatewayRole::stop() {
 void WifiGatewayRole::loop() {
     if (wifi_.isConnected()) {
         if (!tcpStarted_) {
-            tcpStarted_ = tcpServer_.start(config.port);
+            tcpStarted_ = tcpServer_->start(config.port);
         }
-        tcpServer_.loop();
+        tcpServer_->loop();
     } else if (tcpStarted_) {
-        tcpServer_.stop();
+        tcpServer_->stop();
         tcpStarted_ = false;
     }
 }
@@ -80,6 +80,6 @@ void WifiGatewayRole::onN2kMessage(uint32_t pgn, uint8_t priority,
     size_t encoded =
         encodeActisense(pgn, priority, source, data, len, buf, sizeof(buf));
     if (encoded > 0) {
-        tcpServer_.sendToAll(reinterpret_cast<const char*>(buf), encoded);
+        tcpServer_->sendToAll(reinterpret_cast<const char*>(buf), encoded);
     }
 }

@@ -2,6 +2,8 @@
 
 #include <ArduinoJson.h>
 
+#include <memory>
+
 #include "NMEA2000Service.h"
 #include "Role.h"
 #include "TcpServer.h"
@@ -17,9 +19,12 @@ struct WifiGatewayConfig : public RoleConfig {
 
 class WifiGatewayRole : public Role, public N2kListenerInterface {
    public:
+    // tcpServer: each role instance owns its own TCP server, created by
+    // RoleFactory via TcpServerCreator. This allows multiple gateway roles
+    // to run simultaneously on different ports.
     WifiGatewayRole(Nmea2000ServiceInterface& nmea,
                     WifiServiceInterface& wifi,
-                    TcpServerInterface& tcpServer);
+                    std::unique_ptr<TcpServerInterface> tcpServer);
 
     // Role interface
     const char* type() override;
@@ -40,6 +45,6 @@ class WifiGatewayRole : public Role, public N2kListenerInterface {
    private:
     Nmea2000ServiceInterface& nmea_;
     WifiServiceInterface& wifi_;
-    TcpServerInterface& tcpServer_;
+    std::unique_ptr<TcpServerInterface> tcpServer_;
     bool tcpStarted_ = false;
 };
