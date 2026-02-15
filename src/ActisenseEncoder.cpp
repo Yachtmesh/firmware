@@ -70,6 +70,11 @@ size_t encodeActisense(uint32_t pgn, uint8_t priority, uint8_t source,
         if (!writeByte(outBuf, pos, outBufSize - 2, 0x00, checksum)) return 0;
     }
 
+    // Data byte count
+    if (!writeByte(outBuf, pos, outBufSize - 2, static_cast<uint8_t>(dataLen),
+                   checksum))
+        return 0;
+
     // Data payload
     for (size_t i = 0; i < dataLen; i++) {
         if (!writeByte(outBuf, pos, outBufSize - 2, data[i], checksum))
