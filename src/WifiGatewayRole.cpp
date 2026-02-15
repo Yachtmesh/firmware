@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+#include "ActisenseEncoder.h"
+
 WifiGatewayRole::WifiGatewayRole(Nmea2000ServiceInterface& nmea,
                                  WifiServiceInterface& wifi,
                                  TcpServerInterface& tcpServer)
@@ -71,6 +73,13 @@ void WifiGatewayRole::loop() {
     }
 }
 
-void WifiGatewayRole::onN2kData(const unsigned char* data, size_t len) {
-    tcpServer_.sendToAll(reinterpret_cast<const char*>(data), len);
+void WifiGatewayRole::onN2kMessage(uint32_t pgn, uint8_t priority,
+                                   uint8_t source, const unsigned char* data,
+                                   size_t len) {
+    unsigned char buf[512];
+    size_t encoded =
+        encodeActisense(pgn, priority, source, data, len, buf, sizeof(buf));
+    if (encoded > 0) {
+        tcpServer_.sendToAll(reinterpret_cast<const char*>(buf), encoded);
+    }
 }

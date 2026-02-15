@@ -177,9 +177,14 @@ void test_ais_simulator_forwarded_to_listener() {
 
     // Set up a listener (like WifiGateway would)
     struct TestListener : public N2kListenerInterface {
-        std::vector<std::vector<uint8_t>> received;
-        void onN2kData(const unsigned char* data, size_t len) override {
-            received.emplace_back(data, data + len);
+        struct Msg {
+            uint32_t pgn;
+            std::vector<uint8_t> data;
+        };
+        std::vector<Msg> received;
+        void onN2kMessage(uint32_t pgn, uint8_t priority, uint8_t source,
+                          const unsigned char* data, size_t len) override {
+            received.push_back({pgn, std::vector<uint8_t>(data, data + len)});
         }
     };
     TestListener listener;
@@ -195,8 +200,10 @@ void test_ais_simulator_forwarded_to_listener() {
 
     // Listener should have received both messages (position + static A)
     TEST_ASSERT_EQUAL(2, listener.received.size());
-    TEST_ASSERT_EQUAL(PGN_AIS_CLASS_B_SIZE, listener.received[0].size());
-    TEST_ASSERT_EQUAL(PGN_AIS_CLASS_B_STATIC_A_SIZE, listener.received[1].size());
+    TEST_ASSERT_EQUAL(PGN_AIS_CLASS_B_POSITION, listener.received[0].pgn);
+    TEST_ASSERT_EQUAL(PGN_AIS_CLASS_B_SIZE, listener.received[0].data.size());
+    TEST_ASSERT_EQUAL(PGN_AIS_CLASS_B_STATIC_A, listener.received[1].pgn);
+    TEST_ASSERT_EQUAL(PGN_AIS_CLASS_B_STATIC_A_SIZE, listener.received[1].data.size());
 
     nmea.removeListener(&listener);
 }

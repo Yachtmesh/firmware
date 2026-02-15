@@ -29,10 +29,11 @@ struct Metric {
         : type(t), value(v), priority(prio) {}
 };
 
-// Listener interface for pre-encoded N2K data (Actisense binary frames)
+// Listener interface for raw N2K messages
 class N2kListenerInterface {
    public:
-    virtual void onN2kData(const unsigned char* data, size_t len) = 0;
+    virtual void onN2kMessage(uint32_t pgn, uint8_t priority, uint8_t source,
+                              const unsigned char* data, size_t len) = 0;
     virtual ~N2kListenerInterface() = default;
 };
 

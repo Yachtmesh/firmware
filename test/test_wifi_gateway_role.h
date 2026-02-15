@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "ActisenseEncoder.h"
 #include "FluidLevelSensorRole.h"
 #include "WifiGatewayRole.h"
 #include "test_fluid_level_sensor_role.h"  // For FakeNmea2000Service, FakeAnalogInput
@@ -283,12 +284,22 @@ void test_wifi_gateway_forwards_data_to_tcp() {
 
     role.start();
 
-    unsigned char frame[] = {0x10, 0x02, 0x93, 0x05, 0xAA, 0xBB, 0x10, 0x03};
-    role.onN2kData(frame, sizeof(frame));
+    // Send raw N2K fields — role should Actisense-encode and forward
+    unsigned char data[] = {0xAA, 0xBB, 0xCC};
+    uint32_t pgn = 127505;
+    uint8_t priority = 3;
+    uint8_t source = 22;
+    role.onN2kMessage(pgn, priority, source, data, sizeof(data));
 
     TEST_ASSERT_EQUAL(1, tcp.sentData.size());
-    TEST_ASSERT_EQUAL(sizeof(frame), tcp.sentData[0].size());
-    TEST_ASSERT_EQUAL_MEMORY(frame, tcp.sentData[0].data(), sizeof(frame));
+    TEST_ASSERT_TRUE(tcp.sentData[0].size() > 0);
+
+    // Verify it matches what encodeActisense produces
+    unsigned char expected[512];
+    size_t expectedLen = encodeActisense(pgn, priority, source, data,
+                                         sizeof(data), expected, sizeof(expected));
+    TEST_ASSERT_EQUAL(expectedLen, tcp.sentData[0].size());
+    TEST_ASSERT_EQUAL_MEMORY(expected, tcp.sentData[0].data(), expectedLen);
 }
 
 void test_wifi_gateway_stops_tcp_on_wifi_disconnect() {

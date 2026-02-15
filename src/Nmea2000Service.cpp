@@ -11,24 +11,7 @@ static const char* TAG = "N2kSvc";
 
 static tNMEA2000_esp32 NMEA2000(GPIO_NUM_5, GPIO_NUM_4);
 
-// N2kStream that captures output into a fixed buffer
-class BufferStream : public N2kStream {
-   public:
-    unsigned char buf[300];
-    size_t len = 0;
-
-    void reset() { len = 0; }
-    int read() override { return -1; }
-    int peek() override { return -1; }
-    size_t write(const uint8_t* data, size_t size) override {
-        size_t n = (len + size <= sizeof(buf)) ? size : sizeof(buf) - len;
-        memcpy(buf + len, data, n);
-        len += n;
-        return n;
-    }
-};
-
-// Bridge that receives all N2K messages, encodes as Actisense, and dispatches
+// Bridge that receives all N2K messages and dispatches raw fields to listeners
 class MsgBridge : public tNMEA2000::tMsgHandler {
    public:
     MsgBridge(std::vector<N2kListenerInterface*>& listeners)
@@ -38,18 +21,14 @@ class MsgBridge : public tNMEA2000::tMsgHandler {
         ESP_LOGI(TAG, "RX PGN=%lu src=%u dst=%u len=%d listeners=%d",
                  msg.PGN, msg.Source, msg.Destination, msg.DataLen,
                  (int)listeners_.size());
-        stream_.reset();
-        msg.SendInActisenseFormat(&stream_);
-        if (stream_.len > 0) {
-            for (auto* listener : listeners_) {
-                listener->onN2kData(stream_.buf, stream_.len);
-            }
+        for (auto* listener : listeners_) {
+            listener->onN2kMessage(msg.PGN, msg.Priority, msg.Source,
+                                   msg.Data, msg.DataLen);
         }
     }
 
    private:
     std::vector<N2kListenerInterface*>& listeners_;
-    BufferStream stream_;
 };
 
 static MsgBridge* msgBridge = nullptr;
@@ -121,12 +100,9 @@ void Nmea2000Service::start() {
 
 void Nmea2000Service::notifyListeners(const tN2kMsg& msg) {
     if (listeners_.empty()) return;
-    BufferStream stream;
-    msg.SendInActisenseFormat(&stream);
-    if (stream.len > 0) {
-        for (auto* listener : listeners_) {
-            listener->onN2kData(stream.buf, stream.len);
-        }
+    for (auto* listener : listeners_) {
+        listener->onN2kMessage(msg.PGN, msg.Priority, msg.Source,
+                               msg.Data, msg.DataLen);
     }
 }
 

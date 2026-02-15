@@ -4,6 +4,7 @@
 
 #include "AisSimulatorRole.h"
 #include "FluidLevelSensorRole.h"
+#include "WifiGateway0183Role.h"
 #include "WifiGatewayRole.h"
 
 RoleFactory::RoleFactory(AnalogInputInterface& analog,
@@ -37,6 +38,9 @@ std::unique_ptr<Role> RoleFactory::createRoleInstance(const char* type) {
     }
     if (strcmp(type, "AisSimulator") == 0) {
         return std::make_unique<AisSimulatorRole>(nmea_, platform_);
+    }
+    if (strcmp(type, "WifiGateway0183") == 0) {
+        return std::make_unique<WifiGateway0183Role>(nmea_, wifi_, tcpServer_);
     }
 
     return nullptr;

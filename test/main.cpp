@@ -1,11 +1,13 @@
 #include <unity.h>
 
 #include "test_ais_encoder.h"
+#include "test_ais_n2k_to_0183_converter.h"
 #include "test_ais_simulator_role.h"
 #include "test_boat_simulator.h"
 #include "test_device_info.h"
 #include "test_fluid_level_sensor_role.h"
 #include "test_role_manager.h"
+#include "test_wifi_gateway_0183_role.h"
 #include "test_wifi_gateway_role.h"
 
 int main() {
@@ -143,6 +145,34 @@ int main() {
     RUN_TEST(test_ais_simulator_no_send_before_interval);
     RUN_TEST(test_ais_simulator_forwarded_to_listener);
     RUN_TEST(test_ais_simulator_mmsi_in_payload);
+
+    // AIS N2K to 0183 converter tests
+    RUN_TEST(test_converter_pgn129039_produces_aivdm);
+    RUN_TEST(test_converter_pgn129039_checksum_valid);
+    RUN_TEST(test_converter_pgn129039_mmsi);
+    RUN_TEST(test_converter_pgn129039_position);
+    RUN_TEST(test_converter_pgn129039_sog_cog);
+    RUN_TEST(test_converter_pgn129039_short_data_returns_empty);
+    RUN_TEST(test_converter_pgn129809_produces_aivdm);
+    RUN_TEST(test_converter_pgn129809_checksum_valid);
+    RUN_TEST(test_converter_pgn129809_mmsi_and_name);
+    RUN_TEST(test_converter_pgn129809_short_data_returns_empty);
+    RUN_TEST(test_converter_unsupported_pgn_returns_empty);
+
+    // WifiGateway0183Role tests
+    RUN_TEST(test_wifi_gateway_0183_config_from_json);
+    RUN_TEST(test_wifi_gateway_0183_config_default_port);
+    RUN_TEST(test_wifi_gateway_0183_config_empty_ssid_fails);
+    RUN_TEST(test_wifi_gateway_0183_config_json_roundtrip);
+    RUN_TEST(test_wifi_gateway_0183_type);
+    RUN_TEST(test_wifi_gateway_0183_registers_listener_on_start);
+    RUN_TEST(test_wifi_gateway_0183_unregisters_listener_on_stop);
+    RUN_TEST(test_wifi_gateway_0183_connects_wifi_on_start);
+    RUN_TEST(test_wifi_gateway_0183_starts_tcp_when_wifi_connected);
+    RUN_TEST(test_wifi_gateway_0183_stops_tcp_on_wifi_disconnect);
+    RUN_TEST(test_wifi_gateway_0183_forwards_ais_as_aivdm);
+    RUN_TEST(test_wifi_gateway_0183_ignores_unsupported_pgn);
+    RUN_TEST(test_wifi_gateway_0183_forwards_static_data);
 
     return UNITY_END();
 }

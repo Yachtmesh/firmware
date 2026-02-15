@@ -36,9 +36,9 @@ class FakeNmea2000Service : public Nmea2000ServiceInterface {
         sent = true;
         lastMetric = metric;
         // Local echo: notify listeners like the real Nmea2000Service does
-        unsigned char dummy[] = {0x10, 0x02, 0x93};
+        unsigned char dummy[] = {0x00};
         for (auto* listener : listeners_) {
-            listener->onN2kData(dummy, sizeof(dummy));
+            listener->onN2kMessage(0, 3, 22, dummy, sizeof(dummy));
         }
     }
 
@@ -47,7 +47,7 @@ class FakeNmea2000Service : public Nmea2000ServiceInterface {
         msgsSent.push_back(
             {pgn, priority, std::vector<uint8_t>(data, data + len)});
         for (auto* listener : listeners_) {
-            listener->onN2kData(data, len);
+            listener->onN2kMessage(pgn, priority, 22, data, len);
         }
     }
 
