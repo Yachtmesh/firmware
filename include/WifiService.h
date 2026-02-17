@@ -25,6 +25,7 @@ class WifiService : public WifiServiceInterface {
                              int32_t eventId, void* eventData);
 
     bool initialized_ = false;
+    bool started_ = false;  // true between esp_wifi_start() and esp_wifi_stop()
     volatile bool connected_ = false;
     int refCount_ = 0;  // Number of active users; actual disconnect at zero
 };

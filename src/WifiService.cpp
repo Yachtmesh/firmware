@@ -54,8 +54,9 @@ bool WifiService::connect(const char* ssid, const char* password) {
     // Reference counting ensures we only tear down when the last user disconnects.
     refCount_++;
 
-    if (connected_) {
-        ESP_LOGI(TAG, "WiFi already connected (refCount=%d)", refCount_);
+    if (started_) {
+        ESP_LOGI(TAG, "WiFi already started (refCount=%d, connected=%d)",
+                 refCount_, connected_);
         return true;
     }
 
@@ -68,6 +69,7 @@ bool WifiService::connect(const char* ssid, const char* password) {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifiConfig));
     ESP_ERROR_CHECK(esp_wifi_start());
+    started_ = true;
 
     ESP_LOGI(TAG, "Connecting to SSID: %s (refCount=%d)", ssid, refCount_);
     return true;
@@ -84,6 +86,7 @@ void WifiService::disconnect() {
     }
 
     connected_ = false;
+    started_ = false;
     esp_wifi_disconnect();
     esp_wifi_stop();
     ESP_LOGI(TAG, "Disconnected (last user)");
