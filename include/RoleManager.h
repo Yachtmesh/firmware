@@ -39,8 +39,12 @@ class RoleManager {
 
     size_t roleCount() const { return roles_.size(); }
 
-    // Returns JSON array of all roles with id, type, running status, and config
+    // Returns lightweight JSON array of all roles: [{id, type, running}, ...]
     std::string getRolesAsJson() const;
+
+    // Returns full config JSON for a single role: {roleId, roleType, config:{...}}
+    // Returns "{}" if roleId not found
+    std::string getRoleConfigJson(const char* roleId) const;
 
     // Factory reset - clears all roles and their config files
     void factoryReset();

@@ -50,7 +50,7 @@ void BluetoothService::start() {
     pStatusChar_->setCallbacks(this);
 
     // Roles characteristic - read only (requires auth)
-    // Returns JSON with role info and configs merged
+    // Returns lightweight JSON: [{id, type, running}, ...]
     pRolesChar_ =
         pService->createCharacteristic(ROLES_CHAR_UUID, NIMBLE_PROPERTY::READ);
     pRolesChar_->setCallbacks(this);
@@ -64,6 +64,16 @@ void BluetoothService::start() {
     pFactoryResetChar_ = pService->createCharacteristic(FACTORY_RESET_CHAR_UUID,
                                                         NIMBLE_PROPERTY::WRITE);
     pFactoryResetChar_->setCallbacks(this);
+
+    // Config request/response: client writes role ID, server notifies with full config
+    pConfigRequestChar_ = pService->createCharacteristic(
+        CONFIG_REQUEST_CHAR_UUID, NIMBLE_PROPERTY::WRITE);
+    pConfigRequestChar_->setCallbacks(this);
+
+    pConfigResponseChar_ = pService->createCharacteristic(
+        CONFIG_RESPONSE_CHAR_UUID,
+        NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+    pConfigResponseChar_->setCallbacks(this);
 
     pService->start();
 
@@ -177,6 +187,23 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
 
         roleManager_->factoryReset();
         ESP_LOGI(TAG, "BLE factory reset initiated");
+    } else if (pCharacteristic == pConfigRequestChar_) {
+        // Require authentication for config requests
+        if (!isClientAuthenticated(connHandle)) {
+            ESP_LOGW(TAG, "BLE config request rejected: not authenticated");
+            return;
+        }
+
+        if (!roleManager_) {
+            ESP_LOGW(TAG, "BLE config request rejected: no role manager");
+            return;
+        }
+
+        std::string roleId = pCharacteristic->getValue();
+        std::string json = roleManager_->getRoleConfigJson(roleId.c_str());
+        pConfigResponseChar_->setValue(json);
+        pConfigResponseChar_->notify(connHandle);
+        ESP_LOGI(TAG, "BLE config response sent for role: %s", roleId.c_str());
     }
 }
 

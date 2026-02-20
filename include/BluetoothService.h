@@ -69,6 +69,10 @@ class BluetoothService : public BluetoothServiceInterface,
         "4e617669-0001-4d65-7368-000000000007";
     static constexpr const char* FACTORY_RESET_CHAR_UUID =
         "4e617669-0001-4d65-7368-000000000008";
+    static constexpr const char* CONFIG_REQUEST_CHAR_UUID =
+        "4e617669-0001-4d65-7368-000000000009";
+    static constexpr const char* CONFIG_RESPONSE_CHAR_UUID =
+        "4e617669-0001-4d65-7368-00000000000a";
 
     // NVS keys
     static constexpr const char* NVS_NAMESPACE = "yachtmesh";
@@ -87,6 +91,8 @@ class BluetoothService : public BluetoothServiceInterface,
     NimBLECharacteristic* pRolesChar_ = nullptr;
     NimBLECharacteristic* pConfigUpdateChar_ = nullptr;
     NimBLECharacteristic* pFactoryResetChar_ = nullptr;
+    NimBLECharacteristic* pConfigRequestChar_ = nullptr;
+    NimBLECharacteristic* pConfigResponseChar_ = nullptr;
 
     std::set<uint16_t> authenticatedClients_;
 

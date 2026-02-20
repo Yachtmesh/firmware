@@ -22,7 +22,8 @@ Role* RoleManager::findRole(const char* roleId) {
     return nullptr;
 }
 
-ApplyConfigResult RoleManager::applyRoleConfig(const JsonDocument& doc, bool persist) {
+ApplyConfigResult RoleManager::applyRoleConfig(const JsonDocument& doc,
+                                               bool persist) {
     ApplyConfigResult result;
 
     const char* roleId = doc["roleId"] | "";
@@ -72,7 +73,8 @@ ApplyConfigResult RoleManager::applyRoleConfig(const JsonDocument& doc, bool per
         return result;
     }
 
-    std::string id = (strlen(roleId) > 0) ? roleId : generateInstanceId(roleType);
+    std::string id =
+        (strlen(roleId) > 0) ? roleId : generateInstanceId(roleType);
     role->setInstanceId(id);
 
     if (!role->validate()) {
@@ -148,7 +150,7 @@ std::string RoleManager::getRolesAsJson() const {
 }
 
 void RoleManager::rebuildCache() const {
-    StaticJsonDocument<1024> doc;
+    StaticJsonDocument<512> doc;
     JsonArray arr = doc.to<JsonArray>();
 
     for (const auto& role : roles_) {
@@ -156,14 +158,6 @@ void RoleManager::rebuildCache() const {
         roleObj["id"] = role->id();
         roleObj["type"] = role->type();
         roleObj["running"] = role->status().running;
-
-        // Add config as nested object
-        StaticJsonDocument<256> configDoc;
-        role->getConfigJson(configDoc);
-        JsonObject configObj = roleObj.createNestedObject("config");
-        for (JsonPair kv : configDoc.as<JsonObject>()) {
-            configObj[kv.key()] = kv.value();
-        }
     }
 
     cachedRolesJson_.clear();
@@ -171,6 +165,24 @@ void RoleManager::rebuildCache() const {
     cacheValid_ = true;
 }
 
+std::string RoleManager::getRoleConfigJson(const char* roleId) const {
+    for (const auto& role : roles_) {
+        if (strcmp(role->id(), roleId) == 0) {
+            StaticJsonDocument<512> doc;
+            doc["id"] = role->id();
+            doc["type"] = role->type();
+
+            StaticJsonDocument<256> configDoc;
+            role->getConfigJson(configDoc);
+            doc["config"] = configDoc;
+
+            std::string json;
+            serializeJson(doc, json);
+            return json;
+        }
+    }
+    return "{}";
+}
 
 void RoleManager::persistPendingConfigs() {
     for (const auto& roleId : pendingPersist_) {
@@ -273,9 +285,11 @@ void loadRolesFromDirectory(RoleManager& manager, FileSystemInterface& fs,
             StaticJsonDocument<512> doc;
             DeserializationError err = deserializeJson(doc, buffer, fileSize);
             if (err) {
-                printf("loadRoles: JSON error in %s: %s\n", fileName, err.c_str());
+                printf("loadRoles: JSON error in %s: %s\n", fileName,
+                       err.c_str());
             } else {
-                manager.applyRoleConfig(doc, false);  // No persist - already on disk
+                manager.applyRoleConfig(doc,
+                                        false);  // No persist - already on disk
             }
 
             delete[] buffer;
