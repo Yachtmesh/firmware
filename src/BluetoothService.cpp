@@ -65,7 +65,8 @@ void BluetoothService::start() {
                                                         NIMBLE_PROPERTY::WRITE);
     pFactoryResetChar_->setCallbacks(this);
 
-    // Config request/response: client writes role ID, server notifies with full config
+    // Config request/response: client writes role ID, server notifies with full
+    // config
     pConfigRequestChar_ = pService->createCharacteristic(
         CONFIG_REQUEST_CHAR_UUID, NIMBLE_PROPERTY::WRITE);
     pConfigRequestChar_->setCallbacks(this);
@@ -93,7 +94,7 @@ void BluetoothService::start() {
 void BluetoothService::stop() {
     NimBLEDevice::stopAdvertising();
     NimBLEDevice::deinit(true);
-    pServer_ = nullptr;1
+    pServer_ = nullptr;
     authenticatedClients_.clear();
 }
 
