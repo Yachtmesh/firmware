@@ -144,18 +144,20 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
         // Notify auth status change
         pAuthStatusChar_->setValue(&authResult, 1);
         pAuthStatusChar_->notify(connHandle);
-    } else if (pCharacteristic == pConfigUpdateChar_) {
-        // Require authentication for config updates
-        if (!isClientAuthenticated(connHandle)) {
-            ESP_LOGW(TAG, "BLE config update rejected: not authenticated");
-            return;
-        }
+        return;
+    }
 
-        if (!roleManager_) {
-            ESP_LOGW(TAG, "BLE config update rejected: no role manager");
-            return;
-        }
+    if (!isClientAuthenticated(connHandle)) {
+        ESP_LOGW(TAG, "BLE write rejected: not authenticated");
+        return;
+    }
 
+    if (!roleManager_) {
+        ESP_LOGW(TAG, "BLE write rejected: no role manager");
+        return;
+    }
+
+    if (pCharacteristic == pConfigUpdateChar_) {
         std::string value = pCharacteristic->getValue();
 
         StaticJsonDocument<512> doc;
@@ -164,7 +166,6 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
             return;
         }
 
-        // Use unified applyRoleConfig method
         ApplyConfigResult result = roleManager_->applyRoleConfig(doc);
 
         if (result.success) {
@@ -174,31 +175,9 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
             ESP_LOGW(TAG, "BLE config update failed: %s", result.error.c_str());
         }
     } else if (pCharacteristic == pFactoryResetChar_) {
-        // Require authentication for factory reset
-        if (!isClientAuthenticated(connHandle)) {
-            ESP_LOGW(TAG, "BLE factory reset rejected: not authenticated");
-            return;
-        }
-
-        if (!roleManager_) {
-            ESP_LOGW(TAG, "BLE factory reset rejected: no role manager");
-            return;
-        }
-
         roleManager_->factoryReset();
         ESP_LOGI(TAG, "BLE factory reset initiated");
     } else if (pCharacteristic == pConfigRequestChar_) {
-        // Require authentication for config requests
-        if (!isClientAuthenticated(connHandle)) {
-            ESP_LOGW(TAG, "BLE config request rejected: not authenticated");
-            return;
-        }
-
-        if (!roleManager_) {
-            ESP_LOGW(TAG, "BLE config request rejected: no role manager");
-            return;
-        }
-
         std::string roleId = pCharacteristic->getValue();
         std::string json = roleManager_->getRoleConfigJson(roleId.c_str());
         pConfigResponseChar_->setValue(json);
