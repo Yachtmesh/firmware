@@ -71,6 +71,12 @@ int main() {
     RUN_TEST(test_role_manager_apply_config_missing_role_type);
     RUN_TEST(test_role_manager_apply_config_unknown_role);
 
+    // removeRole tests
+    RUN_TEST(test_role_manager_remove_role_unknown_id);
+    RUN_TEST(test_role_manager_remove_role_removes_from_list);
+    RUN_TEST(test_role_manager_remove_role_deletes_file);
+    RUN_TEST(test_role_manager_remove_role_clears_pending_persist);
+
     // DeviceInfo tests
     RUN_TEST(test_device_info_generates_id_from_mac);
     RUN_TEST(test_device_info_id_format);

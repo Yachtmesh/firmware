@@ -1033,3 +1033,116 @@ void test_role_manager_apply_config_unknown_role() {
     TEST_ASSERT_FALSE(result.success);
     TEST_ASSERT_EQUAL_STRING("Missing roleType for new role", result.error.c_str());
 }
+
+// Tests that removeRole is a no-op for an unknown ID
+void test_role_manager_remove_role_unknown_id() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    MockFileSystem fs;
+    MockPlatform platform;
+    RoleFactory factory(analog, nmea, wifi, platform, fakeTcpCreator());
+    RoleManager manager(factory, fs);
+
+    loadRoleFromJsonString(manager, R"({
+        "type": "FluidLevel", "fluidType": "Water",
+        "inst": 0, "capacity": 100, "minVoltage": 0.5, "maxVoltage": 4.5
+    })", "FluidLevel-abc");
+    TEST_ASSERT_EQUAL(1, manager.roleCount());
+
+    manager.removeRole("NonExistent-xyz");
+    manager.loopAll();
+
+    TEST_ASSERT_EQUAL(1, manager.roleCount());
+}
+
+// Tests that removeRole stops and removes an existing role
+void test_role_manager_remove_role_removes_from_list() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    MockFileSystem fs;
+    MockPlatform platform;
+    RoleFactory factory(analog, nmea, wifi, platform, fakeTcpCreator());
+    RoleManager manager(factory, fs);
+
+    loadRoleFromJsonString(manager, R"({
+        "type": "FluidLevel", "fluidType": "Water",
+        "inst": 0, "capacity": 100, "minVoltage": 0.5, "maxVoltage": 4.5
+    })", "FluidLevel-abc");
+    loadRoleFromJsonString(manager, R"({
+        "type": "FluidLevel", "fluidType": "Fuel",
+        "inst": 1, "capacity": 200, "minVoltage": 0.2, "maxVoltage": 4.8
+    })", "FluidLevel-xyz");
+    manager.startAll();
+    TEST_ASSERT_EQUAL(2, manager.roleCount());
+
+    manager.removeRole("FluidLevel-abc");
+    manager.loopAll();
+
+    TEST_ASSERT_EQUAL(1, manager.roleCount());
+
+    // Verify the remaining role is the correct one
+    std::string json = manager.getRolesAsJson();
+    StaticJsonDocument<256> doc;
+    deserializeJson(doc, json);
+    TEST_ASSERT_EQUAL_STRING("FluidLevel-xyz", doc[0]["id"]);
+}
+
+// Tests that removeRole deletes the config file from the filesystem
+void test_role_manager_remove_role_deletes_file() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    MockFileSystem fs;
+    MockPlatform platform;
+    RoleFactory factory(analog, nmea, wifi, platform, fakeTcpCreator());
+    RoleManager manager(factory, fs);
+
+    fs.addFile("/roles/FluidLevel-abc.json", R"({
+        "roleId": "FluidLevel-abc", "roleType": "FluidLevel",
+        "config": {"fluidType": "Water", "inst": 0, "capacity": 100,
+                   "minVoltage": 0.5, "maxVoltage": 4.5}
+    })");
+    fs.addDirectory("/roles", {"/roles/FluidLevel-abc.json"});
+    loadRolesFromDirectory(manager, fs, "/roles");
+
+    manager.removeRole("FluidLevel-abc");
+    manager.loopAll();
+
+    TEST_ASSERT_TRUE(fs.wasRemoved("/roles/FluidLevel-abc.json"));
+    TEST_ASSERT_EQUAL(0, manager.roleCount());
+}
+
+// Tests that removeRole cancels a pending persist for that role
+void test_role_manager_remove_role_clears_pending_persist() {
+    FakeAnalogInput analog;
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    MockFileSystem fs;
+    MockPlatform platform;
+    RoleFactory factory(analog, nmea, wifi, platform, fakeTcpCreator());
+    RoleManager manager(factory, fs);
+
+    // Create a role (queues a persist)
+    StaticJsonDocument<512> doc;
+    doc["roleType"] = "FluidLevel";
+    JsonObject config = doc.createNestedObject("config");
+    config["fluidType"] = "Water";
+    config["inst"] = 0;
+    config["capacity"] = 100;
+    config["minVoltage"] = 0.5;
+    config["maxVoltage"] = 4.5;
+
+    ApplyConfigResult result = manager.applyRoleConfig(doc);
+    TEST_ASSERT_TRUE(result.success);
+
+    // Remove before loopAll can persist
+    manager.removeRole(result.roleId.c_str());
+    manager.loopAll();
+
+    // File should not have been written
+    std::string path = "/roles/" + result.roleId + ".json";
+    TEST_ASSERT_NULL(fs.getWrittenFile(path));
+    TEST_ASSERT_EQUAL(0, manager.roleCount());
+}

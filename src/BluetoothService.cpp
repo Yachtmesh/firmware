@@ -75,6 +75,11 @@ void BluetoothService::start() {
         NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
     pConfigResponseChar_->setCallbacks(this);
 
+    // Role delete characteristic - write only (requires auth)
+    pRoleDeleteChar_ = pService->createCharacteristic(ROLE_DELETE_CHAR_UUID,
+                                                      NIMBLE_PROPERTY::WRITE);
+    pRoleDeleteChar_->setCallbacks(this);
+
     pService->start();
 
     NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
@@ -88,7 +93,7 @@ void BluetoothService::start() {
 void BluetoothService::stop() {
     NimBLEDevice::stopAdvertising();
     NimBLEDevice::deinit(true);
-    pServer_ = nullptr;
+    pServer_ = nullptr;1
     authenticatedClients_.clear();
 }
 
@@ -183,6 +188,10 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
         pConfigResponseChar_->setValue(json);
         pConfigResponseChar_->notify(connHandle);
         ESP_LOGI(TAG, "BLE config response sent for role: %s", roleId.c_str());
+    } else if (pCharacteristic == pRoleDeleteChar_) {
+        std::string roleId = pCharacteristic->getValue();
+        roleManager_->removeRole(roleId.c_str());
+        ESP_LOGI(TAG, "BLE role delete queued: %s", roleId.c_str());
     }
 }
 

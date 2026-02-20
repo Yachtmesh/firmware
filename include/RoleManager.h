@@ -49,6 +49,10 @@ class RoleManager {
     // Factory reset - clears all roles and their config files
     void factoryReset();
 
+    // Remove a single role by ID - stops it, deletes its config file, and
+    // removes it from the active role list. No-op if ID not found.
+    void removeRole(const char* id);
+
    private:
     RoleFactory& factory_;
     FileSystemInterface& fs_;
@@ -73,6 +77,10 @@ class RoleManager {
     // Deferred factory reset - executed in loopAll()
     bool pendingFactoryReset_ = false;
     void executeFactoryReset();
+
+    // Deferred role removals - executed in loopAll()
+    std::set<std::string> pendingRemove_;
+    void executePendingRemovals();
 };
 
 // Free function for bootstrapping - loads all role configs from a directory

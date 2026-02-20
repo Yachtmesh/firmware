@@ -125,6 +125,10 @@ void RoleManager::loopAll() {
         return;
     }
 
+    if (!pendingRemove_.empty()) {
+        executePendingRemovals();
+    }
+
     // Rebuild cache in main loop context if invalidated
     if (!cacheValid_) {
         rebuildCache();
@@ -216,9 +220,35 @@ void RoleManager::persistPendingConfigs() {
     pendingPersist_.clear();
 }
 
+void RoleManager::removeRole(const char* id) {
+    pendingRemove_.insert(id);
+}
+
 // Wrap these into one, if false, set to true, and then in main loop will
 // execute.
 void RoleManager::factoryReset() { pendingFactoryReset_ = true; }
+
+void RoleManager::executePendingRemovals() {
+    for (const auto& roleId : pendingRemove_) {
+        for (auto it = roles_.begin(); it != roles_.end(); ++it) {
+            if (strcmp((*it)->id(), roleId.c_str()) == 0) {
+                (*it)->stop();
+
+                std::string path = "/roles/";
+                path += roleId;
+                path += ".json";
+                fs_.remove(path.c_str());
+
+                pendingPersist_.erase(roleId);
+                roles_.erase(it);
+                break;
+            }
+        }
+        // Unknown ID: silently skip
+    }
+    pendingRemove_.clear();
+    cacheValid_ = false;
+}
 
 void RoleManager::executeFactoryReset() {
     pendingFactoryReset_ = false;
