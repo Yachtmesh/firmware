@@ -17,12 +17,12 @@ static TcpServerCreator defaultTcpCreator() {
 static TcpServerCreator defaultTcpCreator() { return nullptr; }
 #endif
 
-RoleFactory::RoleFactory(AnalogInputInterface& analog,
+RoleFactory::RoleFactory(CurrentSensorManagerInterface& currentSensorManager,
                          Nmea2000ServiceInterface& nmea,
                          WifiServiceInterface& wifi,
                          PlatformInterface& platform,
                          TcpServerCreator tcpCreator)
-    : analog_(analog),
+    : currentSensorManager_(currentSensorManager),
       nmea_(nmea),
       wifi_(wifi),
       platform_(platform),
@@ -41,7 +41,7 @@ std::unique_ptr<Role> RoleFactory::createRole(const char* type,
 
 std::unique_ptr<Role> RoleFactory::createRoleInstance(const char* type) {
     if (strcmp(type, "FluidLevel") == 0) {
-        return std::make_unique<FluidLevelSensorRole>(analog_, nmea_);
+        return std::make_unique<FluidLevelSensorRole>(currentSensorManager_, nmea_);
     }
     if (strcmp(type, "WifiGateway") == 0) {
         return std::make_unique<WifiGatewayRole>(nmea_, wifi_, tcpCreator_());

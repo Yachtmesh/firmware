@@ -11,7 +11,8 @@
 #include "ActisenseEncoder.h"
 #include "FluidLevelSensorRole.h"
 #include "WifiGatewayRole.h"
-#include "test_fluid_level_sensor_role.h"  // For FakeNmea2000Service, FakeAnalogInput
+#include "MockCurrentSensorManager.h"
+#include "test_fluid_level_sensor_role.h"  // For FakeNmea2000Service
 
 // Mirrors WifiService ref-counting: multiple roles can connect/disconnect
 // without stomping on each other. Actual disconnect only at refCount 0.
@@ -384,15 +385,15 @@ void test_wifi_gateway_restarts_tcp_on_wifi_reconnect() {
 void test_wifi_gateway_receives_local_sensor_data() {
     // Shared NMEA service so sensor and gateway are co-located
     FakeNmea2000Service nmea;
-    FakeAnalogInput analog;
+    MockCurrentSensorManager manager;
     FakeWifiService wifi;
     auto [tcp, tcpPtr] = makeFakeTcp();
 
-    FluidLevelSensorRole sensor(analog, nmea);
+    FluidLevelSensorRole sensor(manager, nmea);
     WifiGatewayRole gateway(nmea, wifi, std::move(tcp));
 
     // Configure sensor
-    FluidLevelConfig sensorCfg{FluidType::Fuel, 1, 200, 1.0f, 5.0f};
+    FluidLevelConfig sensorCfg{FluidType::Fuel, 1, 200, 1.0f, 5.0f, 0x40, 0.1f};
     sensor.configure(sensorCfg);
     sensor.start();
 
@@ -404,7 +405,7 @@ void test_wifi_gateway_receives_local_sensor_data() {
     gateway.start();
 
     // Simulate sensor reading
-    analog.voltage = 3.0f;
+    manager.sensor.reading.current = 3.0f;
     sensor.loop();
 
     // Gateway should have received data via local echo and forwarded to TCP

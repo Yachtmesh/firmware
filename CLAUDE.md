@@ -2,6 +2,39 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+# Core Philosophy
+
+**TEST-DRIVEN DEVELOPMENT IS NON-NEGOTIABLE.** Every single line of production code must be written in response to a failing test. No exceptions. This is not a suggestion or a preference - it is the fundamental practice that enables all other principles in this document.
+
+I follow Test-Driven Development (TDD) with a strong emphasis on behavior-driven testing and functional programming principles. All work should be done in small, incremental changes that maintain a working state throughout development.
+
+## Quick Reference
+
+**Key Principles:**
+
+- Write tests first (TDD)
+- Test behavior, not implementation
+- No type assertions
+- Immutable data only
+- Small, pure functions
+- TypeScript strict mode always
+- Use real schemas/types in tests, never redefine them
+
+## Testing Principles
+
+**Core principle**: Test behavior, not implementation. 100% coverage through business behavior.
+
+**Quick reference:**
+
+- Write tests first (TDD non-negotiable)
+- Test through public API exclusively
+- Use factory functions for test data
+- Tests must document expected business behavior
+- No 1:1 mapping between test files and implementation files
+
+For detailed testing patterns and examples, load the `testing` skill.
+For verifying test effectiveness through mutation analysis, load the `mutation-testing` skill.
+
 ## Build & Test Commands
 
 ```bash
@@ -47,14 +80,14 @@ Services wrap ESP32 platform functionality behind abstract interfaces so Roles r
 
 Current services:
 
-| Interface | Implementation | Purpose |
-|---|---|---|
-| `Nmea2000ServiceInterface` | `Nmea2000Service` | Send/receive NMEA 2000 messages via CAN/TWAI bus |
-| `AnalogInputInterface` | `AnalogInputService` | Read analog sensor voltage (ADC) |
-| `WifiServiceInterface` | `WifiService` | Connect/disconnect Wi-Fi STA mode |
-| `TcpServerInterface` | `TcpServer` | Accept TCP connections and broadcast data |
-| `PlatformInterface` | `Esp32Platform` | MAC address, device ID persistence, CPU temp, millis |
-| `BluetoothServiceInterface` | `BluetoothService` | BLE GATT server for mobile app config |
+| Interface                   | Implementation       | Purpose                                              |
+| --------------------------- | -------------------- | ---------------------------------------------------- |
+| `Nmea2000ServiceInterface`  | `Nmea2000Service`    | Send/receive NMEA 2000 messages via CAN/TWAI bus     |
+| `AnalogInputInterface`      | `AnalogInputService` | Read analog sensor voltage (ADC)                     |
+| `WifiServiceInterface`      | `WifiService`        | Connect/disconnect Wi-Fi STA mode                    |
+| `TcpServerInterface`        | `TcpServer`          | Accept TCP connections and broadcast data            |
+| `PlatformInterface`         | `Esp32Platform`      | MAC address, device ID persistence, CPU temp, millis |
+| `BluetoothServiceInterface` | `BluetoothService`   | BLE GATT server for mobile app config                |
 
 Services are injected into Roles through `RoleFactory`, which holds references to all service interfaces and passes the relevant ones to each Role's constructor.
 
@@ -93,6 +126,7 @@ void loopAll() {
 7. **Never put ESP32 headers in the interface** — keep `#include <esp_*.h>` etc. inside the `#ifdef ESP32` block only so native tests compile cleanly
 
 Key rules:
+
 - Interfaces must be pure virtual (no ESP32 dependencies) so Roles using them remain native-testable
 - The `#ifdef ESP32` / concrete implementation pattern keeps everything in one header file per service
 - Services that need a `loop()` call should have it invoked from the main loop in `main.cpp`
@@ -117,6 +151,7 @@ GENERATE_FROM_STRING(MyType, MY_TYPE_LIST)  // MyTypeFromString()
 ```
 
 Key rules for types:
+
 - The `#define CURRENT_ENUM_NAME` / `#undef` pair is required — the macros use it internally
 - String conversion is case-sensitive and matches the enum value name exactly
 - `FromString()` returns `Unavailable` for any unrecognized input
@@ -153,6 +188,7 @@ class NewRole : public Role {
 ```
 
 Key rules:
+
 - Roles must **never** include ESP32 headers — all platform access goes through injected service interfaces
 - `configureFromJson()` must call `validate()` and return false if validation fails
 - `getConfigJson()` must include `"type"` in the output (used for persistence round-trip)
@@ -167,6 +203,7 @@ Key rules:
 ### 4. Register in `RoleFactory`
 
 In `src/RoleFactory.cpp`:
+
 - Include the header
 - Add a branch in `createRoleInstance()` matching the type string, passing the needed service references
 

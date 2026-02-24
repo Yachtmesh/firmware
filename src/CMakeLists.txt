@@ -1,7 +1,11 @@
 idf_component_register(
     SRCS
         "main.cpp"
-        "AnalogInputService.cpp"
+        "I2cBusService.cpp"
+        "CurrentSensorService.cpp"
+        "CurrentSensorManager.cpp"
+        "EnvironmentalSensorService.cpp"
+        "SerialSensorService.cpp"
         "BluetoothService.cpp"
         "DeviceInfo.cpp"
         "Esp32Platform.cpp"

@@ -5,6 +5,8 @@
 #include "test_ais_simulator_role.h"
 #include "test_boat_simulator.h"
 #include "test_device_info.h"
+#include "test_current_sensor_service.h"
+#include "test_environmental_sensor_service.h"
 #include "test_fluid_level_sensor_role.h"
 #include "test_role_manager.h"
 #include "test_wifi_gateway_0183_role.h"
@@ -12,6 +14,24 @@
 
 int main() {
     UNITY_BEGIN();
+
+    // EnvironmentalSensorService tests
+    RUN_TEST(test_environmental_sensor_init_writes_reset);
+    RUN_TEST(test_environmental_sensor_init_writes_ctrl_hum);
+    RUN_TEST(test_environmental_sensor_init_writes_ctrl_meas);
+    RUN_TEST(test_environmental_sensor_wrong_chip_id_returns_invalid);
+    RUN_TEST(test_environmental_sensor_init_only_once);
+    RUN_TEST(test_environmental_sensor_reads_temperature);
+    RUN_TEST(test_environmental_sensor_result_valid_after_init);
+
+    // CurrentSensorService tests
+    RUN_TEST(test_current_sensor_writes_calibration_register);
+    RUN_TEST(test_current_sensor_writes_config_register);
+    RUN_TEST(test_current_sensor_calibrates_only_once);
+    RUN_TEST(test_current_sensor_reads_current);
+    RUN_TEST(test_current_sensor_reads_bus_voltage);
+    RUN_TEST(test_current_sensor_reads_power);
+    RUN_TEST(test_current_sensor_calibration_scales_with_shunt);
 
     // FluidLevelSensorRole tests
     RUN_TEST(test_fluid_level_sensor_role_basic_flow);
@@ -36,6 +56,9 @@ int main() {
     RUN_TEST(test_fluid_level_sensor_role_get_config_json);
     RUN_TEST(test_fluid_level_sensor_role_configure_from_json);
     RUN_TEST(test_fluid_level_sensor_role_configure_from_json_invalid);
+    RUN_TEST(test_fluid_level_sensor_role_start_claims_sensor);
+    RUN_TEST(test_fluid_level_sensor_role_stop_releases_sensor);
+    RUN_TEST(test_fluid_level_sensor_role_address_conflict);
 
     // FluidType serialization tests
     RUN_TEST(test_fluid_type_to_string_all_values);

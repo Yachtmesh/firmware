@@ -2,10 +2,11 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-#include "AnalogInputService.h"
 #include "BluetoothService.h"
+#include "CurrentSensorManager.h"
 #include "DeviceInfo.h"
 #include "Esp32Platform.h"
+#include "I2cBusService.h"
 #include "LittleFSAdapter.h"
 #include "NMEA2000Service.h"
 #include "RoleFactory.h"
@@ -15,12 +16,14 @@
 static const char* TAG = "main";
 
 Nmea2000Service nmea;
-AnalogInputService analogInput;
 WifiService wifi;
 LittleFSAdapter fileSystem;
 Esp32Platform platform;
 
-RoleFactory roleFactory(analogInput, nmea, wifi, platform);
+Esp32I2cBus i2cBus(21, 22);  // SDA=21, SCL=22
+CurrentSensorManager currentSensorManager(i2cBus);
+
+RoleFactory roleFactory(currentSensorManager, nmea, wifi, platform);
 RoleManager roleManager(roleFactory, fileSystem);
 DeviceInfo deviceInfo(platform, nmea);
 BluetoothService bluetooth(&roleManager, &deviceInfo);
