@@ -9,13 +9,22 @@ struct FluidLevelContext {
     int16_t capacity;     // tank capacity
 };
 
+struct EnvironmentalContext {
+    uint8_t inst;        // NMEA2000 instance number
+    float temperature;   // degrees Celsius
+    float humidity;      // % relative humidity
+    float pressure;      // hPa
+};
+
 enum class MetricType : uint8_t {
     FluidLevel,
+    Environmental,
 };
 
 struct MetricContext {
     union {
         FluidLevelContext fluidLevel;
+        EnvironmentalContext environmental;
     };
 };
 

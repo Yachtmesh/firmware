@@ -1,5 +1,12 @@
 #include "EnvironmentalSensorService.h"
 
+#ifdef ESP32
+#include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+static const char* TAG = "EnvSensor";
+#endif
+
 // BME280 register addresses (datasheet §5.3)
 static constexpr uint8_t REG_CHIP_ID   = 0xD0;
 static constexpr uint8_t REG_RESET     = 0xE0;
@@ -20,8 +27,9 @@ static constexpr uint8_t BME280_RESET_CMD  = 0xB6;  // Soft-reset command (datas
 // ctrl_hum register: humidity oversampling ×1 (bits [2:0] = 001)
 static constexpr uint8_t BME280_OSRS_H_1X = 0x01;
 
-// ctrl_meas register: temp ×1 (bits[7:5]=001), pressure ×1 (bits[4:2]=001), normal mode (bits[1:0]=11)
-static constexpr uint8_t BME280_CTRL_MEAS_DEFAULT = 0x27;
+// ctrl_meas register: temp ×1 (bits[7:5]=001), pressure ×1 (bits[4:2]=001)
+static constexpr uint8_t BME280_CTRL_MEAS_SLEEP  = 0x24;  // mode=00: sleep (activates ctrl_hum config)
+static constexpr uint8_t BME280_CTRL_MEAS_FORCED = 0x25;  // mode=01: forced (single measurement)
 
 // Nibble mask for unpacking H4/H5 calibration words
 static constexpr uint8_t NIBBLE_MASK = 0x0F;
@@ -42,20 +50,37 @@ EnvironmentalSensorService::EnvironmentalSensorService(I2cBusInterface& bus, uin
 
 bool EnvironmentalSensorService::init() {
     uint8_t id = 0;
-    if (!bus_.readBytes(address_, REG_CHIP_ID, &id, 1)) return false;
-    if (id != BME280_CHIP_ID) return false;
+    if (!bus_.readBytes(address_, REG_CHIP_ID, &id, 1)) {
+#ifdef ESP32
+        ESP_LOGE(TAG, "I2C read failed for chip ID (addr=0x%02x)", address_);
+#endif
+        return false;
+    }
+    if (id != BME280_CHIP_ID) {
+#ifdef ESP32
+        ESP_LOGE(TAG, "Unexpected chip ID 0x%02x at addr=0x%02x (expected 0x%02x)",
+                 id, address_, BME280_CHIP_ID);
+#endif
+        return false;
+    }
 
     uint8_t reset = BME280_RESET_CMD;
     bus_.writeBytes(address_, REG_RESET, &reset, 1);
+#ifdef ESP32
+    vTaskDelay(pdMS_TO_TICKS(3));  // BME280 needs ~2ms to reboot after soft reset
+#endif
 
     loadCalibration();
 
     uint8_t hum = BME280_OSRS_H_1X;
     bus_.writeBytes(address_, REG_CTRL_HUM, &hum, 1);
-    uint8_t meas = BME280_CTRL_MEAS_DEFAULT;
-    bus_.writeBytes(address_, REG_CTRL_MEAS, &meas, 1);
+    uint8_t meas = BME280_CTRL_MEAS_SLEEP;
+    bus_.writeBytes(address_, REG_CTRL_MEAS, &meas, 1);  // activates ctrl_hum config
 
     initialized_ = true;
+#ifdef ESP32
+    ESP_LOGI(TAG, "BME280 initialized at addr=0x%02x", address_);
+#endif
     return true;
 }
 
@@ -138,6 +163,20 @@ uint32_t EnvironmentalSensorService::compensateHumidity(int32_t adc_H) {
 EnvironmentalReading EnvironmentalSensorService::read() {
     if (!initialized_) {
         if (!init()) return {0, 0, 0, false};
+    }
+
+    // Trigger a single forced-mode measurement
+    uint8_t meas = BME280_CTRL_MEAS_FORCED;
+    bus_.writeBytes(address_, REG_CTRL_MEAS, &meas, 1);
+
+    // Poll status register until measuring bit (bit 3) clears (~9ms with ×1 oversampling)
+    for (int i = 0; i < 20; i++) {
+#ifdef ESP32
+        vTaskDelay(pdMS_TO_TICKS(1));
+#endif
+        uint8_t status = 0;
+        bus_.readBytes(address_, REG_STATUS, &status, 1);
+        if (!(status & 0x08)) break;
     }
 
     // Read 8 bytes: press[2:0], temp[2:0], hum[1:0]

@@ -9,6 +9,7 @@
 #include "test_environmental_sensor_service.h"
 #include "test_fluid_level_sensor_role.h"
 #include "test_role_manager.h"
+#include "test_weather_station_role.h"
 #include "test_wifi_gateway_0183_role.h"
 #include "test_wifi_gateway_role.h"
 
@@ -19,6 +20,7 @@ int main() {
     RUN_TEST(test_environmental_sensor_init_writes_reset);
     RUN_TEST(test_environmental_sensor_init_writes_ctrl_hum);
     RUN_TEST(test_environmental_sensor_init_writes_ctrl_meas);
+    RUN_TEST(test_environmental_sensor_read_triggers_forced_mode);
     RUN_TEST(test_environmental_sensor_wrong_chip_id_returns_invalid);
     RUN_TEST(test_environmental_sensor_init_only_once);
     RUN_TEST(test_environmental_sensor_reads_temperature);
@@ -112,6 +114,26 @@ int main() {
     RUN_TEST(test_device_info_cpu_temperature);
     RUN_TEST(test_device_info_id_deterministic);
     RUN_TEST(test_device_info_nmea_address_from_service);
+
+    // WeatherStationRole tests
+    RUN_TEST(test_weather_station_role_type_string);
+    RUN_TEST(test_weather_station_role_validate_accepts_valid_config);
+    RUN_TEST(test_weather_station_role_validate_rejects_zero_interval);
+    RUN_TEST(test_weather_station_role_validate_rejects_too_fast_interval);
+    RUN_TEST(test_weather_station_role_validate_accepts_minimum_interval);
+    RUN_TEST(test_weather_station_role_configure_from_json_accepts_valid);
+    RUN_TEST(test_weather_station_role_configure_from_json_parses_all_fields);
+    RUN_TEST(test_weather_station_role_configure_from_json_rejects_invalid_interval);
+    RUN_TEST(test_weather_station_role_json_round_trip);
+    RUN_TEST(test_weather_station_role_start_sets_running);
+    RUN_TEST(test_weather_station_role_start_with_invalid_config_does_not_set_running);
+    RUN_TEST(test_weather_station_role_stop_clears_running);
+    RUN_TEST(test_weather_station_role_loop_broadcasts_environmental_data);
+    RUN_TEST(test_weather_station_role_loop_passes_instance_number);
+    RUN_TEST(test_weather_station_role_loop_does_not_broadcast_before_interval);
+    RUN_TEST(test_weather_station_role_loop_broadcasts_after_interval_elapses);
+    RUN_TEST(test_weather_station_role_loop_skips_invalid_reading);
+    RUN_TEST(test_weather_station_role_loop_does_not_run_when_stopped);
 
     // WifiGatewayRole tests
     RUN_TEST(test_wifi_gateway_config_from_json);

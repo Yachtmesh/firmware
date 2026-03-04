@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "CurrentSensorManager.h"
+#include "EnvironmentalSensorService.h"
 #include "NMEA2000Service.h"
 #include "Platform.h"
 #include "Role.h"
@@ -15,8 +16,11 @@ using TcpServerCreator = std::function<std::unique_ptr<TcpServerInterface>()>;
 
 class RoleFactory {
    public:
-    RoleFactory(CurrentSensorManagerInterface& currentSensorManager, Nmea2000ServiceInterface& nmea,
-                WifiServiceInterface& wifi, PlatformInterface& platform,
+    RoleFactory(CurrentSensorManagerInterface& currentSensorManager,
+                Nmea2000ServiceInterface& nmea,
+                WifiServiceInterface& wifi,
+                PlatformInterface& platform,
+                EnvironmentalSensorInterface& envSensor,
                 TcpServerCreator tcpCreator = nullptr);
 
     std::unique_ptr<Role> createRole(const char* type, const JsonDocument& doc);
@@ -28,5 +32,6 @@ class RoleFactory {
     Nmea2000ServiceInterface& nmea_;
     WifiServiceInterface& wifi_;
     PlatformInterface& platform_;
+    EnvironmentalSensorInterface& envSensor_;
     TcpServerCreator tcpCreator_;
 };

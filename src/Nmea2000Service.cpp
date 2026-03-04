@@ -2,10 +2,11 @@
 
 #include <N2kMessages.h>
 #include <NMEA2000_esp32.h>
-#include <algorithm>
 #include <esp_log.h>
 #include <esp_mac.h>
 #include <esp_timer.h>
+
+#include <algorithm>
 
 static const char* TAG = "N2kSvc";
 
@@ -18,12 +19,12 @@ class MsgBridge : public tNMEA2000::tMsgHandler {
         : tNMEA2000::tMsgHandler(0, &NMEA2000), listeners_(listeners) {}
 
     void HandleMsg(const tN2kMsg& msg) override {
-        ESP_LOGI(TAG, "RX PGN=%lu src=%u dst=%u len=%d listeners=%d",
-                 msg.PGN, msg.Source, msg.Destination, msg.DataLen,
+        ESP_LOGI(TAG, "RX PGN=%lu src=%u dst=%u len=%d listeners=%d", msg.PGN,
+                 msg.Source, msg.Destination, msg.DataLen,
                  (int)listeners_.size());
         for (auto* listener : listeners_) {
-            listener->onN2kMessage(msg.PGN, msg.Priority, msg.Source,
-                                   msg.Data, msg.DataLen);
+            listener->onN2kMessage(msg.PGN, msg.Priority, msg.Source, msg.Data,
+                                   msg.DataLen);
         }
     }
 
@@ -33,7 +34,8 @@ class MsgBridge : public tNMEA2000::tMsgHandler {
 
 static MsgBridge* msgBridge = nullptr;
 
-const unsigned long TransmitMessages[] PROGMEM = {129039L, 129809L, 130310L, 130311L, 130312L, 0};
+const unsigned long TransmitMessages[] PROGMEM = {
+    129039L, 129809L, 130310L, 130311L, 130312L, 130313L, 130314L, 0};
 const uint32_t kIndustryCode = 2040;
 
 tN2kSyncScheduler FluidLevelScheduler(false, 2000, 500);
@@ -101,8 +103,8 @@ void Nmea2000Service::start() {
 void Nmea2000Service::notifyListeners(const tN2kMsg& msg) {
     if (listeners_.empty()) return;
     for (auto* listener : listeners_) {
-        listener->onN2kMessage(msg.PGN, msg.Priority, msg.Source,
-                               msg.Data, msg.DataLen);
+        listener->onN2kMessage(msg.PGN, msg.Priority, msg.Source, msg.Data,
+                               msg.DataLen);
     }
 }
 
@@ -123,6 +125,74 @@ void Nmea2000Service::sendMetric(const Metric& metric) {
 
             FluidLevelScheduler.UpdateNextTime();
             break;
+        }
+
+        case MetricType::Environmental: {
+            const auto& e = metric.context.environmental;
+            tN2kMsg msg;
+
+            ESP_LOGI(
+                TAG,
+                "TX Environmental inst=%u temp=%.2fC hum=%.1f%% pres=%.1fmBar",
+                e.inst, e.temperature, e.humidity, e.pressure);
+
+            // PGN 130310 — Outside Environmental Parameters (temp + pressure,
+            // widest compatibility)
+            SetN2kOutsideEnvironmentalParameters(
+                msg, 0, N2kDoubleNA,
+                CToKelvin(static_cast<double>(e.temperature)),
+                mBarToPascal(static_cast<double>(e.pressure)));
+            if (!NMEA2000.SendMsg(msg))
+                ESP_LOGW(TAG, "TX PGN 130310 (OutsideEnv) FAILED");
+            else
+                ESP_LOGI(TAG, "TX PGN 130310 (OutsideEnv) ok");
+            notifyListeners(msg);
+            NMEA2000.ParseMessages();
+
+            // PGN 130311 — Environmental Parameters (temp + humidity +
+            // pressure)
+            SetN2kEnvironmentalParameters(
+                msg, 0, N2kts_OutsideTemperature,
+                CToKelvin(static_cast<double>(e.temperature)),
+                N2khs_OutsideHumidity, static_cast<double>(e.humidity),
+                mBarToPascal(static_cast<double>(e.pressure)));
+            if (!NMEA2000.SendMsg(msg))
+                ESP_LOGW(TAG, "TX PGN 130311 (Env) FAILED");
+            else
+                ESP_LOGI(TAG, "TX PGN 130311 (Env) ok");
+            notifyListeners(msg);
+            NMEA2000.ParseMessages();
+
+            // PGN 130312 — Temperature
+            SetN2kTemperature(msg, 0, e.inst, N2kts_OutsideTemperature,
+                              CToKelvin(static_cast<double>(e.temperature)));
+            if (!NMEA2000.SendMsg(msg))
+                ESP_LOGW(TAG, "TX PGN 130312 (Temp) FAILED");
+            else
+                ESP_LOGI(TAG, "TX PGN 130312 (Temp) ok");
+            notifyListeners(msg);
+            NMEA2000.ParseMessages();
+
+            // PGN 130313 — Humidity
+            SetN2kHumidity(msg, 0, e.inst, N2khs_OutsideHumidity,
+                           static_cast<double>(e.humidity));
+            if (!NMEA2000.SendMsg(msg))
+                ESP_LOGW(TAG, "TX PGN 130313 (Humidity) FAILED");
+            else
+                ESP_LOGI(TAG, "TX PGN 130313 (Humidity) ok");
+            notifyListeners(msg);
+            NMEA2000.ParseMessages();
+
+            // PGN 130314 — Pressure
+            SetN2kPressure(msg, 0, e.inst, N2kps_Atmospheric,
+                           mBarToPascal(static_cast<double>(e.pressure)));
+            if (!NMEA2000.SendMsg(msg))
+                ESP_LOGW(TAG, "TX PGN 130314 (Pressure) FAILED");
+            else
+                ESP_LOGI(TAG, "TX PGN 130314 (Pressure) ok");
+            notifyListeners(msg);
+            NMEA2000.ParseMessages();
+            return;
         }
 
         default:
@@ -151,17 +221,14 @@ void Nmea2000Service::addListener(N2kListenerInterface* listener) {
 }
 
 void Nmea2000Service::removeListener(N2kListenerInterface* listener) {
-    listeners_.erase(std::remove(listeners_.begin(), listeners_.end(), listener),
-                     listeners_.end());
+    listeners_.erase(
+        std::remove(listeners_.begin(), listeners_.end(), listener),
+        listeners_.end());
 }
 
-void Nmea2000Service::loop() {
-    NMEA2000.ParseMessages();
-}
+void Nmea2000Service::loop() { NMEA2000.ParseMessages(); }
 
-uint8_t Nmea2000Service::getAddress() const {
-    return NMEA2000.GetN2kSource();
-}
+uint8_t Nmea2000Service::getAddress() const { return NMEA2000.GetN2kSource(); }
 
 int Nmea2000Service::toN2kFluidType(FluidType t) {
     switch (t) {

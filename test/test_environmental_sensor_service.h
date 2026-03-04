@@ -10,6 +10,7 @@ static constexpr uint8_t BME_ADDR = 0x76;
 static constexpr uint8_t BME_REG_CHIP_ID   = 0xD0;
 static constexpr uint8_t BME_REG_RESET     = 0xE0;
 static constexpr uint8_t BME_REG_CTRL_HUM  = 0xF2;
+static constexpr uint8_t BME_REG_STATUS    = 0xF3;
 static constexpr uint8_t BME_REG_CTRL_MEAS = 0xF4;
 static constexpr uint8_t BME_REG_DATA      = 0xF7;
 
@@ -98,13 +99,31 @@ void test_environmental_sensor_init_writes_ctrl_meas() {
     bool found = false;
     for (auto& w : bus.writes) {
         if (w.addr == BME_ADDR && w.reg == BME_REG_CTRL_MEAS) {
-            // Temp ×1 (bits[7:5]=001), pressure ×1 (bits[4:2]=001), normal mode (bits[1:0]=11)
-            TEST_ASSERT_EQUAL_UINT8(0x27, w.data[0]);
+            // Temp ×1 (bits[7:5]=001), pressure ×1 (bits[4:2]=001), sleep (bits[1:0]=00)
+            // Sleep mode on init activates ctrl_hum config without starting a measurement
+            TEST_ASSERT_EQUAL_UINT8(0x24, w.data[0]);
             found = true;
             break;
         }
     }
     TEST_ASSERT_TRUE_MESSAGE(found, "ctrl_meas not written");
+}
+
+void test_environmental_sensor_read_triggers_forced_mode() {
+    MockI2cBus bus;
+    bmeSetChipId(bus);
+    EnvironmentalSensorService sensor(bus, BME_ADDR);
+
+    sensor.read();
+    sensor.read();
+
+    // Every read() must write ctrl_meas=0x25 (forced mode) to trigger a measurement
+    int forcedWrites = 0;
+    for (auto& w : bus.writes) {
+        if (w.addr == BME_ADDR && w.reg == BME_REG_CTRL_MEAS && w.data[0] == 0x25)
+            forcedWrites++;
+    }
+    TEST_ASSERT_EQUAL_INT_MESSAGE(2, forcedWrites, "forced mode not triggered on each read");
 }
 
 void test_environmental_sensor_wrong_chip_id_returns_invalid() {
@@ -125,11 +144,12 @@ void test_environmental_sensor_init_only_once() {
     sensor.read();
     sensor.read();
 
-    int ctrlMeasWrites = 0;
+    // Reset is a reliable proxy for init: it should only happen once
+    int resetWrites = 0;
     for (auto& w : bus.writes) {
-        if (w.addr == BME_ADDR && w.reg == BME_REG_CTRL_MEAS) ctrlMeasWrites++;
+        if (w.addr == BME_ADDR && w.reg == BME_REG_RESET) resetWrites++;
     }
-    TEST_ASSERT_EQUAL_INT(1, ctrlMeasWrites);
+    TEST_ASSERT_EQUAL_INT(1, resetWrites);
 }
 
 void test_environmental_sensor_reads_temperature() {

@@ -5,6 +5,7 @@
 #include "BluetoothService.h"
 #include "CurrentSensorManager.h"
 #include "DeviceInfo.h"
+#include "EnvironmentalSensorService.h"
 #include "Esp32Platform.h"
 #include "I2cBusService.h"
 #include "LittleFSAdapter.h"
@@ -22,8 +23,9 @@ Esp32Platform platform;
 
 Esp32I2cBus i2cBus(21, 22);  // SDA=21, SCL=22
 CurrentSensorManager currentSensorManager(i2cBus);
+EnvironmentalSensorService envSensor(i2cBus, 0x76);  // BME280 default address
 
-RoleFactory roleFactory(currentSensorManager, nmea, wifi, platform);
+RoleFactory roleFactory(currentSensorManager, nmea, wifi, platform, envSensor);
 RoleManager roleManager(roleFactory, fileSystem);
 DeviceInfo deviceInfo(platform, nmea);
 BluetoothService bluetooth(&roleManager, &deviceInfo);

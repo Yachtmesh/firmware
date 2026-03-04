@@ -22,6 +22,7 @@ idf_component_register(
         "AisEncoder.cpp"
         "BoatSimulator.cpp"
         "AisSimulatorRole.cpp"
+        "WeatherStationRole.cpp"
     INCLUDE_DIRS
         "../include"
     REQUIRES

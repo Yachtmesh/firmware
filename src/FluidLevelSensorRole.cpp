@@ -22,8 +22,8 @@ float FluidLevelCalculator::toPercent(float current) const {
     return (current - min_) / (max_ - min_) * 100.0f;
 }
 
-FluidLevelSensorRole::FluidLevelSensorRole(CurrentSensorManagerInterface& manager,
-                                           Nmea2000ServiceInterface& nmea)
+FluidLevelSensorRole::FluidLevelSensorRole(
+    CurrentSensorManagerInterface& manager, Nmea2000ServiceInterface& nmea)
     : manager_(manager), nmea_(nmea) {}
 
 const char* FluidLevelSensorRole::type() { return "FluidLevel"; }
@@ -32,10 +32,12 @@ void FluidLevelSensorRole::configure(const RoleConfig& cfg) {
     config = static_cast<const FluidLevelConfig&>(cfg);
 
     delete calculator_;
-    calculator_ = new FluidLevelCalculator(config.minCurrent, config.maxCurrent);
+    calculator_ =
+        new FluidLevelCalculator(config.minCurrent, config.maxCurrent);
 }
 
 bool FluidLevelSensorRole::validate() {
+    // Todo: need to fix until final solution for sensor readings
     if (config.minCurrent >= config.maxCurrent) return false;
     if (!isValidI2cAddress(config.i2cAddress)) return false;
     return true;
@@ -76,7 +78,9 @@ void FluidLevelSensorRole::loop() {
     nmea_.sendMetric(metric);
 }
 
-void FluidLevelSensorRole::getConfigJson(JsonDocument& doc) { config.toJson(doc); }
+void FluidLevelSensorRole::getConfigJson(JsonDocument& doc) {
+    config.toJson(doc);
+}
 
 bool FluidLevelSensorRole::configureFromJson(const JsonDocument& doc) {
     float minC = doc["minCurrent"] | 0.0f;
@@ -87,7 +91,8 @@ bool FluidLevelSensorRole::configureFromJson(const JsonDocument& doc) {
     uint8_t addr = doc["i2cAddress"] | (uint8_t)0x40;
     float shunt = doc["shuntOhms"] | 0.1f;
 
-    FluidLevelConfig newConfig(FluidTypeFromString(ftStr), inst, cap, minC, maxC, addr, shunt);
+    FluidLevelConfig newConfig(FluidTypeFromString(ftStr), inst, cap, minC,
+                               maxC, addr, shunt);
     configure(newConfig);
     return validate();
 }

@@ -165,6 +165,8 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
 
     if (pCharacteristic == pConfigUpdateChar_) {
         std::string value = pCharacteristic->getValue();
+        ESP_LOGI(TAG, "BLE config update payload (%d bytes): %.*s",
+                 (int)value.size(), (int)value.size(), value.c_str());
 
         StaticJsonDocument<512> doc;
         if (deserializeJson(doc, value)) {

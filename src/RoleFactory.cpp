@@ -4,6 +4,7 @@
 
 #include "AisSimulatorRole.h"
 #include "FluidLevelSensorRole.h"
+#include "WeatherStationRole.h"
 #include "WifiGateway0183Role.h"
 #include "WifiGatewayRole.h"
 
@@ -21,11 +22,13 @@ RoleFactory::RoleFactory(CurrentSensorManagerInterface& currentSensorManager,
                          Nmea2000ServiceInterface& nmea,
                          WifiServiceInterface& wifi,
                          PlatformInterface& platform,
+                         EnvironmentalSensorInterface& envSensor,
                          TcpServerCreator tcpCreator)
     : currentSensorManager_(currentSensorManager),
       nmea_(nmea),
       wifi_(wifi),
       platform_(platform),
+      envSensor_(envSensor),
       tcpCreator_(tcpCreator ? std::move(tcpCreator) : defaultTcpCreator()) {}
 
 std::unique_ptr<Role> RoleFactory::createRole(const char* type,
@@ -52,6 +55,9 @@ std::unique_ptr<Role> RoleFactory::createRoleInstance(const char* type) {
     if (strcmp(type, "WifiGateway0183") == 0) {
         return std::make_unique<WifiGateway0183Role>(nmea_, wifi_,
                                                      tcpCreator_());
+    }
+    if (strcmp(type, "WeatherStation") == 0) {
+        return std::make_unique<WeatherStationRole>(envSensor_, nmea_, platform_);
     }
 
     return nullptr;
