@@ -1,5 +1,6 @@
 #include "TcpServer.h"
 
+#include <cerrno>
 #include <esp_log.h>
 #include <fcntl.h>
 #include <lwip/sockets.h>
@@ -94,7 +95,10 @@ void TcpServer::sendToAll(const char* data, size_t len) {
         if (clientSockets_[i] >= 0) {
             int sent = send(clientSockets_[i], data, len, MSG_NOSIGNAL);
             if (sent < 0) {
-                ESP_LOGI(TAG, "Client disconnected (slot %d)", i);
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    continue;
+                }
+                ESP_LOGI(TAG, "Client disconnected (slot %d, errno %d)", i, errno);
                 close(clientSockets_[i]);
                 clientSockets_[i] = -1;
             }
