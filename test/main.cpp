@@ -10,11 +10,22 @@
 #include "test_fluid_level_sensor_role.h"
 #include "test_role_manager.h"
 #include "test_weather_station_role.h"
+#include "test_tcp_server.h"
 #include "test_wifi_gateway_0183_role.h"
 #include "test_wifi_gateway_role.h"
 
 int main() {
     UNITY_BEGIN();
+
+    // TcpServer helper tests
+    RUN_TEST(test_tcpSendFrame_full_send_returns_true);
+    RUN_TEST(test_tcpSendFrame_empty_frame_returns_true);
+    RUN_TEST(test_tcpSendFrame_eagain_returns_true_client_kept);
+    RUN_TEST(test_tcpSendFrame_partial_write_keeps_connection);
+    RUN_TEST(test_tcpSendFrame_connection_error_returns_false);
+    RUN_TEST(test_tcpDrainRecv_no_data_returns_true);
+    RUN_TEST(test_tcpDrainRecv_with_pending_data_returns_true);
+    RUN_TEST(test_tcpDrainRecv_remote_closed_returns_false);
 
     // EnvironmentalSensorService tests
     RUN_TEST(test_environmental_sensor_init_writes_reset);
