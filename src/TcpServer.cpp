@@ -63,6 +63,15 @@ void TcpServer::loop() {
     if (serverSocket_ >= 0) {
         acceptNewClients();
     }
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clientSockets_[i] >= 0) {
+            if (!tcpDrainRecv(clientSockets_[i])) {
+                ESP_LOGI(TAG, "Client gone (slot %d)", i);
+                close(clientSockets_[i]);
+                clientSockets_[i] = -1;
+            }
+        }
+    }
 }
 
 void TcpServer::acceptNewClients() {
@@ -77,6 +86,9 @@ void TcpServer::acceptNewClients() {
 
     int flags = fcntl(clientSocket, F_GETFL, 0);
     fcntl(clientSocket, F_SETFL, flags | O_NONBLOCK);
+
+    int flag = 1;
+    setsockopt(clientSocket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (clientSockets_[i] < 0) {
@@ -93,12 +105,8 @@ void TcpServer::acceptNewClients() {
 void TcpServer::sendToAll(const char* data, size_t len) {
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (clientSockets_[i] >= 0) {
-            int sent = send(clientSockets_[i], data, len, MSG_NOSIGNAL);
-            if (sent < 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                    continue;
-                }
-                ESP_LOGI(TAG, "Client disconnected (slot %d, errno %d)", i, errno);
+            if (!tcpSendFrame(clientSockets_[i], data, len)) {
+                ESP_LOGI(TAG, "Client disconnected (slot %d)", i);
                 close(clientSockets_[i]);
                 clientSockets_[i] = -1;
             }
