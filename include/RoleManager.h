@@ -70,6 +70,10 @@ class RoleManager {
     // Find existing role by ID, returns nullptr if not found
     Role* findRole(const char* roleId);
 
+    // Deferred start - executed in loopAll() to keep BLE callbacks stack-safe
+    std::set<std::string> pendingStart_;
+    void executePendingStarts();
+
     // Deferred persistence - written in loopAll()
     std::set<std::string> pendingPersist_;
     void persistPendingConfigs();

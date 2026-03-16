@@ -395,6 +395,44 @@ void test_role_manager_get_roles_as_json_includes_ip_address() {
     TEST_ASSERT_EQUAL_STRING("192.168.1.42", role["ipAddress"]);
 }
 
+// Tests that ip address assigned after startup propagates to JSON on next loopAll
+void test_role_manager_ip_address_updates_after_wifi_connects() {
+    MockCurrentSensorManager currentSensorManager;
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    MockFileSystem fs;
+    MockPlatform platform;
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleManager manager(factory, fs);
+
+    const char* roleJson = R"({
+        "type": "WifiGateway",
+        "ssid": "BoatNet",
+        "password": "sail123",
+        "port": 10110
+    })";
+
+    loadRoleFromJsonString(manager, roleJson, "WifiGateway-abc");
+    manager.startAll();
+
+    // First loop — WiFi not yet connected, no IP assigned
+    manager.loopAll();
+    std::string json1 = manager.getRolesAsJson();
+    StaticJsonDocument<256> doc1;
+    deserializeJson(doc1, json1);
+    TEST_ASSERT_FALSE(doc1[0].containsKey("ipAddress"));
+
+    // WiFi connects and DHCP assigns an IP
+    strncpy(wifi.ip, "10.0.0.5", sizeof(wifi.ip) - 1);
+
+    // Second loop — should pick up the new IP
+    manager.loopAll();
+    std::string json2 = manager.getRolesAsJson();
+    StaticJsonDocument<256> doc2;
+    deserializeJson(doc2, json2);
+    TEST_ASSERT_EQUAL_STRING("10.0.0.5", doc2[0]["ipAddress"]);
+}
+
 // Tests that getRolesAsJson omits ipAddress for roles that don't have one
 void test_role_manager_get_roles_as_json_no_ip_for_other_roles() {
     MockCurrentSensorManager currentSensorManager;
@@ -769,6 +807,40 @@ void test_role_manager_create_role_persists() {
     TEST_ASSERT_EQUAL_STRING("Fuel", savedConfig["fluidType"]);
     TEST_ASSERT_EQUAL(1, savedConfig["inst"]);
     TEST_ASSERT_EQUAL(200, savedConfig["capacity"]);
+}
+
+// Tests that new roles are not started immediately in applyRoleConfig (BLE
+// callback safety) but are started after loopAll
+void test_role_manager_new_role_start_deferred_to_loop() {
+    MockCurrentSensorManager currentSensorManager;
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    MockFileSystem fs;
+    MockPlatform platform;
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleManager manager(factory, fs);
+
+    StaticJsonDocument<512> doc;
+    doc["roleType"] = "WifiGateway";
+    JsonObject config = doc.createNestedObject("config");
+    config["ssid"] = "TestNet";
+    config["password"] = "pass";
+    config["port"] = 10110;
+
+    ApplyConfigResult result = manager.applyRoleConfig(doc);
+    TEST_ASSERT_TRUE(result.success);
+
+    // Should NOT be running immediately after applyRoleConfig
+    std::string json = manager.getRolesAsJson();
+    StaticJsonDocument<256> roles;
+    deserializeJson(roles, json);
+    TEST_ASSERT_FALSE(roles[0]["running"]);
+
+    // Should be running after loopAll processes the deferred start
+    manager.loopAll();
+    json = manager.getRolesAsJson();
+    deserializeJson(roles, json);
+    TEST_ASSERT_TRUE(roles[0]["running"]);
 }
 
 // Tests that applyRoleConfig generates unique IDs for multiple roles

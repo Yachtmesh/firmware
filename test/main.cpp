@@ -64,6 +64,7 @@ int main() {
     RUN_TEST(test_role_manager_get_roles_as_json_after_start);
     RUN_TEST(test_role_manager_get_roles_as_json_multiple);
     RUN_TEST(test_role_manager_get_roles_as_json_includes_ip_address);
+    RUN_TEST(test_role_manager_ip_address_updates_after_wifi_connects);
     RUN_TEST(test_role_manager_get_roles_as_json_no_ip_for_other_roles);
     RUN_TEST(test_role_manager_get_roles_as_json_config_fields);
 
@@ -93,6 +94,7 @@ int main() {
     RUN_TEST(test_role_manager_create_role_missing_type);
     RUN_TEST(test_role_manager_create_role_invalid_config);
     RUN_TEST(test_role_manager_create_role_persists);
+    RUN_TEST(test_role_manager_new_role_start_deferred_to_loop);
     RUN_TEST(test_role_manager_create_role_unique_ids);
 
     // factoryReset tests
