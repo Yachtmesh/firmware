@@ -4,14 +4,8 @@
 #include <esp_timer.h>
 #include <nvs.h>
 #include <nvs_flash.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-uint8_t temprature_sens_read();
-#ifdef __cplusplus
-}
-#endif
+#include <rom/ets_sys.h>
+#include <soc/sens_reg.h>
 
 void Esp32Platform::getMacAddress(uint8_t* mac) {
     esp_read_mac(mac, ESP_MAC_BT);
@@ -63,7 +57,19 @@ void Esp32Platform::saveDeviceId(const std::string& id) {
 }
 
 float Esp32Platform::getCpuTemperature() {
-    uint8_t raw = temprature_sens_read();
+    // The ROM temprature_sens_read() became a stub in ESP-IDF 5.x for original
+    // ESP32. Read the sensor registers directly instead.
+    // On ESP32: control bits are in SAR_SLAVE_ADDR4_REG, output is in SAR_SLAVE_ADDR3_REG [29:22].
+    SET_PERI_REG_BITS(SENS_SAR_MEAS_WAIT2_REG, SENS_FORCE_XPD_SAR, 3, SENS_FORCE_XPD_SAR_S);
+    SET_PERI_REG_BITS(SENS_SAR_SLAVE_ADDR4_REG, SENS_TSENS_CLK_DIV, 6, SENS_TSENS_CLK_DIV_S);
+    CLEAR_PERI_REG_MASK(SENS_SAR_SLAVE_ADDR4_REG, SENS_TSENS_POWER_UP);
+    CLEAR_PERI_REG_MASK(SENS_SAR_SLAVE_ADDR4_REG, SENS_TSENS_DUMP_OUT);
+    SET_PERI_REG_MASK(SENS_SAR_SLAVE_ADDR4_REG, SENS_TSENS_POWER_UP_FORCE);
+    SET_PERI_REG_MASK(SENS_SAR_SLAVE_ADDR4_REG, SENS_TSENS_POWER_UP);
+    ets_delay_us(100);
+    SET_PERI_REG_MASK(SENS_SAR_SLAVE_ADDR4_REG, SENS_TSENS_DUMP_OUT);
+    ets_delay_us(5);
+    int raw = (int)GET_PERI_REG_BITS2(SENS_SAR_SLAVE_ADDR3_REG, SENS_TSENS_OUT, SENS_TSENS_OUT_S);
     return (raw - 32) / 1.8f;
 }
 
