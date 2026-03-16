@@ -4,6 +4,7 @@
 #include <esp_netif.h>
 #include <esp_wifi.h>
 
+#include <cstdio>
 #include <cstring>
 
 static const char* TAG = "WifiService";
@@ -43,7 +44,9 @@ void WifiService::eventHandler(void* arg, esp_event_base_t eventBase,
     } else if (eventBase == IP_EVENT && eventId == IP_EVENT_STA_GOT_IP) {
         auto* event = static_cast<ip_event_got_ip_t*>(eventData);
         self->connected_ = true;
-        ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
+        snprintf(self->ipAddress_, sizeof(self->ipAddress_), IPSTR,
+                 IP2STR(&event->ip_info.ip));
+        ESP_LOGI(TAG, "Got IP: %s", self->ipAddress_);
     }
 }
 
@@ -87,9 +90,12 @@ void WifiService::disconnect() {
 
     connected_ = false;
     started_ = false;
+    ipAddress_[0] = '\0';
     esp_wifi_disconnect();
     esp_wifi_stop();
     ESP_LOGI(TAG, "Disconnected (last user)");
 }
 
 bool WifiService::isConnected() const { return connected_; }
+
+const char* WifiService::getIpAddress() const { return ipAddress_; }

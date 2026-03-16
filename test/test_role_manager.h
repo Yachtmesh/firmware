@@ -363,6 +363,71 @@ void test_role_manager_get_roles_as_json_multiple() {
     TEST_ASSERT_TRUE(doc[1]["running"]);
 }
 
+// Tests that getRolesAsJson includes ipAddress in WifiGateway role status when connected
+void test_role_manager_get_roles_as_json_includes_ip_address() {
+    MockCurrentSensorManager currentSensorManager;
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    MockFileSystem fs;
+    MockPlatform platform;
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleManager manager(factory, fs);
+
+    const char* roleJson = R"({
+        "type": "WifiGateway",
+        "ssid": "BoatNet",
+        "password": "sail123",
+        "port": 10110
+    })";
+
+    loadRoleFromJsonString(manager, roleJson, "WifiGateway-abc");
+    manager.startAll();
+
+    strncpy(wifi.ip, "192.168.1.42", sizeof(wifi.ip) - 1);
+    manager.loopAll();
+
+    std::string json = manager.getRolesAsJson();
+    StaticJsonDocument<512> doc;
+    deserializeJson(doc, json);
+
+    TEST_ASSERT_EQUAL(1, doc.size());
+    JsonObject role = doc[0];
+    TEST_ASSERT_EQUAL_STRING("192.168.1.42", role["ipAddress"]);
+}
+
+// Tests that getRolesAsJson omits ipAddress for roles that don't have one
+void test_role_manager_get_roles_as_json_no_ip_for_other_roles() {
+    MockCurrentSensorManager currentSensorManager;
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    MockFileSystem fs;
+    MockPlatform platform;
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleManager manager(factory, fs);
+
+    const char* roleJson = R"({
+        "type": "FluidLevel",
+        "fluidType": "Water",
+        "inst": 0,
+        "capacity": 100,
+        "minCurrent": 0.005,
+        "maxCurrent": 0.02,
+        "i2cAddress": 64,
+        "shuntOhms": 0.1
+    })";
+
+    loadRoleFromJsonString(manager, roleJson, "FluidLevel-abc");
+    manager.startAll();
+    manager.loopAll();
+
+    std::string json = manager.getRolesAsJson();
+    StaticJsonDocument<512> doc;
+    deserializeJson(doc, json);
+
+    JsonObject role = doc[0];
+    TEST_ASSERT_FALSE(role.containsKey("ipAddress"));
+}
+
 // Tests that getRolesAsJson includes config with all fields
 void test_role_manager_get_roles_as_json_config_fields() {
     MockCurrentSensorManager currentSensorManager;

@@ -162,6 +162,9 @@ void RoleManager::rebuildCache() const {
         roleObj["id"] = role->id();
         roleObj["type"] = role->type();
         roleObj["running"] = role->status().running;
+        if (role->status().ipAddress[0] != '\0') {
+            roleObj["ipAddress"] = role->status().ipAddress;
+        }
     }
 
     cachedRolesJson_.clear();

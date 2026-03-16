@@ -59,9 +59,14 @@ void WifiGatewayRole::stop() {
     tcpStarted_ = false;
     wifi_.disconnect();
     status_.running = false;
+    status_.ipAddress[0] = '\0';
 }
 
 void WifiGatewayRole::loop() {
+    strncpy(status_.ipAddress, wifi_.getIpAddress(),
+            sizeof(status_.ipAddress) - 1);
+    status_.ipAddress[sizeof(status_.ipAddress) - 1] = '\0';
+
     if (wifi_.isConnected()) {
         if (!tcpStarted_) {
             tcpStarted_ = tcpServer_->start(config.port);

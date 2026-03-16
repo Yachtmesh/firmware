@@ -24,6 +24,7 @@ class FakeWifiService : public WifiServiceInterface {
     int refCount = 0;
     char lastSsid[33] = {0};
     char lastPassword[65] = {0};
+    char ip[16] = {0};
 
     bool connect(const char* ssid, const char* password) override {
         connectCalled = true;
@@ -37,10 +38,14 @@ class FakeWifiService : public WifiServiceInterface {
     void disconnect() override {
         disconnectCalled = true;
         if (refCount > 0) refCount--;
-        if (refCount == 0) connected = false;
+        if (refCount == 0) {
+            connected = false;
+            ip[0] = '\0';
+        }
     }
 
     bool isConnected() const override { return connected; }
+    const char* getIpAddress() const override { return ip; }
 };
 
 class FakeTcpServer : public TcpServerInterface {
@@ -381,6 +386,44 @@ void test_wifi_gateway_restarts_tcp_on_wifi_reconnect() {
 }
 
 // --- Integration: local echo from sensor to gateway ---
+
+void test_wifi_gateway_status_reports_ip_when_connected() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+
+    strncpy(wifi.ip, "192.168.1.42", sizeof(wifi.ip) - 1);
+    role.loop();
+
+    TEST_ASSERT_EQUAL_STRING("192.168.1.42", role.status().ipAddress);
+}
+
+void test_wifi_gateway_status_clears_ip_on_stop() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+
+    strncpy(wifi.ip, "10.0.0.1", sizeof(wifi.ip) - 1);
+    role.loop();
+    TEST_ASSERT_EQUAL_STRING("10.0.0.1", role.status().ipAddress);
+
+    role.stop();
+    TEST_ASSERT_EQUAL_STRING("", role.status().ipAddress);
+}
 
 void test_wifi_gateway_receives_local_sensor_data() {
     // Shared NMEA service so sensor and gateway are co-located

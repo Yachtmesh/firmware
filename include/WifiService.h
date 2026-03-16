@@ -5,6 +5,7 @@ class WifiServiceInterface {
     virtual bool connect(const char* ssid, const char* password) = 0;
     virtual void disconnect() = 0;
     virtual bool isConnected() const = 0;
+    virtual const char* getIpAddress() const = 0;
     virtual ~WifiServiceInterface() = default;
 };
 
@@ -17,6 +18,7 @@ class WifiService : public WifiServiceInterface {
     bool connect(const char* ssid, const char* password) override;
     void disconnect() override;
     bool isConnected() const override;
+    const char* getIpAddress() const override;
 
    private:
     void initWifi();
@@ -28,5 +30,6 @@ class WifiService : public WifiServiceInterface {
     bool started_ = false;  // true between esp_wifi_start() and esp_wifi_stop()
     volatile bool connected_ = false;
     int refCount_ = 0;  // Number of active users; actual disconnect at zero
+    char ipAddress_[16] = "";
 };
 #endif

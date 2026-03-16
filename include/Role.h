@@ -11,6 +11,7 @@ struct RoleConfig {
 
 struct RoleStatus {
     bool running = false;
+    char ipAddress[16] = "";
 };
 
 class Role {

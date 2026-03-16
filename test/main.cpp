@@ -63,6 +63,8 @@ int main() {
     RUN_TEST(test_role_manager_get_roles_as_json_not_started);
     RUN_TEST(test_role_manager_get_roles_as_json_after_start);
     RUN_TEST(test_role_manager_get_roles_as_json_multiple);
+    RUN_TEST(test_role_manager_get_roles_as_json_includes_ip_address);
+    RUN_TEST(test_role_manager_get_roles_as_json_no_ip_for_other_roles);
     RUN_TEST(test_role_manager_get_roles_as_json_config_fields);
 
     // FluidLevelSensorRole config JSON tests
@@ -162,6 +164,8 @@ int main() {
     RUN_TEST(test_wifi_gateway_forwards_data_to_tcp);
     RUN_TEST(test_wifi_gateway_stops_tcp_on_wifi_disconnect);
     RUN_TEST(test_wifi_gateway_restarts_tcp_on_wifi_reconnect);
+    RUN_TEST(test_wifi_gateway_status_reports_ip_when_connected);
+    RUN_TEST(test_wifi_gateway_status_clears_ip_on_stop);
     RUN_TEST(test_wifi_gateway_receives_local_sensor_data);
 
     // AIS N2K encoder tests (PGN 129039)
