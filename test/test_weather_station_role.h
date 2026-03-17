@@ -171,6 +171,20 @@ void test_weather_station_role_stop_clears_running() {
     role.stop();
 
     TEST_ASSERT_FALSE(role.status().running);
+    TEST_ASSERT_FALSE(role.status().reason.empty());
+}
+
+void test_weather_station_role_start_clears_reason() {
+    MockEnvironmentalSensorService sensor;
+    FakeNmea2000Service nmea;
+    MockPlatform platform;
+    WeatherStationRole role(sensor, nmea, platform);
+
+    role.configure(makeWeatherConfig());
+    role.start();
+
+    TEST_ASSERT_TRUE(role.status().running);
+    TEST_ASSERT_TRUE(role.status().reason.empty());
 }
 
 void test_weather_station_role_loop_broadcasts_environmental_data() {

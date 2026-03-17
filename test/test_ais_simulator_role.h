@@ -91,6 +91,21 @@ void test_ais_simulator_stop_clears_running() {
     role.start();
     role.stop();
     TEST_ASSERT_FALSE(role.status().running);
+    TEST_ASSERT_FALSE(role.status().reason.empty());
+}
+
+void test_ais_simulator_start_clears_reason() {
+    FakeNmea2000Service nmea;
+    MockPlatform platform;
+    AisSimulatorRole role(nmea, platform);
+
+    StaticJsonDocument<256> doc;
+    doc["intervalMs"] = 5000;
+    role.configureFromJson(doc);
+
+    role.start();
+    TEST_ASSERT_TRUE(role.status().running);
+    TEST_ASSERT_TRUE(role.status().reason.empty());
 }
 
 // --- Emission tests ---

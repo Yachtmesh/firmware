@@ -157,17 +157,17 @@ std::string RoleManager::getRolesAsJson() const {
 }
 
 void RoleManager::rebuildCache() const {
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<2048> doc;
     JsonArray arr = doc.to<JsonArray>();
 
     for (const auto& role : roles_) {
         JsonObject roleObj = arr.createNestedObject();
         roleObj["id"] = role->id();
         roleObj["type"] = role->type();
-        roleObj["running"] = role->status().running;
-        if (role->status().ipAddress[0] != '\0') {
-            roleObj["ipAddress"] = role->status().ipAddress;
-        }
+
+        StaticJsonDocument<128> statusDoc;
+        role->getStatusJson(statusDoc);
+        roleObj["status"] = statusDoc;
     }
 
     cachedRolesJson_.clear();

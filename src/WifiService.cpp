@@ -98,4 +98,4 @@ void WifiService::disconnect() {
 
 bool WifiService::isConnected() const { return connected_; }
 
-const char* WifiService::getIpAddress() const { return ipAddress_; }
+std::string WifiService::ipAddress() const { return std::string(ipAddress_); }

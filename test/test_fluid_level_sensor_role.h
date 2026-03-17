@@ -182,6 +182,20 @@ void test_fluid_level_sensor_role_stop_releases_sensor() {
 
     TEST_ASSERT_TRUE(manager.releaseCalled);
     TEST_ASSERT_FALSE(role.status().running);
+    TEST_ASSERT_FALSE(role.status().reason.empty());
+}
+
+void test_fluid_level_sensor_role_start_clears_reason() {
+    MockCurrentSensorManager manager;
+    FakeNmea2000Service nmea;
+    FluidLevelSensorRole role(manager, nmea);
+
+    FluidLevelConfig cfg{FluidType::Water, 0, 100, 0.005f, 0.02f, 0x40, 0.1f};
+    role.configure(cfg);
+    role.start();
+
+    TEST_ASSERT_TRUE(role.status().running);
+    TEST_ASSERT_TRUE(role.status().reason.empty());
 }
 
 void test_fluid_level_sensor_role_address_conflict() {

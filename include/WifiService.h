@@ -1,11 +1,13 @@
 #pragma once
 
+#include <string>
+
 class WifiServiceInterface {
    public:
     virtual bool connect(const char* ssid, const char* password) = 0;
     virtual void disconnect() = 0;
     virtual bool isConnected() const = 0;
-    virtual const char* getIpAddress() const = 0;
+    virtual std::string ipAddress() const = 0;
     virtual ~WifiServiceInterface() = default;
 };
 
@@ -18,7 +20,7 @@ class WifiService : public WifiServiceInterface {
     bool connect(const char* ssid, const char* password) override;
     void disconnect() override;
     bool isConnected() const override;
-    const char* getIpAddress() const override;
+    std::string ipAddress() const override;
 
    private:
     void initWifi();

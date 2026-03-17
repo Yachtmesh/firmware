@@ -30,9 +30,13 @@ void AisSimulatorRole::start() {
     lastEmitMs_ = now - config.intervalMs;  // ensure first emit is immediate
     nextBoat_ = 0;
     status_.running = true;
+    status_.reason = "";
 }
 
-void AisSimulatorRole::stop() { status_.running = false; }
+void AisSimulatorRole::stop() {
+    status_.running = false;
+    status_.reason = "Simulator not running";
+}
 
 void AisSimulatorRole::loop() {
     if (!status_.running) return;

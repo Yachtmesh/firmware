@@ -35,6 +35,7 @@ class WifiGatewayRole : public Role, public N2kListenerInterface {
     void stop() override;
     void loop() override;
     void getConfigJson(JsonDocument& doc) override;
+    void getStatusJson(JsonDocument& doc) const override;
 
     // N2kListenerInterface
     void onN2kMessage(uint32_t pgn, uint8_t priority, uint8_t source,

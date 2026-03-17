@@ -45,7 +45,7 @@ class FakeWifiService : public WifiServiceInterface {
     }
 
     bool isConnected() const override { return connected; }
-    const char* getIpAddress() const override { return ip; }
+    std::string ipAddress() const override { return std::string(ip); }
 };
 
 class FakeTcpServer : public TcpServerInterface {
@@ -385,9 +385,92 @@ void test_wifi_gateway_restarts_tcp_on_wifi_reconnect() {
     TEST_ASSERT_EQUAL_UINT16(10110, tcpPtr->lastPort);
 }
 
-// --- Integration: local echo from sensor to gateway ---
+// --- Status: reason field ---
 
-void test_wifi_gateway_status_reports_ip_when_connected() {
+void test_wifi_gateway_stop_sets_reason() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+    role.stop();
+
+    TEST_ASSERT_FALSE(role.status().running);
+    TEST_ASSERT_FALSE(role.status().reason.empty());
+}
+
+void test_wifi_gateway_start_clears_reason() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+
+    TEST_ASSERT_TRUE(role.status().running);
+    TEST_ASSERT_TRUE(role.status().reason.empty());
+}
+
+// --- Status: ipAddress() on fake ---
+
+void test_fake_wifi_service_ip_address_returns_set_value() {
+    FakeWifiService wifi;
+    strncpy(wifi.ip, "10.0.0.1", sizeof(wifi.ip) - 1);
+    TEST_ASSERT_EQUAL_STRING("10.0.0.1", wifi.ipAddress().c_str());
+}
+
+// --- Status: getStatusJson() ---
+
+void test_wifi_gateway_get_status_json_running() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+
+    StaticJsonDocument<128> statusDoc;
+    role.getStatusJson(statusDoc);
+
+    TEST_ASSERT_TRUE(statusDoc["running"]);
+    TEST_ASSERT_FALSE(statusDoc.containsKey("reason"));
+}
+
+void test_wifi_gateway_get_status_json_stopped() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+    role.stop();
+
+    StaticJsonDocument<128> statusDoc;
+    role.getStatusJson(statusDoc);
+
+    TEST_ASSERT_FALSE(statusDoc["running"]);
+    TEST_ASSERT_TRUE(statusDoc.containsKey("reason"));
+    TEST_ASSERT_FALSE(std::string(statusDoc["reason"] | "").empty());
+}
+
+void test_wifi_gateway_status_json_includes_ip_when_connected() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     auto [tcp, tcpPtr] = makeFakeTcp();
@@ -400,12 +483,14 @@ void test_wifi_gateway_status_reports_ip_when_connected() {
     role.start();
 
     strncpy(wifi.ip, "192.168.1.42", sizeof(wifi.ip) - 1);
-    role.loop();
 
-    TEST_ASSERT_EQUAL_STRING("192.168.1.42", role.status().ipAddress);
+    StaticJsonDocument<128> statusDoc;
+    role.getStatusJson(statusDoc);
+
+    TEST_ASSERT_EQUAL_STRING("192.168.1.42", statusDoc["ip"] | "");
 }
 
-void test_wifi_gateway_status_clears_ip_on_stop() {
+void test_wifi_gateway_status_json_ip_empty_when_disconnected() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     auto [tcp, tcpPtr] = makeFakeTcp();
@@ -416,14 +501,15 @@ void test_wifi_gateway_status_clears_ip_on_stop() {
     doc["password"] = "pass";
     role.configureFromJson(doc);
     role.start();
-
-    strncpy(wifi.ip, "10.0.0.1", sizeof(wifi.ip) - 1);
-    role.loop();
-    TEST_ASSERT_EQUAL_STRING("10.0.0.1", role.status().ipAddress);
-
     role.stop();
-    TEST_ASSERT_EQUAL_STRING("", role.status().ipAddress);
+
+    StaticJsonDocument<128> statusDoc;
+    role.getStatusJson(statusDoc);
+
+    TEST_ASSERT_EQUAL_STRING("", statusDoc["ip"] | "");
 }
+
+// --- Integration: local echo from sensor to gateway ---
 
 void test_wifi_gateway_receives_local_sensor_data() {
     // Shared NMEA service so sensor and gateway are co-located

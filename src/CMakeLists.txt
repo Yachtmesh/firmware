@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS
         "main.cpp"
+        "Role.cpp"
         "I2cBusService.cpp"
         "CurrentSensorService.cpp"
         "CurrentSensorManager.cpp"

@@ -52,6 +52,7 @@ void FluidLevelSensorRole::start() {
         return;
     }
     status_.running = true;
+    status_.reason = "";
 }
 
 void FluidLevelSensorRole::stop() {
@@ -60,6 +61,7 @@ void FluidLevelSensorRole::stop() {
         sensor_ = nullptr;
     }
     status_.running = false;
+    status_.reason = "Sensor not running";
 }
 
 void FluidLevelSensorRole::loop() {

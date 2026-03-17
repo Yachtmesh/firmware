@@ -284,7 +284,7 @@ void test_role_manager_get_roles_as_json_not_started() {
     JsonObject role = doc[0];
     TEST_ASSERT_EQUAL_STRING("FluidLevel-y01", role["id"]);
     TEST_ASSERT_EQUAL_STRING("FluidLevel", role["type"]);
-    TEST_ASSERT_FALSE(role["running"]);
+    TEST_ASSERT_FALSE(role["status"]["running"]);
 }
 
 // Tests that getRolesAsJson shows running=true after startAll
@@ -316,7 +316,7 @@ void test_role_manager_get_roles_as_json_after_start() {
     deserializeJson(doc, json);
 
     JsonObject role = doc[0];
-    TEST_ASSERT_TRUE(role["running"]);
+    TEST_ASSERT_TRUE(role["status"]["running"]);
 }
 
 // Tests that getRolesAsJson works with multiple roles
@@ -359,8 +359,8 @@ void test_role_manager_get_roles_as_json_multiple() {
     deserializeJson(doc, json);
 
     TEST_ASSERT_EQUAL(2, doc.size());
-    TEST_ASSERT_TRUE(doc[0]["running"]);
-    TEST_ASSERT_TRUE(doc[1]["running"]);
+    TEST_ASSERT_TRUE(doc[0]["status"]["running"]);
+    TEST_ASSERT_TRUE(doc[1]["status"]["running"]);
 }
 
 // Tests that getRolesAsJson includes ipAddress in WifiGateway role status when connected
@@ -387,12 +387,12 @@ void test_role_manager_get_roles_as_json_includes_ip_address() {
     manager.loopAll();
 
     std::string json = manager.getRolesAsJson();
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<1024> doc;
     deserializeJson(doc, json);
 
     TEST_ASSERT_EQUAL(1, doc.size());
     JsonObject role = doc[0];
-    TEST_ASSERT_EQUAL_STRING("192.168.1.42", role["ipAddress"]);
+    TEST_ASSERT_EQUAL_STRING("192.168.1.42", role["status"]["ip"] | "");
 }
 
 // Tests that ip address assigned after startup propagates to JSON on next loopAll
@@ -415,12 +415,12 @@ void test_role_manager_ip_address_updates_after_wifi_connects() {
     loadRoleFromJsonString(manager, roleJson, "WifiGateway-abc");
     manager.startAll();
 
-    // First loop — WiFi not yet connected, no IP assigned
+    // First loop — WiFi not yet connected, IP is empty string
     manager.loopAll();
     std::string json1 = manager.getRolesAsJson();
-    StaticJsonDocument<256> doc1;
+    StaticJsonDocument<1024> doc1;
     deserializeJson(doc1, json1);
-    TEST_ASSERT_FALSE(doc1[0].containsKey("ipAddress"));
+    TEST_ASSERT_EQUAL_STRING("", doc1[0]["status"]["ip"] | "");
 
     // WiFi connects and DHCP assigns an IP
     strncpy(wifi.ip, "10.0.0.5", sizeof(wifi.ip) - 1);
@@ -428,9 +428,9 @@ void test_role_manager_ip_address_updates_after_wifi_connects() {
     // Second loop — should pick up the new IP
     manager.loopAll();
     std::string json2 = manager.getRolesAsJson();
-    StaticJsonDocument<256> doc2;
+    StaticJsonDocument<1024> doc2;
     deserializeJson(doc2, json2);
-    TEST_ASSERT_EQUAL_STRING("10.0.0.5", doc2[0]["ipAddress"]);
+    TEST_ASSERT_EQUAL_STRING("10.0.0.5", doc2[0]["status"]["ip"] | "");
 }
 
 // Tests that getRolesAsJson omits ipAddress for roles that don't have one
@@ -463,7 +463,7 @@ void test_role_manager_get_roles_as_json_no_ip_for_other_roles() {
     deserializeJson(doc, json);
 
     JsonObject role = doc[0];
-    TEST_ASSERT_FALSE(role.containsKey("ipAddress"));
+    TEST_ASSERT_FALSE(role["status"].containsKey("ip"));
 }
 
 // Tests that getRolesAsJson includes config with all fields
@@ -832,15 +832,15 @@ void test_role_manager_new_role_start_deferred_to_loop() {
 
     // Should NOT be running immediately after applyRoleConfig
     std::string json = manager.getRolesAsJson();
-    StaticJsonDocument<256> roles;
+    StaticJsonDocument<1024> roles;
     deserializeJson(roles, json);
-    TEST_ASSERT_FALSE(roles[0]["running"]);
+    TEST_ASSERT_FALSE(roles[0]["status"]["running"]);
 
     // Should be running after loopAll processes the deferred start
     manager.loopAll();
     json = manager.getRolesAsJson();
     deserializeJson(roles, json);
-    TEST_ASSERT_TRUE(roles[0]["running"]);
+    TEST_ASSERT_TRUE(roles[0]["status"]["running"]);
 }
 
 // Tests that applyRoleConfig generates unique IDs for multiple roles
