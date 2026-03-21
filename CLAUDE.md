@@ -12,6 +12,8 @@ I follow Test-Driven Development (TDD) with a strong emphasis on behavior-driven
 
 **Key Principles:**
 
+- If asked to write a plan do so in a .md file starting with plan-\* and followed by a 4 word summary of the question
+- If asked to write a plan, write it in the file but don't implement anything but wait for further input
 - Write tests first (TDD)
 - Test behavior, not implementation
 - No type assertions
@@ -248,3 +250,66 @@ Config: `intervalMs` (broadcast interval, default 5000)
 - ArduinoJson - JSON parsing/serialization
 - NimBLE-Arduino - Bluetooth Low Energy
 - Unity - Test framework (native only)
+
+---
+
+## BLE Protocol Contract
+
+`PROTOCOL.md` in this repository is the **canonical specification** for the Yachtmesh BLE wire protocol. The iOS app and any third-party client implementations depend on it. Keeping it accurate is as important as keeping the code correct.
+
+### What counts as a breaking change
+
+A change is **breaking** if it requires a coordinated update to client apps:
+
+| Change | Breaking? |
+|--------|-----------|
+| Remove or rename a characteristic UUID | Yes — MAJOR |
+| Change a binary format (byte offset, type, size) | Yes — MAJOR |
+| Remove or rename a JSON field | Yes — MAJOR |
+| Remove or rename an enum value | Yes — MAJOR |
+| Add a new characteristic | No — MINOR |
+| Add a new optional JSON field | No — MINOR |
+| Add a new enum value | No — MINOR |
+| Add a new role type | No — MINOR |
+| Bug fix with no wire format change | No — PATCH |
+
+### When you modify interface files, you must:
+
+The interface files are:
+- `include/BluetoothService.h` — characteristic UUIDs and service UUID
+- `include/DeviceInfo.h` — DeviceInfo and DeviceStatus binary formats
+- `src/*Role.cpp` — JSON field names in `configureFromJson()` / `getConfigJson()`
+- `include/types.h` — enum values
+
+**Steps:**
+
+1. **Update `PROTOCOL.md`** to reflect the change — update the relevant table, add to the Changelog, and bump `Protocol Version` using semver
+2. **If the change is breaking**, emit the notice below and draft a PR description for the `app-ios` repository
+
+### Breaking change notice format
+
+When you make a breaking change, output this block so it is visible in the PR description and commit message:
+
+```
+⚠️  BREAKING PROTOCOL CHANGE — app-ios PR required
+
+Protocol version bump: X.Y.Z → A.B.C
+
+What changed:
+- <specific field/UUID/format that changed>
+
+app-ios files that need updating:
+- app/Services/BLEManager.swift       (if UUIDs changed)
+- app/Models/YachtmeshDevice.swift    (if binary formats changed)
+- app/Utilities/Roles.swift           (if JSON fields, role types, or enums changed)
+
+Suggested app-ios PR title:
+  "chore: update BLE protocol to v<A.B.C> — <one-line summary>"
+
+Suggested app-ios PR body:
+  Firmware PR: <link>
+  PROTOCOL.md: <specific section>
+
+  Changes required:
+  - <concrete code change in app-ios>
+```
