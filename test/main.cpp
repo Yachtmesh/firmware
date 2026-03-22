@@ -11,6 +11,7 @@
 #include "test_role_manager.h"
 #include "test_weather_station_role.h"
 #include "test_tcp_server.h"
+#include "test_ve_direct_battery_role.h"
 #include "test_wifi_gateway_0183_role.h"
 #include "test_wifi_gateway_role.h"
 
@@ -252,6 +253,37 @@ int main() {
     RUN_TEST(test_wifi_gateway_0183_forwards_ais_as_aivdm);
     RUN_TEST(test_wifi_gateway_0183_ignores_unsupported_pgn);
     RUN_TEST(test_wifi_gateway_0183_forwards_static_data);
+
+    // VeDirectParser tests
+    RUN_TEST(test_ve_direct_parser_complete_frame_checksums_ok);
+    RUN_TEST(test_ve_direct_parser_voltage);
+    RUN_TEST(test_ve_direct_parser_current);
+    RUN_TEST(test_ve_direct_parser_soc);
+    RUN_TEST(test_ve_direct_parser_ttg);
+    RUN_TEST(test_ve_direct_parser_consumed_ah);
+    RUN_TEST(test_ve_direct_parser_returns_true_on_checksum_line);
+    RUN_TEST(test_ve_direct_parser_bad_checksum_marked_invalid);
+    RUN_TEST(test_ve_direct_parser_negative_ttg_becomes_unavailable);
+    RUN_TEST(test_ve_direct_parser_reset_clears_state);
+    RUN_TEST(test_ve_direct_parser_checksum_only_frame_has_no_data);
+    RUN_TEST(test_ve_direct_parser_newline_checksum_byte_accepted);
+
+    // VeDirectBatteryRole tests
+    RUN_TEST(test_ve_direct_battery_role_type_string);
+    RUN_TEST(test_ve_direct_battery_role_validate_always_true);
+    RUN_TEST(test_ve_direct_battery_role_start_sets_running);
+    RUN_TEST(test_ve_direct_battery_role_stop_clears_running);
+    RUN_TEST(test_ve_direct_battery_role_loop_sends_metric_on_complete_frame);
+    RUN_TEST(test_ve_direct_battery_role_loop_correct_voltage);
+    RUN_TEST(test_ve_direct_battery_role_loop_correct_current);
+    RUN_TEST(test_ve_direct_battery_role_loop_correct_soc);
+    RUN_TEST(test_ve_direct_battery_role_loop_correct_ttg);
+    RUN_TEST(test_ve_direct_battery_role_loop_correct_instance);
+    RUN_TEST(test_ve_direct_battery_role_loop_bad_checksum_not_sent);
+    RUN_TEST(test_ve_direct_battery_role_loop_no_data_no_send);
+    RUN_TEST(test_ve_direct_battery_role_configure_from_json);
+    RUN_TEST(test_ve_direct_battery_role_get_config_json);
+    RUN_TEST(test_ve_direct_battery_role_config_json_roundtrip);
 
     return UNITY_END();
 }

@@ -9,6 +9,7 @@
 #include "NMEA2000Service.h"
 #include "Platform.h"
 #include "Role.h"
+#include "SerialSensorService.h"
 #include "TcpServer.h"
 #include "WifiService.h"
 
@@ -21,6 +22,7 @@ class RoleFactory {
                 WifiServiceInterface& wifi,
                 PlatformInterface& platform,
                 EnvironmentalSensorInterface& envSensor,
+                SerialSensorInterface& serialSensor,
                 TcpServerCreator tcpCreator = nullptr);
 
     std::unique_ptr<Role> createRole(const char* type, const JsonDocument& doc);
@@ -33,5 +35,6 @@ class RoleFactory {
     WifiServiceInterface& wifi_;
     PlatformInterface& platform_;
     EnvironmentalSensorInterface& envSensor_;
+    SerialSensorInterface& serialSensor_;
     TcpServerCreator tcpCreator_;
 };

@@ -6,8 +6,9 @@
 static const char* TAG = "SerialSensor";
 static constexpr int RX_BUF_SIZE = 1024;
 
-SerialSensorService::SerialSensorService(uart_port_t port, int baudRate, int rxPin, int txPin)
-    : port_(port) {
+SerialSensorService::SerialSensorService(uart_port_t port) : port_(port) {}
+
+void SerialSensorService::begin(int baudRate, int rxPin, int txPin) {
     uart_config_t config = {
         .baud_rate = baudRate,
         .data_bits = UART_DATA_8_BITS,
@@ -16,9 +17,10 @@ SerialSensorService::SerialSensorService(uart_port_t port, int baudRate, int rxP
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
         .source_clk = UART_SCLK_DEFAULT,
     };
-    uart_param_config(port, &config);
-    uart_set_pin(port, txPin, rxPin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    uart_driver_install(port, RX_BUF_SIZE * 2, 0, 0, nullptr, 0);
+    uart_param_config(port_, &config);
+    uart_set_pin(port_, txPin, rxPin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    uart_driver_install(port_, RX_BUF_SIZE * 2, 0, 0, nullptr, 0);
+    ESP_LOGI(TAG, "UART%d initialized baud=%d rx=%d tx=%d", port_, baudRate, rxPin, txPin);
 }
 
 SerialReading SerialSensorService::readLine() {

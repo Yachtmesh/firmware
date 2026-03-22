@@ -3,19 +3,20 @@
 #include <unity.h>
 
 #include "FileSystem.h"
+#include "MockCurrentSensorManager.h"
 #include "MockEnvironmentalSensorService.h"
 #include "MockFileSystem.h"
 #include "MockPlatform.h"
+#include "MockSerialSensorService.h"
 #include "Role.h"
 #include "RoleFactory.h"
 #include "RoleManager.h"
-#include "MockCurrentSensorManager.h"
 #include "test_fluid_level_sensor_role.h"  // For FakeNmea2000Service
 #include "test_wifi_gateway_role.h"        // For FakeWifiService
 
-// Shared env sensor for role manager tests — these tests don't exercise
-// WeatherStation behavior so a single file-scope instance is sufficient.
+// Shared fixtures for role manager tests.
 static MockEnvironmentalSensorService gTestEnvSensor;
+static MockSerialSensorService gTestSerialSensor;
 
 // Test helper: parse JSON string (flat format) and load role (no persist)
 // Converts flat config to hierarchical format: {roleId, roleType, config}
@@ -48,7 +49,7 @@ void test_role_manager_loads_valid_config() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json = R"({
@@ -74,7 +75,7 @@ void test_role_manager_rejects_unknown_type() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json = R"({"type": "UnknownRole"})";
@@ -91,7 +92,7 @@ void test_role_manager_rejects_invalid_json() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json = "{ invalid json }";
@@ -108,7 +109,7 @@ void test_role_manager_starts_all_roles() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json1 = R"({
@@ -147,7 +148,7 @@ void test_role_manager_loops_all_roles() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json = R"({
@@ -179,7 +180,7 @@ void test_role_manager_loads_from_file() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     fs.addFile("/roles/FluidLevel-atd.json", R"({
@@ -206,7 +207,7 @@ void test_role_manager_loads_from_directory() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     fs.addFile("/roles/water.json", R"({
@@ -244,7 +245,7 @@ void test_role_manager_get_roles_as_json_empty() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     std::string json = manager.getRolesAsJson();
@@ -258,7 +259,7 @@ void test_role_manager_get_roles_as_json_not_started() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -294,7 +295,7 @@ void test_role_manager_get_roles_as_json_after_start() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -326,7 +327,7 @@ void test_role_manager_get_roles_as_json_multiple() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json1 = R"({
@@ -370,7 +371,7 @@ void test_role_manager_get_roles_as_json_includes_ip_address() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -402,7 +403,7 @@ void test_role_manager_ip_address_updates_after_wifi_connects() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -440,7 +441,7 @@ void test_role_manager_get_roles_as_json_no_ip_for_other_roles() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -473,7 +474,7 @@ void test_role_manager_get_roles_as_json_config_fields() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -511,7 +512,7 @@ void test_role_manager_update_role_config() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -558,7 +559,7 @@ void test_role_manager_update_role_config_unknown_role() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // Without roleType, should fail for unknown roleId
@@ -585,7 +586,7 @@ void test_role_manager_update_role_config_persists() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // Load role with specific ID (no persist)
@@ -641,7 +642,7 @@ void test_role_manager_update_role_config_invalid() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -678,7 +679,7 @@ void test_role_manager_create_role() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -706,7 +707,7 @@ void test_role_manager_create_role_unknown_type() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -726,7 +727,7 @@ void test_role_manager_create_role_missing_type() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -748,7 +749,7 @@ void test_role_manager_create_role_invalid_config() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // Invalid: minCurrent >= maxCurrent
@@ -774,7 +775,7 @@ void test_role_manager_create_role_persists() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -817,7 +818,7 @@ void test_role_manager_new_role_start_deferred_to_loop() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -850,7 +851,7 @@ void test_role_manager_create_role_unique_ids() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc1;
@@ -889,7 +890,7 @@ void test_role_manager_factory_reset_clears_roles() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json1 = R"({
@@ -932,7 +933,7 @@ void test_role_manager_factory_reset_deletes_files() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // Set up files and directory with hierarchical format
@@ -981,7 +982,7 @@ void test_role_manager_factory_reset_empty() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     fs.addDirectory("/roles", {});
@@ -1000,7 +1001,7 @@ void test_role_manager_factory_reset_clears_pending() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // Create a role (adds to pending persist)
@@ -1038,7 +1039,7 @@ void test_role_manager_apply_config_creates_role() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -1065,7 +1066,7 @@ void test_role_manager_apply_config_updates_role() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // First create a role
@@ -1113,7 +1114,7 @@ void test_role_manager_apply_config_returns_role_id() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -1143,7 +1144,7 @@ void test_role_manager_apply_config_missing_config() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<256> doc;
@@ -1165,7 +1166,7 @@ void test_role_manager_apply_config_missing_role_type() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -1190,7 +1191,7 @@ void test_role_manager_apply_config_unknown_role() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // Unknown roleId without roleType should fail
@@ -1213,7 +1214,7 @@ void test_role_manager_remove_role_unknown_id() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     loadRoleFromJsonString(manager, R"({
@@ -1235,7 +1236,7 @@ void test_role_manager_remove_role_removes_from_list() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     loadRoleFromJsonString(manager, R"({
@@ -1268,7 +1269,7 @@ void test_role_manager_remove_role_deletes_file() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     fs.addFile("/roles/FluidLevel-abc.json", R"({
@@ -1293,7 +1294,7 @@ void test_role_manager_remove_role_clears_pending_persist() {
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, fakeTcpCreator());
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // Create a role (queues a persist)
