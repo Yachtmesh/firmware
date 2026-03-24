@@ -244,7 +244,9 @@ Config: `intervalMs` (broadcast interval, default 5000)
 
 ## Dependencies
 
-- NMEA2000-library / NMEA2000_esp32 - NMEA 2000 protocol and ESP32 CAN driver
-- ArduinoJson - JSON parsing/serialization
-- NimBLE-Arduino - Bluetooth Low Energy
-- Unity - Test framework (native only)
+- **NMEA2000** (ttlappalainen) — NMEA 2000 protocol layer; hardware-agnostic, delegates CAN I/O to a concrete subclass
+- **NMEA2000_twai** (skarlsson) — provides `tNMEA2000_esp32`, the concrete TWAI hardware driver for the above. Uses the ESP-IDF v2 TWAI API (`twai_driver_install_v2`) rather than ttlappalainen's own `NMEA2000_esp32` adapter, which uses the older single-controller API. The v2 API is required for multi-controller support (ESP32-S3 has 2 TWAI controllers), works cleanly with ESP-IDF 5.x, and has no Arduino framework dependency. Dependency chain: `Nmea2000Service` → `tNMEA2000_esp32` (NMEA2000_twai) → `tNMEA2000` (NMEA2000)
+- **ArduinoJson** — JSON parsing/serialization
+- **NimBLE-Arduino** (h2zero/esp-nimble-cpp) — Bluetooth Low Energy
+- **LittleFS** (joltwallet) — filesystem for role config persistence
+- **Unity** — Test framework (native only)
