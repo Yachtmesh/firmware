@@ -1,4 +1,5 @@
 #include "NMEA2000Service.h"
+#include "board_config.h"
 
 #include <N2kMessages.h>
 #include <NMEA2000_esp32.h>
@@ -10,7 +11,8 @@
 
 static const char* TAG = "N2kSvc";
 
-static tNMEA2000_esp32 NMEA2000(GPIO_NUM_5, GPIO_NUM_4);
+static tNMEA2000_esp32 NMEA2000(static_cast<gpio_num_t>(BOARD_TWAI_TX),
+                                static_cast<gpio_num_t>(BOARD_TWAI_RX));
 
 // Bridge that receives all N2K messages and dispatches raw fields to listeners
 class MsgBridge : public tNMEA2000::tMsgHandler {

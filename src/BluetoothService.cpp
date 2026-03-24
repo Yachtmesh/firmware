@@ -86,6 +86,9 @@ void BluetoothService::start() {
     NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
     pAdvertising->addServiceUUID(SERVICE_UUID);
     pAdvertising->enableScanResponse(true);
+    NimBLEAdvertisementData scanResponse;
+    scanResponse.setName(deviceName);
+    pAdvertising->setScanResponseData(scanResponse);
     pAdvertising->start();
 
     ESP_LOGI(TAG, "BLE started as %s", deviceName.c_str());

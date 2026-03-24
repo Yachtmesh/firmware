@@ -3,6 +3,7 @@
 #include <freertos/task.h>
 
 #include "BluetoothService.h"
+#include "board_config.h"
 #include "CurrentSensorManager.h"
 #include "DeviceInfo.h"
 #include "EnvironmentalSensorService.h"
@@ -21,7 +22,7 @@ WifiService wifi;
 LittleFSAdapter fileSystem;
 Esp32Platform platform;
 
-Esp32I2cBus i2cBus(21, 22);  // SDA=21, SCL=22
+Esp32I2cBus i2cBus(BOARD_I2C_SDA, BOARD_I2C_SCL);
 CurrentSensorManager currentSensorManager(i2cBus);
 EnvironmentalSensorService envSensor(i2cBus, 0x76);  // BME280 default address
 
