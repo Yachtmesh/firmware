@@ -89,6 +89,7 @@ int main() {
     RUN_TEST(test_role_manager_update_role_config_persists);
     RUN_TEST(test_role_manager_update_role_config_unknown_role);
     RUN_TEST(test_role_manager_update_role_config_invalid);
+    RUN_TEST(test_role_manager_config_update_restarts_running_role);
 
     // createRole tests
     RUN_TEST(test_role_manager_create_role);
@@ -170,7 +171,10 @@ int main() {
     RUN_TEST(test_wifi_gateway_stops_tcp_on_wifi_disconnect);
     RUN_TEST(test_wifi_gateway_restarts_tcp_on_wifi_reconnect);
     RUN_TEST(test_wifi_gateway_stop_sets_reason);
-    RUN_TEST(test_wifi_gateway_start_clears_reason);
+    RUN_TEST(test_wifi_gateway_not_running_immediately_after_start);
+    RUN_TEST(test_wifi_gateway_running_once_wifi_connected);
+    RUN_TEST(test_wifi_gateway_not_running_when_wifi_not_connected);
+    RUN_TEST(test_wifi_gateway_not_running_when_wifi_drops);
     RUN_TEST(test_fake_wifi_service_ip_address_returns_set_value);
     RUN_TEST(test_wifi_gateway_get_status_json_running);
     RUN_TEST(test_wifi_gateway_get_status_json_stopped);

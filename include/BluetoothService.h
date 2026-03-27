@@ -99,9 +99,17 @@ class BluetoothService : public BluetoothServiceInterface,
 
     std::set<uint16_t> authenticatedClients_;
 
-    // Status update rate limiting
+    // Pending operations — set in BLE callbacks, executed in loop()
+    std::string pendingConfigUpdate_;
+    uint16_t pendingConfigConnHandle_ = 0;
+    bool pendingFactoryReset_ = false;
+
+    // Status/roles update rate limiting
     uint32_t lastStatusUpdate_ = 0;
     static constexpr uint32_t STATUS_UPDATE_INTERVAL_MS = 1000;
+
+    // Roles notify cache — compared each tick to detect changes
+    std::string lastRolesJson_;
 
     // Private methods
     bool isClientAuthenticated(uint16_t connHandle) const;

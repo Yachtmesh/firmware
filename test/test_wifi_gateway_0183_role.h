@@ -267,6 +267,7 @@ void test_wifi_gateway_0183_start_clears_reason() {
     doc["password"] = "pass";
     role.configureFromJson(doc);
     role.start();
+    role.loop();  // loop() confirms WiFi connected and clears reason
 
     TEST_ASSERT_TRUE(role.status().reason.empty());
 }

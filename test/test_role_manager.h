@@ -635,6 +635,56 @@ void test_role_manager_update_role_config_persists() {
     TEST_ASSERT_EQUAL(200, savedConfig["capacity"]);
 }
 
+// Tests that updating a running role's config stops it and restarts it
+void test_role_manager_config_update_restarts_running_role() {
+    MockCurrentSensorManager currentSensorManager;
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    MockFileSystem fs;
+    MockPlatform platform;
+    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleManager manager(factory, fs);
+
+    StaticJsonDocument<512> doc;
+    doc["roleType"] = "WifiGateway";
+    JsonObject config = doc.createNestedObject("config");
+    config["ssid"] = "OldNetwork";
+    config["password"] = "oldpass";
+    config["port"] = 10110;
+    ApplyConfigResult result = manager.applyRoleConfig(doc);
+    TEST_ASSERT_TRUE(result.success);
+
+    // Two loopAlls: first starts the role, second confirms WiFi connected
+    manager.loopAll();
+    manager.loopAll();
+    TEST_ASSERT_EQUAL_STRING("OldNetwork", wifi.lastSsid);
+    TEST_ASSERT_TRUE(wifi.connected);
+
+    // Reset tracking before update
+    wifi.connectCalled = false;
+    wifi.disconnectCalled = false;
+
+    // Update config with new credentials
+    StaticJsonDocument<512> updateDoc;
+    updateDoc["roleId"] = result.roleId.c_str();
+    JsonObject newConfig = updateDoc.createNestedObject("config");
+    newConfig["ssid"] = "NewNetwork";
+    newConfig["password"] = "newpass";
+    newConfig["port"] = 10110;
+    ApplyConfigResult updateResult = manager.applyRoleConfig(updateDoc);
+    TEST_ASSERT_TRUE(updateResult.success);
+
+    // Role is stopped synchronously as part of the config update
+    TEST_ASSERT_TRUE(wifi.disconnectCalled);
+
+    // loopAll starts role with new credentials; second loopAll confirms running
+    manager.loopAll();
+    manager.loopAll();
+    TEST_ASSERT_TRUE(wifi.connectCalled);
+    TEST_ASSERT_EQUAL_STRING("NewNetwork", wifi.lastSsid);
+    TEST_ASSERT_EQUAL_STRING("newpass", wifi.lastPassword);
+}
+
 // Tests that applyRoleConfig returns error for invalid config
 void test_role_manager_update_role_config_invalid() {
     MockCurrentSensorManager currentSensorManager;
@@ -837,7 +887,9 @@ void test_role_manager_new_role_start_deferred_to_loop() {
     deserializeJson(roles, json);
     TEST_ASSERT_FALSE(roles[0]["status"]["running"]);
 
-    // Should be running after loopAll processes the deferred start
+    // First loopAll starts the role; second loopAll calls loop() which
+    // confirms WiFi is connected and sets running=true
+    manager.loopAll();
     manager.loopAll();
     json = manager.getRolesAsJson();
     deserializeJson(roles, json);

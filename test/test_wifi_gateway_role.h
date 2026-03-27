@@ -404,7 +404,7 @@ void test_wifi_gateway_stop_sets_reason() {
     TEST_ASSERT_FALSE(role.status().reason.empty());
 }
 
-void test_wifi_gateway_start_clears_reason() {
+void test_wifi_gateway_not_running_immediately_after_start() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     auto [tcp, tcpPtr] = makeFakeTcp();
@@ -416,8 +416,64 @@ void test_wifi_gateway_start_clears_reason() {
     role.configureFromJson(doc);
     role.start();
 
+    // running is not set until loop() confirms WiFi is connected
+    TEST_ASSERT_FALSE(role.status().running);
+}
+
+void test_wifi_gateway_running_once_wifi_connected() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+    role.loop();  // FakeWifiService connects immediately; loop confirms it
+
     TEST_ASSERT_TRUE(role.status().running);
     TEST_ASSERT_TRUE(role.status().reason.empty());
+}
+
+void test_wifi_gateway_not_running_when_wifi_not_connected() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+    wifi.connected = false;  // simulate WiFi not yet connected
+    role.loop();
+
+    TEST_ASSERT_FALSE(role.status().running);
+    TEST_ASSERT_FALSE(role.status().reason.empty());
+}
+
+void test_wifi_gateway_not_running_when_wifi_drops() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+    role.loop();
+    TEST_ASSERT_TRUE(role.status().running);
+
+    wifi.connected = false;
+    role.loop();
+
+    TEST_ASSERT_FALSE(role.status().running);
+    TEST_ASSERT_FALSE(role.status().reason.empty());
 }
 
 // --- Status: ipAddress() on fake ---
@@ -441,6 +497,7 @@ void test_wifi_gateway_get_status_json_running() {
     doc["password"] = "pass";
     role.configureFromJson(doc);
     role.start();
+    role.loop();  // loop() confirms WiFi connected and sets running=true
 
     StaticJsonDocument<128> statusDoc;
     role.getStatusJson(statusDoc);

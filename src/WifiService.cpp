@@ -26,6 +26,12 @@ void WifiService::initWifi() {
         IP_EVENT, IP_EVENT_STA_GOT_IP, &WifiService::eventHandler, this,
         nullptr));
 
+    esp_timer_create_args_t timerArgs = {};
+    timerArgs.callback = reconnectTimerCallback;
+    timerArgs.arg = this;
+    timerArgs.name = "wifi_reconnect";
+    ESP_ERROR_CHECK(esp_timer_create(&timerArgs, &reconnectTimer_));
+
     initialized_ = true;
 }
 
@@ -36,8 +42,12 @@ void WifiService::eventHandler(void* arg, esp_event_base_t eventBase,
     if (eventBase == WIFI_EVENT) {
         if (eventId == WIFI_EVENT_STA_DISCONNECTED) {
             self->connected_ = false;
-            ESP_LOGI(TAG, "Disconnected, attempting reconnect...");
-            esp_wifi_connect();
+            ESP_LOGI(TAG, "Disconnected, scheduling reconnect in %ums",
+                     RECONNECT_DELAY_MS);
+            // Delay reconnect to avoid tight loop under BLE/WiFi coexist
+            esp_timer_stop(self->reconnectTimer_);  // no-op if not running
+            esp_timer_start_once(self->reconnectTimer_,
+                                 RECONNECT_DELAY_MS * 1000ULL);
         } else if (eventId == WIFI_EVENT_STA_START) {
             esp_wifi_connect();
         }
@@ -91,9 +101,15 @@ void WifiService::disconnect() {
     connected_ = false;
     started_ = false;
     ipAddress_[0] = '\0';
+    esp_timer_stop(reconnectTimer_);  // cancel any pending reconnect
     esp_wifi_disconnect();
     esp_wifi_stop();
     ESP_LOGI(TAG, "Disconnected (last user)");
+}
+
+void WifiService::reconnectTimerCallback(void* arg) {
+    ESP_LOGI(TAG, "Reconnecting...");
+    esp_wifi_connect();
 }
 
 bool WifiService::isConnected() const { return connected_; }

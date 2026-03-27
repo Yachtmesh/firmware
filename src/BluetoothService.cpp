@@ -49,10 +49,10 @@ void BluetoothService::start() {
         STATUS_CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
     pStatusChar_->setCallbacks(this);
 
-    // Roles characteristic - read only (requires auth)
-    // Returns lightweight JSON: [{id, type, running}, ...]
-    pRolesChar_ =
-        pService->createCharacteristic(ROLES_CHAR_UUID, NIMBLE_PROPERTY::READ);
+    // Roles characteristic - read + notify (requires auth)
+    // Returns JSON: [{id, type, status}, ...]; notified on any role state change
+    pRolesChar_ = pService->createCharacteristic(
+        ROLES_CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
     pRolesChar_->setCallbacks(this);
 
     // Config update characteristic - write only (requires auth)
@@ -101,7 +101,51 @@ void BluetoothService::stop() {
     authenticatedClients_.clear();
 }
 
-void BluetoothService::loop() { updateStatus(); }
+void BluetoothService::loop() {
+    updateStatus();
+
+    if (!roleManager_) {
+        return;
+    }
+
+    if (pendingFactoryReset_) {
+        pendingFactoryReset_ = false;
+        roleManager_->factoryReset();
+        ESP_LOGI(TAG, "BLE factory reset initiated");
+    }
+
+    if (!pendingConfigUpdate_.empty()) {
+        std::string payload = std::move(pendingConfigUpdate_);
+        uint16_t connHandle = pendingConfigConnHandle_;
+        pendingConfigConnHandle_ = 0;
+
+        StaticJsonDocument<128> ack;
+        StaticJsonDocument<512> doc;
+        if (deserializeJson(doc, payload)) {
+            ESP_LOGW(TAG, "BLE config update failed: invalid JSON");
+            ack["status"] = "error";
+            ack["message"] = "invalid JSON";
+        } else {
+            ApplyConfigResult result = roleManager_->applyRoleConfig(doc);
+            if (result.success) {
+                ESP_LOGI(TAG, "BLE config applied for role: %s",
+                         result.roleId.c_str());
+                ack["status"] = "ok";
+                ack["id"] = result.roleId;
+            } else {
+                ESP_LOGW(TAG, "BLE config update failed: %s",
+                         result.error.c_str());
+                ack["status"] = "error";
+                ack["message"] = result.error;
+            }
+        }
+
+        std::string ackJson;
+        serializeJson(ack, ackJson);
+        pConfigResponseChar_->setValue(ackJson);
+        pConfigResponseChar_->notify(connHandle);
+    }
+}
 
 std::string BluetoothService::getDeviceId() const {
     return deviceInfo_ ? deviceInfo_->getDeviceId() : "";
@@ -167,27 +211,15 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
     }
 
     if (pCharacteristic == pConfigUpdateChar_) {
-        std::string value = pCharacteristic->getValue();
+        pendingConfigUpdate_ = pCharacteristic->getValue();
+        pendingConfigConnHandle_ = connHandle;
         ESP_LOGI(TAG, "BLE config update payload (%d bytes): %.*s",
-                 (int)value.size(), (int)value.size(), value.c_str());
-
-        StaticJsonDocument<512> doc;
-        if (deserializeJson(doc, value)) {
-            ESP_LOGW(TAG, "BLE config update failed: invalid JSON");
-            return;
-        }
-
-        ApplyConfigResult result = roleManager_->applyRoleConfig(doc);
-
-        if (result.success) {
-            ESP_LOGI(TAG, "BLE config applied for role: %s",
-                     result.roleId.c_str());
-        } else {
-            ESP_LOGW(TAG, "BLE config update failed: %s", result.error.c_str());
-        }
+                 (int)pendingConfigUpdate_.size(),
+                 (int)pendingConfigUpdate_.size(),
+                 pendingConfigUpdate_.c_str());
     } else if (pCharacteristic == pFactoryResetChar_) {
-        roleManager_->factoryReset();
-        ESP_LOGI(TAG, "BLE factory reset initiated");
+        pendingFactoryReset_ = true;
+        ESP_LOGI(TAG, "BLE factory reset queued");
     } else if (pCharacteristic == pConfigRequestChar_) {
         std::string roleId = pCharacteristic->getValue();
         std::string json = roleManager_->getRoleConfigJson(roleId.c_str());
@@ -260,22 +292,30 @@ void BluetoothService::updateStatus() {
         return;
     }
 
-    // Rate limit status updates to avoid flooding the connection
+    // Rate limit status and roles updates to avoid flooding the connection
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
     if (now - lastStatusUpdate_ < STATUS_UPDATE_INTERVAL_MS) {
         return;
     }
     lastStatusUpdate_ = now;
 
-    if (!deviceInfo_) {
-        return;
+    // Device status
+    if (deviceInfo_) {
+        uint8_t buffer[DeviceInfo::STATUS_SIZE];
+        deviceInfo_->buildDeviceStatus(buffer);
+        pStatusChar_->setValue(buffer, sizeof(buffer));
+        pStatusChar_->notify();
     }
 
-    // Build and send status update
-    uint8_t buffer[DeviceInfo::STATUS_SIZE];
-    deviceInfo_->buildDeviceStatus(buffer);
-    pStatusChar_->setValue(buffer, sizeof(buffer));
-    pStatusChar_->notify();
+    // Roles: notify only when content has changed
+    if (roleManager_) {
+        std::string rolesJson = buildRolesJson();
+        if (rolesJson != lastRolesJson_) {
+            lastRolesJson_ = rolesJson;
+            pRolesChar_->setValue(rolesJson);
+            pRolesChar_->notify();
+        }
+    }
 }
 
 std::string BluetoothService::buildRolesJson() {

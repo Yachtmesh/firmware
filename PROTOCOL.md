@@ -47,7 +47,7 @@ All characteristics belong to this single service.
 | 2 | Auth Status | `4e617669-0001-4d65-7368-000000000003` | READ, NOTIFY | No |
 | 3 | Device Info | `4e617669-0001-4d65-7368-000000000004` | READ | Yes |
 | 4 | Status | `4e617669-0001-4d65-7368-000000000005` | READ, NOTIFY | Yes |
-| 5 | Roles | `4e617669-0001-4d65-7368-000000000006` | READ | Yes |
+| 5 | Roles | `4e617669-0001-4d65-7368-000000000006` | READ, NOTIFY | Yes |
 | 6 | Config Update | `4e617669-0001-4d65-7368-000000000007` | WRITE | Yes |
 | 7 | Factory Reset | `4e617669-0001-4d65-7368-000000000008` | WRITE | Yes |
 | 8 | Config Request | `4e617669-0001-4d65-7368-000000000009` | WRITE | Yes |

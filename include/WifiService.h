@@ -13,6 +13,7 @@ class WifiServiceInterface {
 
 #ifdef ESP32
 #include <esp_event.h>
+#include <esp_timer.h>
 #include <esp_wifi.h>
 
 class WifiService : public WifiServiceInterface {
@@ -27,11 +28,15 @@ class WifiService : public WifiServiceInterface {
 
     static void eventHandler(void* arg, esp_event_base_t eventBase,
                              int32_t eventId, void* eventData);
+    static void reconnectTimerCallback(void* arg);
+
+    static constexpr uint32_t RECONNECT_DELAY_MS = 5000;
 
     bool initialized_ = false;
     bool started_ = false;  // true between esp_wifi_start() and esp_wifi_stop()
     volatile bool connected_ = false;
     int refCount_ = 0;  // Number of active users; actual disconnect at zero
     char ipAddress_[16] = "";
+    esp_timer_handle_t reconnectTimer_ = nullptr;
 };
 #endif

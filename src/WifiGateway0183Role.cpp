@@ -53,8 +53,8 @@ void WifiGateway0183Role::getStatusJson(JsonDocument& doc) const {
 void WifiGateway0183Role::start() {
     wifi_.connect(config.ssid, config.password);
     nmea_.addListener(this);
-    status_.running = true;
-    status_.reason = "";
+    status_.running = false;
+    status_.reason = "WiFi not connected";
 }
 
 void WifiGateway0183Role::stop() {
@@ -71,10 +71,18 @@ void WifiGateway0183Role::loop() {
         if (!tcpStarted_) {
             tcpStarted_ = tcpServer_->start(config.port);
         }
+        if (tcpStarted_) {
+            status_.running = true;
+            status_.reason = "";
+        }
         tcpServer_->loop();
-    } else if (tcpStarted_) {
-        tcpServer_->stop();
-        tcpStarted_ = false;
+    } else {
+        if (tcpStarted_) {
+            tcpServer_->stop();
+            tcpStarted_ = false;
+        }
+        status_.running = false;
+        status_.reason = "WiFi not connected";
     }
 }
 

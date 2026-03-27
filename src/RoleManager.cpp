@@ -45,7 +45,11 @@ ApplyConfigResult RoleManager::applyRoleConfig(const JsonDocument& doc,
     if (strlen(roleId) > 0) {
         Role* existing = findRole(roleId);
         if (existing) {
-            // Update existing role
+            // Stop the role before updating config so services (e.g. WiFi)
+            // tear down and restart with the new settings
+            if (persist) {
+                existing->stop();
+            }
             if (!existing->configureFromJson(configDoc)) {
                 result.error = "Failed to update role config";
                 return result;
@@ -53,6 +57,7 @@ ApplyConfigResult RoleManager::applyRoleConfig(const JsonDocument& doc,
             cacheValid_ = false;
             if (persist) {
                 pendingPersist_.insert(roleId);
+                pendingStart_.insert(roleId);
             }
             result.success = true;
             result.roleId = roleId;
