@@ -42,9 +42,12 @@ void WifiService::eventHandler(void* arg, esp_event_base_t eventBase,
     if (eventBase == WIFI_EVENT) {
         if (eventId == WIFI_EVENT_STA_DISCONNECTED) {
             self->connected_ = false;
+            if (!self->started_) {
+                // Intentional disconnect (role stopped) — don't reconnect
+                return;
+            }
             ESP_LOGI(TAG, "Disconnected, scheduling reconnect in %ums",
                      RECONNECT_DELAY_MS);
-            // Delay reconnect to avoid tight loop under BLE/WiFi coexist
             esp_timer_stop(self->reconnectTimer_);  // no-op if not running
             esp_timer_start_once(self->reconnectTimer_,
                                  RECONNECT_DELAY_MS * 1000ULL);
