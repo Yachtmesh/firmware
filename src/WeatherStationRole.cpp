@@ -20,10 +20,12 @@ void WeatherStationRole::start() {
     if (!validate()) return;
     lastBroadcastMs_ = platform_.getMillis();
     status_.running = true;
+    status_.reason = "";
 }
 
 void WeatherStationRole::stop() {
     status_.running = false;
+    status_.reason = "Sensor not running";
 }
 
 void WeatherStationRole::loop() {

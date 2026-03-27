@@ -237,6 +237,60 @@ void test_wifi_gateway_0183_ignores_unsupported_pgn() {
     TEST_ASSERT_EQUAL(0, tcpPtr->sentData.size());
 }
 
+// --- Status: reason and getStatusJson ---
+
+void test_wifi_gateway_0183_stop_sets_reason() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGateway0183Role role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+    role.stop();
+
+    TEST_ASSERT_FALSE(role.status().running);
+    TEST_ASSERT_FALSE(role.status().reason.empty());
+}
+
+void test_wifi_gateway_0183_start_clears_reason() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGateway0183Role role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+
+    TEST_ASSERT_TRUE(role.status().reason.empty());
+}
+
+void test_wifi_gateway_0183_status_json_includes_ip() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGateway0183Role role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+
+    strncpy(wifi.ip, "10.1.1.1", sizeof(wifi.ip) - 1);
+
+    StaticJsonDocument<128> statusDoc;
+    role.getStatusJson(statusDoc);
+
+    TEST_ASSERT_EQUAL_STRING("10.1.1.1", statusDoc["ip"] | "");
+}
+
 void test_wifi_gateway_0183_forwards_static_data() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;

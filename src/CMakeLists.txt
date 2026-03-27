@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS
         "main.cpp"
+        "Role.cpp"
         "I2cBusService.cpp"
         "CurrentSensorService.cpp"
         "CurrentSensorManager.cpp"
@@ -23,6 +24,8 @@ idf_component_register(
         "BoatSimulator.cpp"
         "AisSimulatorRole.cpp"
         "WeatherStationRole.cpp"
+        "VeDirectParser.cpp"
+        "VeDirectBatteryRole.cpp"
     INCLUDE_DIRS
         "../include"
     REQUIRES

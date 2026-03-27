@@ -21,9 +21,11 @@ class MsgBridge : public tNMEA2000::tMsgHandler {
         : tNMEA2000::tMsgHandler(0, &NMEA2000), listeners_(listeners) {}
 
     void HandleMsg(const tN2kMsg& msg) override {
-        ESP_LOGI(TAG, "RX PGN=%lu src=%u dst=%u len=%d listeners=%d", msg.PGN,
-                 msg.Source, msg.Destination, msg.DataLen,
-                 (int)listeners_.size());
+        if (!listeners_.empty()) {
+            ESP_LOGI(TAG, "RX PGN=%lu src=%u dst=%u len=%d listeners=%d", msg.PGN,
+                     msg.Source, msg.Destination, msg.DataLen,
+                     (int)listeners_.size());
+        }
         for (auto* listener : listeners_) {
             listener->onN2kMessage(msg.PGN, msg.Priority, msg.Source, msg.Data,
                                    msg.DataLen);
@@ -37,14 +39,16 @@ class MsgBridge : public tNMEA2000::tMsgHandler {
 static MsgBridge* msgBridge = nullptr;
 
 const unsigned long TransmitMessages[] PROGMEM = {
-    129039L, 129809L, 130310L, 130311L, 130312L, 130313L, 130314L, 0};
+    127506L, 127508L, 129039L, 129809L, 130310L, 130311L, 130312L, 130313L, 130314L, 0};
 const uint32_t kIndustryCode = 2040;
 
 tN2kSyncScheduler FluidLevelScheduler(false, 2000, 500);
+tN2kSyncScheduler BatteryStatusScheduler(false, 1000, 250);
 
 void OnN2kOpen() {
     // Start schedulers now.
     FluidLevelScheduler.UpdateNextTime();
+    BatteryStatusScheduler.UpdateNextTime();
 }
 
 // Generate unique number from industry code 2040 and ESP32 chip ID
@@ -194,6 +198,45 @@ void Nmea2000Service::sendMetric(const Metric& metric) {
                 ESP_LOGI(TAG, "TX PGN 130314 (Pressure) ok");
             notifyListeners(msg);
             NMEA2000.ParseMessages();
+            return;
+        }
+
+        case MetricType::BatteryStatus: {
+            const auto& b = metric.context.battery;
+            tN2kMsg msg;
+
+            if (!BatteryStatusScheduler.IsTime()) return;
+            
+            ESP_LOGI(TAG,
+                     "TX Battery inst=%u V=%.3f A=%.3f SOC=%.1f%% TTG=%.0fmin",
+                     b.inst, b.voltage, b.current, b.soc, b.ttg);
+
+            // PGN 127508 — Battery Status (voltage, current)
+            SetN2kDCBatStatus(msg, b.inst,
+                              static_cast<double>(b.voltage),
+                              static_cast<double>(b.current),
+                              N2kDoubleNA);
+            if (!NMEA2000.SendMsg(msg))
+                ESP_LOGW(TAG, "TX PGN 127508 (BatStatus) FAILED");
+            else
+                ESP_LOGI(TAG, "TX PGN 127508 (BatStatus) ok");
+            notifyListeners(msg);
+            NMEA2000.ParseMessages();
+
+            // PGN 127506 — DC Detailed Status (SOC, time remaining)
+            double timeRemaining =
+                (b.ttg >= 0.0f) ? static_cast<double>(b.ttg) * 60.0 : N2kDoubleNA;
+            SetN2kDCStatus(msg, 0, b.inst, N2kDCt_Battery,
+                           static_cast<uint8_t>(b.soc),
+                           N2kUInt8NA,   // StateOfHealth not available from BMV712
+                           timeRemaining);
+            if (!NMEA2000.SendMsg(msg))
+                ESP_LOGW(TAG, "TX PGN 127506 (DCStatus) FAILED");
+            else
+                ESP_LOGI(TAG, "TX PGN 127506 (DCStatus) ok");
+            notifyListeners(msg);
+            NMEA2000.ParseMessages();
+            BatteryStatusScheduler.UpdateNextTime();
             return;
         }
 

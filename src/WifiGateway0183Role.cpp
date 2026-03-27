@@ -45,10 +45,16 @@ void WifiGateway0183Role::getConfigJson(JsonDocument& doc) {
     config.toJson(doc);
 }
 
+void WifiGateway0183Role::getStatusJson(JsonDocument& doc) const {
+    Role::getStatusJson(doc);
+    doc["ip"] = wifi_.ipAddress();
+}
+
 void WifiGateway0183Role::start() {
     wifi_.connect(config.ssid, config.password);
     nmea_.addListener(this);
     status_.running = true;
+    status_.reason = "";
 }
 
 void WifiGateway0183Role::stop() {
@@ -57,6 +63,7 @@ void WifiGateway0183Role::stop() {
     tcpStarted_ = false;
     wifi_.disconnect();
     status_.running = false;
+    status_.reason = "WiFi not connected";
 }
 
 void WifiGateway0183Role::loop() {

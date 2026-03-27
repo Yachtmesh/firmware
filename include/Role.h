@@ -11,6 +11,7 @@ struct RoleConfig {
 
 struct RoleStatus {
     bool running = false;
+    std::string reason;  // empty when running normally; set on stop/failure
 };
 
 class Role {
@@ -29,6 +30,7 @@ class Role {
     virtual void loop() = 0;
     const RoleStatus& status() const { return status_; }
     virtual void getConfigJson(JsonDocument& doc) = 0;
+    virtual void getStatusJson(JsonDocument& doc) const;
     virtual ~Role() {}
 
    protected:

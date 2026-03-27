@@ -16,15 +16,26 @@ struct EnvironmentalContext {
     float pressure;      // hPa
 };
 
+struct BatteryContext {
+    uint8_t inst;         // NMEA2000 battery instance number
+    float voltage;        // V
+    float current;        // A
+    float soc;            // % state of charge
+    float ttg;            // minutes remaining (-1 = unavailable)
+    float consumedAh;     // Ah consumed
+};
+
 enum class MetricType : uint8_t {
     FluidLevel,
     Environmental,
+    BatteryStatus,
 };
 
 struct MetricContext {
     union {
         FluidLevelContext fluidLevel;
         EnvironmentalContext environmental;
+        BatteryContext battery;
     };
 };
 

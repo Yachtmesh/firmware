@@ -10,6 +10,8 @@ class MockSerialSensorService : public SerialSensorInterface {
 
     void enqueue(const std::string& line) { lines.push(line); }
 
+    void begin(int, int, int) override {}
+
     SerialReading readLine() override {
         if (lines.empty()) return {"", false};
         SerialReading r{lines.front(), true};

@@ -24,6 +24,7 @@ class FakeWifiService : public WifiServiceInterface {
     int refCount = 0;
     char lastSsid[33] = {0};
     char lastPassword[65] = {0};
+    char ip[16] = {0};
 
     bool connect(const char* ssid, const char* password) override {
         connectCalled = true;
@@ -37,10 +38,14 @@ class FakeWifiService : public WifiServiceInterface {
     void disconnect() override {
         disconnectCalled = true;
         if (refCount > 0) refCount--;
-        if (refCount == 0) connected = false;
+        if (refCount == 0) {
+            connected = false;
+            ip[0] = '\0';
+        }
     }
 
     bool isConnected() const override { return connected; }
+    std::string ipAddress() const override { return std::string(ip); }
 };
 
 class FakeTcpServer : public TcpServerInterface {
@@ -378,6 +383,130 @@ void test_wifi_gateway_restarts_tcp_on_wifi_reconnect() {
     role.loop();
     TEST_ASSERT_TRUE(tcpPtr->started);
     TEST_ASSERT_EQUAL_UINT16(10110, tcpPtr->lastPort);
+}
+
+// --- Status: reason field ---
+
+void test_wifi_gateway_stop_sets_reason() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+    role.stop();
+
+    TEST_ASSERT_FALSE(role.status().running);
+    TEST_ASSERT_FALSE(role.status().reason.empty());
+}
+
+void test_wifi_gateway_start_clears_reason() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+
+    TEST_ASSERT_TRUE(role.status().running);
+    TEST_ASSERT_TRUE(role.status().reason.empty());
+}
+
+// --- Status: ipAddress() on fake ---
+
+void test_fake_wifi_service_ip_address_returns_set_value() {
+    FakeWifiService wifi;
+    strncpy(wifi.ip, "10.0.0.1", sizeof(wifi.ip) - 1);
+    TEST_ASSERT_EQUAL_STRING("10.0.0.1", wifi.ipAddress().c_str());
+}
+
+// --- Status: getStatusJson() ---
+
+void test_wifi_gateway_get_status_json_running() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+
+    StaticJsonDocument<128> statusDoc;
+    role.getStatusJson(statusDoc);
+
+    TEST_ASSERT_TRUE(statusDoc["running"]);
+    TEST_ASSERT_FALSE(statusDoc.containsKey("reason"));
+}
+
+void test_wifi_gateway_get_status_json_stopped() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+    role.stop();
+
+    StaticJsonDocument<128> statusDoc;
+    role.getStatusJson(statusDoc);
+
+    TEST_ASSERT_FALSE(statusDoc["running"]);
+    TEST_ASSERT_TRUE(statusDoc.containsKey("reason"));
+    TEST_ASSERT_FALSE(std::string(statusDoc["reason"] | "").empty());
+}
+
+void test_wifi_gateway_status_json_includes_ip_when_connected() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+
+    strncpy(wifi.ip, "192.168.1.42", sizeof(wifi.ip) - 1);
+
+    StaticJsonDocument<128> statusDoc;
+    role.getStatusJson(statusDoc);
+
+    TEST_ASSERT_EQUAL_STRING("192.168.1.42", statusDoc["ip"] | "");
+}
+
+void test_wifi_gateway_status_json_ip_empty_when_disconnected() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    role.configureFromJson(doc);
+    role.start();
+    role.stop();
+
+    StaticJsonDocument<128> statusDoc;
+    role.getStatusJson(statusDoc);
+
+    TEST_ASSERT_EQUAL_STRING("", statusDoc["ip"] | "");
 }
 
 // --- Integration: local echo from sensor to gateway ---

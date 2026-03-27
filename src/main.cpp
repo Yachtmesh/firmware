@@ -13,6 +13,7 @@
 #include "NMEA2000Service.h"
 #include "RoleFactory.h"
 #include "RoleManager.h"
+#include "SerialSensorService.h"
 #include "WifiService.h"
 
 static const char* TAG = "main";
@@ -25,8 +26,9 @@ Esp32Platform platform;
 Esp32I2cBus i2cBus(BOARD_I2C_SDA, BOARD_I2C_SCL);
 CurrentSensorManager currentSensorManager(i2cBus);
 EnvironmentalSensorService envSensor(i2cBus, 0x76);  // BME280 default address
+SerialSensorService serialSensor(UART_NUM_2);
 
-RoleFactory roleFactory(currentSensorManager, nmea, wifi, platform, envSensor);
+RoleFactory roleFactory(currentSensorManager, nmea, wifi, platform, envSensor, serialSensor);
 RoleManager roleManager(roleFactory, fileSystem);
 DeviceInfo deviceInfo(platform, nmea);
 BluetoothService bluetooth(&roleManager, &deviceInfo);

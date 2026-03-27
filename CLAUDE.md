@@ -12,6 +12,8 @@ I follow Test-Driven Development (TDD) with a strong emphasis on behavior-driven
 
 **Key Principles:**
 
+- If asked to write a plan do so in a .md file starting with plan-\* and followed by a 4 word summary of the question
+- If asked to write a plan, write it in the file but don't implement anything but wait for further input
 - Write tests first (TDD)
 - Test behavior, not implementation
 - No type assertions

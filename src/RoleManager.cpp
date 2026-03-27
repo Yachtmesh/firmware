@@ -88,7 +88,7 @@ ApplyConfigResult RoleManager::applyRoleConfig(const JsonDocument& doc,
 
     if (persist) {
         pendingPersist_.insert(id);
-        rolePtr->start();  // Start immediately for runtime API calls
+        pendingStart_.insert(id);
     }
 
     result.success = true;
@@ -125,14 +125,17 @@ void RoleManager::loopAll() {
         return;
     }
 
+    if (!pendingStart_.empty()) {
+        executePendingStarts();
+    }
+
     if (!pendingRemove_.empty()) {
         executePendingRemovals();
     }
 
-    // Rebuild cache in main loop context if invalidated
-    if (!cacheValid_) {
-        rebuildCache();
-    }
+    // Always rebuild cache after role loops — role status (e.g. IP address)
+    // may have changed since the last iteration.
+    rebuildCache();
 
     // Persist any pending config changes
     if (!pendingPersist_.empty()) {
@@ -154,14 +157,17 @@ std::string RoleManager::getRolesAsJson() const {
 }
 
 void RoleManager::rebuildCache() const {
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<2048> doc;
     JsonArray arr = doc.to<JsonArray>();
 
     for (const auto& role : roles_) {
         JsonObject roleObj = arr.createNestedObject();
         roleObj["id"] = role->id();
         roleObj["type"] = role->type();
-        roleObj["running"] = role->status().running;
+
+        StaticJsonDocument<128> statusDoc;
+        role->getStatusJson(statusDoc);
+        roleObj["status"] = statusDoc;
     }
 
     cachedRolesJson_.clear();
@@ -186,6 +192,19 @@ std::string RoleManager::getRoleConfigJson(const char* roleId) const {
         }
     }
     return "{}";
+}
+
+void RoleManager::executePendingStarts() {
+    for (const auto& roleId : pendingStart_) {
+        for (auto& role : roles_) {
+            if (strcmp(role->id(), roleId.c_str()) == 0) {
+                role->start();
+                break;
+            }
+        }
+    }
+    pendingStart_.clear();
+    cacheValid_ = false;
 }
 
 void RoleManager::persistPendingConfigs() {
@@ -240,6 +259,7 @@ void RoleManager::executePendingRemovals() {
                 fs_.remove(path.c_str());
 
                 pendingPersist_.erase(roleId);
+                pendingStart_.erase(roleId);
                 roles_.erase(it);
                 break;
             }
@@ -280,6 +300,7 @@ void RoleManager::executeFactoryReset() {
 
     roles_.clear();
     pendingPersist_.clear();
+    pendingStart_.clear();
     cacheValid_ = false;
 }
 
