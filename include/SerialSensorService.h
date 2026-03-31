@@ -8,7 +8,7 @@ struct SerialReading {
 
 class SerialSensorInterface {
    public:
-    virtual void begin(int baudRate, int rxPin, int txPin) = 0;
+    virtual void begin(int baudRate) = 0;
     virtual SerialReading readLine() = 0;
     virtual ~SerialSensorInterface() = default;
 };
@@ -18,12 +18,14 @@ class SerialSensorInterface {
 
 class SerialSensorService : public SerialSensorInterface {
    public:
-    explicit SerialSensorService(uart_port_t port);
-    void begin(int baudRate, int rxPin, int txPin) override;
+    SerialSensorService(uart_port_t port, int rxPin, int txPin);
+    void begin(int baudRate) override;
     SerialReading readLine() override;
 
    private:
     uart_port_t port_;
+    int rxPin_;
+    int txPin_;
     std::string lineBuffer_;
 };
 #endif

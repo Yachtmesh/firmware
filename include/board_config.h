@@ -18,3 +18,11 @@
 #ifndef BOARD_I2C_SCL
 #define BOARD_I2C_SCL 9
 #endif
+
+#ifndef BOARD_SERIAL_RX
+#define BOARD_SERIAL_RX 33
+#endif
+
+#ifndef BOARD_SERIAL_TX
+#define BOARD_SERIAL_TX 34
+#endif

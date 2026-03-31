@@ -26,11 +26,11 @@ void VeDirectBatteryRole::configure(const RoleConfig& cfg) {
 bool VeDirectBatteryRole::validate() { return true; }
 
 void VeDirectBatteryRole::start() {
-    serial_.begin(19200, config.rxPin, config.txPin);
+    serial_.begin(19200);
     parser_.reset();
     status_.running = true;
     status_.reason = "";
-    ESP_LOGI(TAG, "Started inst=%u rx=%d tx=%d", config.inst, config.rxPin, config.txPin);
+    ESP_LOGI(TAG, "Started inst=%u", config.inst);
 }
 
 void VeDirectBatteryRole::stop() {
@@ -86,11 +86,8 @@ void VeDirectBatteryRole::sendBatteryMetric(const VeDirectFrame& frame) {
 }
 
 bool VeDirectBatteryRole::configureFromJson(const JsonDocument& doc) {
-    uint8_t inst = doc["inst"]  | (uint8_t)0;
-    int     rx   = doc["rxPin"] | 16;
-    int     tx   = doc["txPin"] | 17;
-
-    VeDirectBatteryConfig newConfig(inst, rx, tx);
+    VeDirectBatteryConfig newConfig;
+    newConfig.inst = doc["inst"] | (uint8_t)0;
     configure(newConfig);
     return validate();
 }
@@ -98,8 +95,6 @@ bool VeDirectBatteryRole::configureFromJson(const JsonDocument& doc) {
 void VeDirectBatteryRole::getConfigJson(JsonDocument& doc) { config.toJson(doc); }
 
 void VeDirectBatteryConfig::toJson(JsonDocument& doc) const {
-    doc["type"]  = "VeDirectBattery";
-    doc["inst"]  = inst;
-    doc["rxPin"] = rxPin;
-    doc["txPin"] = txPin;
+    doc["type"] = "VeDirectBattery";
+    doc["inst"] = inst;
 }

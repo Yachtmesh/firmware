@@ -9,19 +9,14 @@
 
 struct VeDirectBatteryConfig : public RoleConfig {
     uint8_t inst = 0;
-    int rxPin = 16;
-    int txPin = 17;
-
-    VeDirectBatteryConfig() = default;
-    VeDirectBatteryConfig(uint8_t i, int rx = 16, int tx = 17)
-        : inst(i), rxPin(rx), txPin(tx) {}
 
     void toJson(JsonDocument& doc) const;
 };
 
 class VeDirectBatteryRole : public Role {
    public:
-    VeDirectBatteryRole(Nmea2000ServiceInterface& nmea, SerialSensorInterface& serial);
+    VeDirectBatteryRole(Nmea2000ServiceInterface& nmea,
+                        SerialSensorInterface& serial);
 
     const char* type() override;
     void configure(const RoleConfig& cfg) override;
