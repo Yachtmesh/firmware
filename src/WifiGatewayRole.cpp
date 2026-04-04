@@ -28,7 +28,7 @@ void WifiGatewayRole::configure(const RoleConfig& cfg) {
 bool WifiGatewayRole::configureFromJson(const JsonDocument& doc) {
     const char* ssid = doc["ssid"] | "";
     const char* password = doc["password"] | "";
-    uint16_t port = doc["port"] | 10110;
+    uint16_t port = doc["port"] | 3000;
 
     strncpy(config.ssid, ssid, sizeof(config.ssid) - 1);
     config.ssid[sizeof(config.ssid) - 1] = '\0';
