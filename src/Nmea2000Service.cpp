@@ -71,11 +71,12 @@ static uint32_t generateUniqueNumber() {
 // begin(): actually start hardware (Serial, CAN bus)
 void Nmea2000Service::start() {
     // Set Product information
-    NMEA2000.SetProductInformation("1",  // Manufacturer's Model serial code
-                                   100,  // Manufacturer's product code
-                                   "Yachtmesh",  // Manufacturer's Model ID
-                                   "0.0.1",      // Software version
-                                   "Yachtmesh"   // Model version
+    NMEA2000.SetProductInformation(
+        "1",         // Manufacturer's Model serial code
+        100,         // Manufacturer's product code
+        "YM-BW-1",   // YM-[BW] B=Bluetooth, W=WIFI
+        "0.0.1",     // Software version
+        "Yachtmesh"  // Model version, Manufacturer's Model ID
     );
 
     // Set device information
