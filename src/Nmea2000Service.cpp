@@ -1,5 +1,4 @@
 #include "NMEA2000Service.h"
-#include "board_config.h"
 
 #include <N2kMessages.h>
 #include <NMEA2000_esp32.h>
@@ -8,6 +7,8 @@
 #include <esp_timer.h>
 
 #include <algorithm>
+
+#include "board_config.h"
 
 static const char* TAG = "N2kSvc";
 
@@ -22,8 +23,8 @@ class MsgBridge : public tNMEA2000::tMsgHandler {
 
     void HandleMsg(const tN2kMsg& msg) override {
         if (!listeners_.empty()) {
-            ESP_LOGI(TAG, "RX PGN=%lu src=%u dst=%u len=%d listeners=%d", msg.PGN,
-                     msg.Source, msg.Destination, msg.DataLen,
+            ESP_LOGI(TAG, "RX PGN=%lu src=%u dst=%u len=%d listeners=%d",
+                     msg.PGN, msg.Source, msg.Destination, msg.DataLen,
                      (int)listeners_.size());
         }
         for (auto* listener : listeners_) {
@@ -39,7 +40,8 @@ class MsgBridge : public tNMEA2000::tMsgHandler {
 static MsgBridge* msgBridge = nullptr;
 
 const unsigned long TransmitMessages[] PROGMEM = {
-    127506L, 127508L, 129039L, 129809L, 130310L, 130311L, 130312L, 130313L, 130314L, 0};
+    127506L, 127508L, 129039L, 129809L, 130310L,
+    130311L, 130312L, 130313L, 130314L, 0};
 const uint32_t kIndustryCode = 2040;
 
 tN2kSyncScheduler FluidLevelScheduler(false, 2000, 500);
@@ -69,12 +71,11 @@ static uint32_t generateUniqueNumber() {
 // begin(): actually start hardware (Serial, CAN bus)
 void Nmea2000Service::start() {
     // Set Product information
-    NMEA2000.SetProductInformation(
-        "00000001",   // Manufacturer's Model serial code
-        100,          // Manufacturer's product code
-        "Yachtmesh",  // Manufacturer's Model ID
-        "0.0.1",      // Software version
-        "1"           // Model version
+    NMEA2000.SetProductInformation("1",  // Manufacturer's Model serial code
+                                   100,  // Manufacturer's product code
+                                   "Yachtmesh",  // Manufacturer's Model ID
+                                   "0.0.1",      // Software version
+                                   "Yachtmesh"   // Model version
     );
 
     // Set device information
@@ -206,16 +207,14 @@ void Nmea2000Service::sendMetric(const Metric& metric) {
             tN2kMsg msg;
 
             if (!BatteryStatusScheduler.IsTime()) return;
-            
+
             ESP_LOGI(TAG,
                      "TX Battery inst=%u V=%.3f A=%.3f SOC=%.1f%% TTG=%.0fmin",
                      b.inst, b.voltage, b.current, b.soc, b.ttg);
 
             // PGN 127508 — Battery Status (voltage, current)
-            SetN2kDCBatStatus(msg, b.inst,
-                              static_cast<double>(b.voltage),
-                              static_cast<double>(b.current),
-                              N2kDoubleNA);
+            SetN2kDCBatStatus(msg, b.inst, static_cast<double>(b.voltage),
+                              static_cast<double>(b.current), N2kDoubleNA);
             if (!NMEA2000.SendMsg(msg))
                 ESP_LOGW(TAG, "TX PGN 127508 (BatStatus) FAILED");
             else
@@ -224,12 +223,13 @@ void Nmea2000Service::sendMetric(const Metric& metric) {
             NMEA2000.ParseMessages();
 
             // PGN 127506 — DC Detailed Status (SOC, time remaining)
-            double timeRemaining =
-                (b.ttg >= 0.0f) ? static_cast<double>(b.ttg) * 60.0 : N2kDoubleNA;
-            SetN2kDCStatus(msg, 0, b.inst, N2kDCt_Battery,
-                           static_cast<uint8_t>(b.soc),
-                           N2kUInt8NA,   // StateOfHealth not available from BMV712
-                           timeRemaining);
+            double timeRemaining = (b.ttg >= 0.0f)
+                                       ? static_cast<double>(b.ttg) * 60.0
+                                       : N2kDoubleNA;
+            SetN2kDCStatus(
+                msg, 0, b.inst, N2kDCt_Battery, static_cast<uint8_t>(b.soc),
+                N2kUInt8NA,  // StateOfHealth not available from BMV712
+                timeRemaining);
             if (!NMEA2000.SendMsg(msg))
                 ESP_LOGW(TAG, "TX PGN 127506 (DCStatus) FAILED");
             else
