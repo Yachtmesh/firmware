@@ -72,6 +72,10 @@ void WifiGatewayRole::loop() {
     if (wifi_.isConnected()) {
         if (!tcpStarted_) {
             tcpStarted_ = tcpServer_->start(config.port);
+            if (!tcpStarted_) {
+                status_.running = false;
+                status_.reason = "TCP listen failed on port " + std::to_string(config.port) + ". Is it in use?";
+            }
         }
         if (tcpStarted_) {
             status_.running = true;

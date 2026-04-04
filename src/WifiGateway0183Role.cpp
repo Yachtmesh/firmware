@@ -2,9 +2,9 @@
 
 #include <cstring>
 
-WifiGateway0183Role::WifiGateway0183Role(Nmea2000ServiceInterface& nmea,
-                                         WifiServiceInterface& wifi,
-                                         std::unique_ptr<TcpServerInterface> tcpServer)
+WifiGateway0183Role::WifiGateway0183Role(
+    Nmea2000ServiceInterface& nmea, WifiServiceInterface& wifi,
+    std::unique_ptr<TcpServerInterface> tcpServer)
     : nmea_(nmea), wifi_(wifi), tcpServer_(std::move(tcpServer)) {}
 
 void WifiGateway0183Config::toJson(JsonDocument& doc) const {
@@ -14,9 +14,7 @@ void WifiGateway0183Config::toJson(JsonDocument& doc) const {
     doc["port"] = port;
 }
 
-const char* WifiGateway0183Role::type() {
-    return "WifiGateway0183";
-}
+const char* WifiGateway0183Role::type() { return "WifiGateway0183"; }
 
 void WifiGateway0183Role::configure(const RoleConfig& cfg) {
     const auto& c = static_cast<const WifiGateway0183Config&>(cfg);
@@ -37,9 +35,7 @@ bool WifiGateway0183Role::configureFromJson(const JsonDocument& doc) {
     return validate();
 }
 
-bool WifiGateway0183Role::validate() {
-    return config.ssid[0] != '\0';
-}
+bool WifiGateway0183Role::validate() { return config.ssid[0] != '\0'; }
 
 void WifiGateway0183Role::getConfigJson(JsonDocument& doc) {
     config.toJson(doc);
@@ -70,6 +66,12 @@ void WifiGateway0183Role::loop() {
     if (wifi_.isConnected()) {
         if (!tcpStarted_) {
             tcpStarted_ = tcpServer_->start(config.port);
+            if (!tcpStarted_) {
+                status_.running = false;
+                status_.reason = "TCP listen failed on port " +
+                                 std::to_string(config.port) +
+                                 ". Is it in use?";
+            }
         }
         if (tcpStarted_) {
             status_.running = true;
