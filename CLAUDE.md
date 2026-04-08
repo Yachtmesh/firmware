@@ -252,3 +252,7 @@ Config: `intervalMs` (broadcast interval, default 5000)
 - **NimBLE-Arduino** (h2zero/esp-nimble-cpp) — Bluetooth Low Energy
 - **LittleFS** (joltwallet) — filesystem for role config persistence
 - **Unity** — Test framework (native only)
+
+# Pull requests and commit messages
+
+Can you leave out things like "Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
