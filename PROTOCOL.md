@@ -1,8 +1,8 @@
 # Yachtmesh BLE Protocol Specification
 
-**Protocol Version:** `0.1.0`
+**Protocol Version:** `0.2.0`
 **Firmware Version:** `0.1.0`
-**Last Updated:** 2026-03-21
+**Last Updated:** 2026-04-08
 
 This document is the canonical specification for the Bluetooth Low Energy protocol between Yachtmesh firmware and client applications (iOS, Android, third-party). It is maintained in the firmware repository because the firmware is the GATT server and the authoritative definer of the protocol.
 
@@ -136,6 +136,51 @@ Response:
 
 The `config` object is role-specific — see Role Types section.
 
+### Reading Device Config
+
+Device-level config (currently display name) is read via the same **Config Request / Config Response** pair as role configs, using the reserved sentinel key `__device__`.
+
+Role IDs always follow the `<Type>-<alphanumeric>` format, so `__device__` can never collide with a real role ID.
+
+1. **Write** the string `__device__` (UTF-8) to **Config Request** characteristic
+2. **Read or await notification** on **Config Response** characteristic
+
+Response:
+
+```json
+{ "displayName": "Sensor Engine Room" }
+```
+
+`displayName` is an empty string if never set:
+
+```json
+{ "displayName": "" }
+```
+
+### Setting the Display Name
+
+**Write** JSON to **Config Update** characteristic, omitting `roleType`:
+
+```json
+{ "displayName": "Sensor Engine Room" }
+```
+
+The firmware distinguishes this from a role config update by the absence of `roleType`. Response on **Config Response**:
+
+```json
+{ "status": "ok" }
+```
+
+```json
+{ "status": "error", "message": "displayName exceeds 64 characters" }
+```
+
+Constraints:
+- Maximum 64 UTF-8 characters
+- Write an empty string to clear: `{ "displayName": "" }`
+- Persisted in device flash; survives power cycles
+- Cleared by factory reset
+
 ### Creating or Updating a Role
 
 **Write** JSON to **Config Update** characteristic:
@@ -246,6 +291,11 @@ Used in `FluidLevel` role config. Values are serialised as exact string names.
 ---
 
 ## Changelog
+
+### 0.2.0 — 2026-04-08
+
+- Added display name: read via `__device__` sentinel on Config Request, write via Config Update with `displayName` field and no `roleType`
+- Display name is cleared by factory reset
 
 ### 0.1.0 — 2026-03-21
 
