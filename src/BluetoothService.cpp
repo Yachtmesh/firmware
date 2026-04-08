@@ -11,8 +11,9 @@
 static const char* TAG = "ble";
 
 BluetoothService::BluetoothService(RoleManager* roleManager,
-                                   DeviceInfo* deviceInfo)
-    : roleManager_(roleManager), deviceInfo_(deviceInfo) {}
+                                   DeviceInfo* deviceInfo,
+                                   LogStream* logStream)
+    : roleManager_(roleManager), deviceInfo_(deviceInfo), logStream_(logStream) {}
 
 void BluetoothService::start() {
     if (deviceInfo_) {
@@ -81,6 +82,18 @@ void BluetoothService::start() {
                                                       NIMBLE_PROPERTY::WRITE);
     pRoleDeleteChar_->setCallbacks(this);
 
+    // Log control characteristic - write only (requires auth)
+    // Client writes 0x01 to start streaming, 0x00 to stop
+    pLogControlChar_ = pService->createCharacteristic(LOG_CONTROL_CHAR_UUID,
+                                                      NIMBLE_PROPERTY::WRITE);
+    pLogControlChar_->setCallbacks(this);
+
+    // Log data characteristic - notify only (requires auth)
+    // Server notifies one log line per notification when streaming is enabled
+    pLogDataChar_ = pService->createCharacteristic(LOG_DATA_CHAR_UUID,
+                                                   NIMBLE_PROPERTY::NOTIFY);
+    pLogDataChar_->setCallbacks(this);
+
     pService->start();
 
     NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
@@ -103,6 +116,22 @@ void BluetoothService::stop() {
 
 void BluetoothService::loop() {
     updateStatus();
+
+    // Log streaming control — applied from main loop to stay off the BLE stack
+    if (logStream_ && pendingLogStreaming_ >= 0) {
+        logStream_->setStreaming(pendingLogStreaming_ == 1);
+        ESP_LOGI(TAG, "Log streaming %s",
+                 pendingLogStreaming_ == 1 ? "started" : "stopped");
+        pendingLogStreaming_ = -1;
+    }
+
+    // Drain queued log lines and notify subscribed clients
+    if (logStream_ && logStream_->isStreaming() && pLogDataChar_) {
+        logStream_->drainQueue([this](const char* line) {
+            pLogDataChar_->setValue(line);
+            pLogDataChar_->notify();
+        });
+    }
 
     if (!roleManager_) {
         return;
@@ -175,6 +204,11 @@ void BluetoothService::onDisconnect(NimBLEServer* pServer,
     ESP_LOGI(TAG, "BLE client disconnected: %d (reason %d)", connHandle,
              reason);
 
+    // Stop streaming if no authenticated clients remain
+    if (logStream_ && authenticatedClients_.empty()) {
+        logStream_->setStreaming(false);
+    }
+
     NimBLEDevice::startAdvertising();
 }
 
@@ -230,6 +264,11 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
         std::string roleId = pCharacteristic->getValue();
         roleManager_->removeRole(roleId.c_str());
         ESP_LOGI(TAG, "BLE role delete queued: %s", roleId.c_str());
+    } else if (pCharacteristic == pLogControlChar_) {
+        std::string val = pCharacteristic->getValue();
+        if (!val.empty()) {
+            pendingLogStreaming_ = (val[0] == 0x01) ? 1 : 0;
+        }
     }
 }
 

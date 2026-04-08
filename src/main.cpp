@@ -3,6 +3,7 @@
 #include <freertos/task.h>
 
 #include "BluetoothService.h"
+#include "LogStream.h"
 #include "board_config.h"
 #include "CurrentSensorManager.h"
 #include "DeviceInfo.h"
@@ -18,6 +19,7 @@
 
 static const char* TAG = "main";
 
+LogStream logStream;
 Nmea2000Service nmea;
 WifiService wifi;
 LittleFSAdapter fileSystem;
@@ -31,9 +33,11 @@ SerialSensorService serialSensor(UART_NUM_2, BOARD_SERIAL_RX, BOARD_SERIAL_TX);
 RoleFactory roleFactory(currentSensorManager, nmea, wifi, platform, envSensor, serialSensor);
 RoleManager roleManager(roleFactory, fileSystem);
 DeviceInfo deviceInfo(platform, nmea);
-BluetoothService bluetooth(&roleManager, &deviceInfo);
+BluetoothService bluetooth(&roleManager, &deviceInfo, &logStream);
 
 extern "C" void app_main() {
+    logStream.install();
+
     if (!fileSystem.begin()) {
         ESP_LOGE(TAG, "LittleFS mount failed");
     }
