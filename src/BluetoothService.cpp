@@ -3,6 +3,8 @@
 #include <ArduinoJson.h>
 #include <esp_log.h>
 #include <esp_timer.h>
+#include <nvs.h>
+#include <nvs_flash.h>
 
 #ifndef DEFAULT_BLE_PASSWORD
 #define DEFAULT_BLE_PASSWORD "yachtmesh123"
@@ -15,6 +17,8 @@ BluetoothService::BluetoothService(RoleManager* roleManager,
     : roleManager_(roleManager), deviceInfo_(deviceInfo) {}
 
 void BluetoothService::start() {
+    displayName_ = loadDisplayName();
+
     if (deviceInfo_) {
         deviceInfo_->start();
     }
@@ -125,7 +129,22 @@ void BluetoothService::loop() {
             ESP_LOGW(TAG, "BLE config update failed: invalid JSON");
             ack["status"] = "error";
             ack["message"] = "invalid JSON";
+        } else if (doc.containsKey("displayName") && !doc.containsKey("roleType")) {
+            // Device-level config — display name update
+            const char* name = doc["displayName"] | "";
+            if (strlen(name) > DISPLAY_NAME_MAX_LEN) {
+                ESP_LOGW(TAG, "BLE display name too long (%d chars, max %d)",
+                         (int)strlen(name), (int)DISPLAY_NAME_MAX_LEN);
+                ack["status"] = "error";
+                ack["message"] = "displayName exceeds 64 characters";
+            } else {
+                displayName_ = name;
+                saveDisplayName(displayName_);
+                ESP_LOGI(TAG, "BLE display name set: \"%s\"", displayName_.c_str());
+                ack["status"] = "ok";
+            }
         } else {
+            // Role config — forward to role manager
             ApplyConfigResult result = roleManager_->applyRoleConfig(doc);
             if (result.success) {
                 ESP_LOGI(TAG, "BLE config applied for role: %s",
@@ -221,11 +240,21 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
         pendingFactoryReset_ = true;
         ESP_LOGI(TAG, "BLE factory reset queued");
     } else if (pCharacteristic == pConfigRequestChar_) {
-        std::string roleId = pCharacteristic->getValue();
-        std::string json = roleManager_->getRoleConfigJson(roleId.c_str());
-        pConfigResponseChar_->setValue(json);
-        pConfigResponseChar_->notify(connHandle);
-        ESP_LOGI(TAG, "BLE config response sent for role: %s", roleId.c_str());
+        std::string key = pCharacteristic->getValue();
+        if (key == "__device__") {
+            StaticJsonDocument<128> doc;
+            doc["displayName"] = displayName_;
+            std::string json;
+            serializeJson(doc, json);
+            pConfigResponseChar_->setValue(json);
+            pConfigResponseChar_->notify(connHandle);
+            ESP_LOGI(TAG, "BLE device config response sent");
+        } else {
+            std::string json = roleManager_->getRoleConfigJson(key.c_str());
+            pConfigResponseChar_->setValue(json);
+            pConfigResponseChar_->notify(connHandle);
+            ESP_LOGI(TAG, "BLE config response sent for role: %s", key.c_str());
+        }
     } else if (pCharacteristic == pRoleDeleteChar_) {
         std::string roleId = pCharacteristic->getValue();
         roleManager_->removeRole(roleId.c_str());
@@ -323,4 +352,41 @@ std::string BluetoothService::buildRolesJson() {
         return "[]";
     }
     return roleManager_->getRolesAsJson();
+}
+
+std::string BluetoothService::loadDisplayName() {
+    nvs_handle_t handle;
+    if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &handle) != ESP_OK) {
+        return "";
+    }
+
+    size_t required_size = 0;
+    esp_err_t err =
+        nvs_get_str(handle, NVS_DISPLAY_NAME_KEY, nullptr, &required_size);
+    if (err != ESP_OK || required_size == 0) {
+        nvs_close(handle);
+        return "";
+    }
+
+    char* buf = new char[required_size];
+    err = nvs_get_str(handle, NVS_DISPLAY_NAME_KEY, buf, &required_size);
+    nvs_close(handle);
+
+    std::string name;
+    if (err == ESP_OK) {
+        name = buf;
+    }
+    delete[] buf;
+    return name;
+}
+
+void BluetoothService::saveDisplayName(const std::string& name) {
+    nvs_handle_t handle;
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS for writing display name");
+        return;
+    }
+    nvs_set_str(handle, NVS_DISPLAY_NAME_KEY, name.c_str());
+    nvs_commit(handle);
+    nvs_close(handle);
 }
