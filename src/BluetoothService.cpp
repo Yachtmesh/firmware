@@ -115,6 +115,8 @@ void BluetoothService::loop() {
     if (pendingFactoryReset_) {
         pendingFactoryReset_ = false;
         roleManager_->factoryReset();
+        displayName_ = "";
+        saveDisplayName("");
         ESP_LOGI(TAG, "BLE factory reset initiated");
     }
 
