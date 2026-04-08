@@ -43,9 +43,10 @@ void BluetoothService::start() {
         AUTH_STATUS_CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
     pAuthStatusChar_->setCallbacks(this);
 
-    // Device info characteristic - read only (requires auth)
-    pDeviceInfoChar_ = pService->createCharacteristic(DEVICE_INFO_CHAR_UUID,
-                                                      NIMBLE_PROPERTY::READ);
+    // Device info characteristic - read + notify (requires auth)
+    pDeviceInfoChar_ = pService->createCharacteristic(
+        DEVICE_INFO_CHAR_UUID,
+        NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
     pDeviceInfoChar_->setCallbacks(this);
 
     // Status characteristic - read + notify (requires auth)
@@ -143,6 +144,11 @@ void BluetoothService::loop() {
                 displayName_ = name;
                 saveDisplayName(displayName_);
                 ESP_LOGI(TAG, "BLE display name set: \"%s\"", displayName_.c_str());
+                if (deviceInfo_) {
+                    std::string json = deviceInfo_->buildDeviceInfoJson(displayName_);
+                    pDeviceInfoChar_->setValue(json);
+                    pDeviceInfoChar_->notify();
+                }
                 ack["status"] = "ok";
             }
         } else {
@@ -242,21 +248,11 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
         pendingFactoryReset_ = true;
         ESP_LOGI(TAG, "BLE factory reset queued");
     } else if (pCharacteristic == pConfigRequestChar_) {
-        std::string key = pCharacteristic->getValue();
-        if (key == "__device__") {
-            StaticJsonDocument<128> doc;
-            doc["displayName"] = displayName_;
-            std::string json;
-            serializeJson(doc, json);
-            pConfigResponseChar_->setValue(json);
-            pConfigResponseChar_->notify(connHandle);
-            ESP_LOGI(TAG, "BLE device config response sent");
-        } else {
-            std::string json = roleManager_->getRoleConfigJson(key.c_str());
-            pConfigResponseChar_->setValue(json);
-            pConfigResponseChar_->notify(connHandle);
-            ESP_LOGI(TAG, "BLE config response sent for role: %s", key.c_str());
-        }
+        std::string roleId = pCharacteristic->getValue();
+        std::string json = roleManager_->getRoleConfigJson(roleId.c_str());
+        pConfigResponseChar_->setValue(json);
+        pConfigResponseChar_->notify(connHandle);
+        ESP_LOGI(TAG, "BLE config response sent for role: %s", roleId.c_str());
     } else if (pCharacteristic == pRoleDeleteChar_) {
         std::string roleId = pCharacteristic->getValue();
         roleManager_->removeRole(roleId.c_str());
@@ -279,8 +275,7 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
     // Device info, status, and roles require authentication
     if (!authenticated) {
         if (pCharacteristic == pDeviceInfoChar_) {
-            uint8_t empty[DeviceInfo::DEVICE_INFO_SIZE] = {0};
-            pCharacteristic->setValue(empty, sizeof(empty));
+            pCharacteristic->setValue("{}");
         } else if (pCharacteristic == pStatusChar_) {
             uint8_t empty[DeviceInfo::STATUS_SIZE] = {0};
             pCharacteristic->setValue(empty, sizeof(empty));
@@ -292,13 +287,10 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
 
     // Authenticated - return real data
     if (pCharacteristic == pDeviceInfoChar_) {
-        uint8_t buffer[DeviceInfo::DEVICE_INFO_SIZE];
-        if (deviceInfo_) {
-            deviceInfo_->buildDeviceInfo(buffer);
-        } else {
-            memset(buffer, 0, sizeof(buffer));
-        }
-        pCharacteristic->setValue(buffer, sizeof(buffer));
+        std::string json = deviceInfo_
+                               ? deviceInfo_->buildDeviceInfoJson(displayName_)
+                               : "{}";
+        pCharacteristic->setValue(json);
     } else if (pCharacteristic == pStatusChar_) {
         uint8_t buffer[DeviceInfo::STATUS_SIZE];
         if (deviceInfo_) {

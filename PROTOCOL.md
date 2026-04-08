@@ -1,6 +1,6 @@
 # Yachtmesh BLE Protocol Specification
 
-**Protocol Version:** `0.2.0`
+**Protocol Version:** `1.0.0`
 **Firmware Version:** `0.1.0`
 **Last Updated:** 2026-04-08
 
@@ -45,7 +45,7 @@ All characteristics belong to this single service.
 |---|------|------|------------|---------------|
 | 1 | Password | `4e617669-0001-4d65-7368-000000000002` | WRITE | No |
 | 2 | Auth Status | `4e617669-0001-4d65-7368-000000000003` | READ, NOTIFY | No |
-| 3 | Device Info | `4e617669-0001-4d65-7368-000000000004` | READ | Yes |
+| 3 | Device Info | `4e617669-0001-4d65-7368-000000000004` | READ, NOTIFY | Yes |
 | 4 | Status | `4e617669-0001-4d65-7368-000000000005` | READ, NOTIFY | Yes |
 | 5 | Roles | `4e617669-0001-4d65-7368-000000000006` | READ, NOTIFY | Yes |
 | 6 | Config Update | `4e617669-0001-4d65-7368-000000000007` | WRITE | Yes |
@@ -73,19 +73,29 @@ Authentication is per-connection and must be completed before accessing any char
 
 ## Binary Formats
 
-### DeviceInfo Characteristic (20 bytes)
+### DeviceInfo Characteristic (JSON)
 
-Read from the **Device Info** characteristic after authentication.
+Read from the **Device Info** characteristic after authentication. Also notified whenever the display name changes.
 
-| Bytes | Field | Type | Notes |
-|-------|-------|------|-------|
-| 0–5 | Device ID | 6-byte ASCII | e.g. `HJ1DS2` |
-| 6–11 | MAC Address | 6 raw bytes | Big-endian MAC |
-| 12 | NMEA 2000 Address | uint8 | |
-| 13 | Firmware Version Major | uint8 | |
-| 14 | Firmware Version Minor | uint8 | |
-| 15 | Firmware Version Patch | uint8 | |
-| 16–19 | Reserved | — | Always zero |
+```json
+{
+  "id": "HJ1DS2",
+  "mac": "aa:bb:cc:dd:ee:ff",
+  "nmea": 22,
+  "fw": "0.1.0",
+  "displayName": "Sensor Engine Room"
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | string | 6-character alphanumeric device ID, fixed to hardware |
+| `mac` | string | BT MAC address, colon-separated lowercase hex |
+| `nmea` | uint8 | NMEA 2000 bus address |
+| `fw` | string | Firmware version, `"major.minor.patch"` |
+| `displayName` | string | User-assigned display label; empty string if never set |
+
+`displayName` is the only field that can change at runtime. The characteristic sends a NOTIFY when it does.
 
 ### Status Characteristic (9 bytes)
 
@@ -136,30 +146,9 @@ Response:
 
 The `config` object is role-specific — see Role Types section.
 
-### Reading Device Config
-
-Device-level config (currently display name) is read via the same **Config Request / Config Response** pair as role configs, using the reserved sentinel key `__device__`.
-
-Role IDs always follow the `<Type>-<alphanumeric>` format, so `__device__` can never collide with a real role ID.
-
-1. **Write** the string `__device__` (UTF-8) to **Config Request** characteristic
-2. **Read or await notification** on **Config Response** characteristic
-
-Response:
-
-```json
-{ "displayName": "Sensor Engine Room" }
-```
-
-`displayName` is an empty string if never set:
-
-```json
-{ "displayName": "" }
-```
-
 ### Setting the Display Name
 
-**Write** JSON to **Config Update** characteristic, omitting `roleType`:
+The display name is read as part of **Device Info** — no separate request needed. To update it, write JSON to **Config Update** omitting `roleType`:
 
 ```json
 { "displayName": "Sensor Engine Room" }
@@ -174,6 +163,8 @@ The firmware distinguishes this from a role config update by the absence of `rol
 ```json
 { "status": "error", "message": "displayName exceeds 64 characters" }
 ```
+
+After a successful update, the **Device Info** characteristic sends a NOTIFY with the full updated JSON so connected clients stay in sync without re-reading.
 
 Constraints:
 - Maximum 64 UTF-8 characters
@@ -292,10 +283,16 @@ Used in `FluidLevel` role config. Values are serialised as exact string names.
 
 ## Changelog
 
-### 0.2.0 — 2026-04-08
+### 1.0.0 — 2026-04-08
 
-- Added display name: read via `__device__` sentinel on Config Request, write via Config Update with `displayName` field and no `roleType`
-- Display name is cleared by factory reset
+**Breaking changes:**
+- Device Info characteristic format changed from 20-byte binary to JSON. Clients reading it as a fixed binary struct will break.
+- Device Info characteristic now has NOTIFY in addition to READ.
+
+**Additions:**
+- `displayName` field included in Device Info JSON; empty string if never set
+- Display name set via Config Update (`{"displayName": "..."}`, no `roleType`); Device Info notified on change
+- Display name persisted in flash; cleared by factory reset
 
 ### 0.1.0 — 2026-03-21
 
