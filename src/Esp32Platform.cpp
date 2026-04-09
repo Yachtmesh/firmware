@@ -5,6 +5,7 @@
 #include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <esp_freertos_hooks.h>
 #include <nvs.h>
 #include <nvs_flash.h>
 
@@ -68,7 +69,8 @@ float Esp32Platform::getCpuTemperature() {
 #if CONFIG_IDF_TARGET_ESP32S3
     static temperature_sensor_handle_t sensor = nullptr;
     if (!sensor) {
-        temperature_sensor_config_t cfg = TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50);
+        temperature_sensor_config_t cfg =
+            TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50);
         temperature_sensor_install(&cfg, &sensor);
         temperature_sensor_enable(sensor);
     }
@@ -78,8 +80,10 @@ float Esp32Platform::getCpuTemperature() {
 #else
     // ESP-IDF 5.x: ROM temprature_sens_read() is a stub on original ESP32.
     // Read sensor registers directly instead.
-    SET_PERI_REG_BITS(SENS_SAR_MEAS_WAIT2_REG, SENS_FORCE_XPD_SAR, 3, SENS_FORCE_XPD_SAR_S);
-    SET_PERI_REG_BITS(SENS_SAR_SLAVE_ADDR4_REG, SENS_TSENS_CLK_DIV, 6, SENS_TSENS_CLK_DIV_S);
+    SET_PERI_REG_BITS(SENS_SAR_MEAS_WAIT2_REG, SENS_FORCE_XPD_SAR, 3,
+                      SENS_FORCE_XPD_SAR_S);
+    SET_PERI_REG_BITS(SENS_SAR_SLAVE_ADDR4_REG, SENS_TSENS_CLK_DIV, 6,
+                      SENS_TSENS_CLK_DIV_S);
     CLEAR_PERI_REG_MASK(SENS_SAR_SLAVE_ADDR4_REG, SENS_TSENS_POWER_UP);
     CLEAR_PERI_REG_MASK(SENS_SAR_SLAVE_ADDR4_REG, SENS_TSENS_DUMP_OUT);
     SET_PERI_REG_MASK(SENS_SAR_SLAVE_ADDR4_REG, SENS_TSENS_POWER_UP_FORCE);
@@ -87,7 +91,8 @@ float Esp32Platform::getCpuTemperature() {
     ets_delay_us(100);
     SET_PERI_REG_MASK(SENS_SAR_SLAVE_ADDR4_REG, SENS_TSENS_DUMP_OUT);
     ets_delay_us(5);
-    int raw = (int)GET_PERI_REG_BITS2(SENS_SAR_SLAVE_ADDR3_REG, SENS_TSENS_OUT, SENS_TSENS_OUT_S);
+    int raw = (int)GET_PERI_REG_BITS2(SENS_SAR_SLAVE_ADDR3_REG, SENS_TSENS_OUT,
+                                      SENS_TSENS_OUT_S);
     return (raw - 32) / 1.8f;
 #endif
 }
@@ -98,9 +103,7 @@ uint32_t Esp32Platform::getMillis() {
 
 // --- Heap ---
 
-uint32_t Esp32Platform::getFreeHeap() const {
-    return esp_get_free_heap_size();
-}
+uint32_t Esp32Platform::getFreeHeap() const { return esp_get_free_heap_size(); }
 
 uint32_t Esp32Platform::getMinFreeHeap() const {
     return esp_get_minimum_free_heap_size();
@@ -122,7 +125,7 @@ static constexpr uint32_t IDLE_MAX_PER_SEC = 1000;
 static volatile uint32_t idleCounter = 0;
 
 static bool idleHook() {
-    idleCounter++;
+    idleCounter = idleCounter + 1;
     return true;
 }
 
@@ -133,8 +136,7 @@ void Esp32Platform::installIdleHook() {
 uint8_t Esp32Platform::getCpuLoad() {
     uint32_t count = idleCounter;
     idleCounter = 0;
-    uint32_t idlePct = (count >= IDLE_MAX_PER_SEC)
-                           ? 100
-                           : (count * 100 / IDLE_MAX_PER_SEC);
+    uint32_t idlePct =
+        (count >= IDLE_MAX_PER_SEC) ? 100 : (count * 100 / IDLE_MAX_PER_SEC);
     return (uint8_t)(100 - idlePct);
 }
