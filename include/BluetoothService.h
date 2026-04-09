@@ -79,10 +79,15 @@ class BluetoothService : public BluetoothServiceInterface,
     // NVS keys
     static constexpr const char* NVS_NAMESPACE = "yachtmesh";
     static constexpr const char* NVS_DEVICE_ID_KEY = "ble_device_id";
+    static constexpr const char* NVS_DISPLAY_NAME_KEY = "display_name";
+    static constexpr size_t DISPLAY_NAME_MAX_LEN = 64;
 
     // Dependencies
     RoleManager* roleManager_ = nullptr;
     DeviceInfo* deviceInfo_ = nullptr;
+
+    // Friendly name — display label set by client, empty if never configured
+    std::string displayName_;
 
     // BLE objects
     NimBLEServer* pServer_ = nullptr;
@@ -115,4 +120,6 @@ class BluetoothService : public BluetoothServiceInterface,
     bool isClientAuthenticated(uint16_t connHandle) const;
     void updateStatus();
     std::string buildRolesJson();
+    std::string loadDisplayName();
+    void saveDisplayName(const std::string& name);
 };

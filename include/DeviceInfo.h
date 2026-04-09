@@ -15,13 +15,11 @@ class DeviceInfo {
     // Get 6-character alphanumeric device ID
     std::string getDeviceId() const;
 
-    // Build 20-byte device info binary format:
-    // [0-5]   Device ID (6 bytes, ASCII)
-    // [6-11]  MAC address (6 bytes)
-    // [12]    NMEA address (1 byte)
-    // [13-15] Firmware version (3 bytes: major, minor, patch)
-    // [16-19] Reserved (4 bytes, zeroed)
-    void buildDeviceInfo(uint8_t* buffer);
+    // Build device info as a JSON string:
+    // { "id": "HJ1DS2", "mac": "aa:bb:cc:dd:ee:ff", "nmea": 22,
+    //   "fw": "0.1.0", "displayName": "Sensor Engine Room" }
+    // displayName is passed in by the caller (owned by BluetoothService).
+    std::string buildDeviceInfoJson(const std::string& displayName);
 
     // Build 9-byte device status binary format:
     // [0]     Sequence number (1 byte, auto-increments)
@@ -38,8 +36,7 @@ class DeviceInfo {
     // Record start time (call when service starts)
     void start();
 
-    // Data structure sizes
-    static constexpr size_t DEVICE_INFO_SIZE = 20;
+    // Data structure size
     static constexpr size_t STATUS_SIZE = 9;
 
     // Firmware version

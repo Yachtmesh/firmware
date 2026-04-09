@@ -1,5 +1,7 @@
 #include "DeviceInfo.h"
 
+#include <ArduinoJson.h>
+#include <cstdio>
 #include <cstring>
 
 DeviceInfo::DeviceInfo(PlatformInterface& platform, Nmea2000ServiceInterface& nmea)
@@ -51,24 +53,30 @@ float DeviceInfo::getCpuTemperature() {
     return platform_.getCpuTemperature();
 }
 
-void DeviceInfo::buildDeviceInfo(uint8_t* buffer) {
-    memset(buffer, 0, DEVICE_INFO_SIZE);
+std::string DeviceInfo::buildDeviceInfoJson(const std::string& displayName) {
+    StaticJsonDocument<256> doc;
 
-    // Device ID (6 bytes, ASCII)
-    memcpy(buffer, deviceId_.c_str(), 6);
+    doc["id"] = deviceId_;
 
-    // MAC address (6 bytes)
-    platform_.getMacAddress(buffer + 6);
+    uint8_t mac[6];
+    platform_.getMacAddress(mac);
+    char macStr[18];
+    snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    doc["mac"] = macStr;
 
-    // NMEA address (1 byte)
-    buffer[12] = nmea_.getAddress();
+    doc["nmea"] = nmea_.getAddress();
 
-    // Firmware version (3 bytes)
-    buffer[13] = FW_VERSION_MAJOR;
-    buffer[14] = FW_VERSION_MINOR;
-    buffer[15] = FW_VERSION_PATCH;
+    char fwStr[12];
+    snprintf(fwStr, sizeof(fwStr), "%d.%d.%d",
+             FW_VERSION_MAJOR, FW_VERSION_MINOR, FW_VERSION_PATCH);
+    doc["fw"] = fwStr;
 
-    // Reserved (4 bytes) - already zeroed
+    doc["displayName"] = displayName;
+
+    std::string result;
+    serializeJson(doc, result);
+    return result;
 }
 
 void DeviceInfo::buildDeviceStatus(uint8_t* buffer) {
