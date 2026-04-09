@@ -10,14 +10,16 @@ The idea is simple: a small device plugs into your boat's NMEA 2000 backbone and
 
 The firmware is built around a **role** system. Each role is an independent function the device can perform. You add and configure roles from the mobile app over BLE. Roles persist across reboots.
 
-| Role | What it does |
-|------|-------------|
-| `FluidLevel` | Reads an analog tank sensor and broadcasts NMEA 2000 PGN 127505 (fluid level) |
-| `WifiGateway` | Bridges NMEA 2000 traffic to TCP clients in Actisense binary format |
-| `WifiGateway0183` | Same, but as NMEA 0183 sentences — useful for chart plotters and Signal K |
-| `WeatherStation` | Reads a BME280 sensor and broadcasts NMEA 2000 PGN 130311 (temperature/humidity/pressure) |
-| `AisSimulator` | Emits simulated AIS targets on the bus — handy for testing chart plotters without going offshore |
-| `VeDirectBattery` | Reads Victron VE.Direct serial output and puts battery data on the NMEA 2000 bus |
+For example:
+
+| Role              | What it does                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| `FluidLevel`      | Reads an analog tank sensor and broadcasts NMEA 2000 PGN 127505 (fluid level)                    |
+| `WifiGateway`     | Bridges NMEA 2000 traffic to TCP clients in Actisense binary format                              |
+| `WifiGateway0183` | Same, but as NMEA 0183 sentences — useful for chart plotters and Signal K; relays AIS for now    |
+| `WeatherStation`  | Reads a BME280 sensor and broadcasts NMEA 2000 PGN 130311 (temperature/humidity/pressure)        |
+| `AisSimulator`    | Emits simulated AIS targets on the bus — handy for testing chart plotters without going offshore |
+| `VeDirectBattery` | Reads Victron VE.Direct serial output and puts battery data on the NMEA 2000 bus                 |
 
 Multiple roles can run simultaneously. A typical setup might be a fluid level sensor, a weather station, and a Wi-Fi gateway all running on the same device.
 
@@ -27,19 +29,21 @@ Multiple roles can run simultaneously. A typical setup might be a fluid level se
 
 Targets two boards out of the box:
 
-- **ESP32-S3 DevKitC-1** (`esp32s3` env) — recommended, more RAM, USB-native
+- **ESP32-S3 DevKitC-1** (`esp32s3` env) — recommended, more RAM, faster more modern processor
 - **ESP32 DevKit** (`esp32dev` env) — original ESP32, still fully supported
 
 Pin assignments are set in `platformio.ini` via build flags:
 
-| Signal | ESP32 | ESP32-S3 |
-|--------|-------|----------|
-| TWAI TX (NMEA 2000 CAN) | GPIO 5 | GPIO 5 |
-| TWAI RX (NMEA 2000 CAN) | GPIO 4 | GPIO 4 |
-| I2C SDA (BME280 etc.) | GPIO 21 | GPIO 8 |
-| I2C SCL | GPIO 22 | GPIO 9 |
+| Signal                   | ESP32   | ESP32-S3 | Notes                                      |
+| ------------------------ | ------- | -------- | ------------------------------------------ |
+| TWAI TX (NMEA 2000 CAN)  | GPIO 5  | GPIO 5   | Needs SN65HVD230 or equivalent transceiver |
+| TWAI RX (NMEA 2000 CAN)  | GPIO 4  | GPIO 4   | Needs SN65HVD230 or equivalent transceiver |
+| I2C SDA (BME280 etc.)    | GPIO 21 | GPIO 8   |                                            |
+| I2C SCL                  | GPIO 22 | GPIO 9   |                                            |
+| UART RX (VE.Direct etc.) | GPIO 33 | GPIO 33  | UART2, 19200 baud                          |
+| UART TX                  | GPIO 34 | GPIO 34  |                                            |
 
-You'll need a CAN transceiver (e.g. SN65HVD230) between the ESP32 and the NMEA 2000 bus.
+Defaults are defined in `include/board_config.h` and can be overridden per environment in `platformio.ini` via build flags (e.g. `-DBOARD_SERIAL_RX=16`).
 
 ---
 
@@ -104,10 +108,12 @@ Roles are created and destroyed at runtime via BLE commands. Config is persisted
 Roles never touch ESP32 hardware directly. Platform functions (NMEA 2000, Wi-Fi, ADC, TCP) are injected as abstract interfaces. This keeps roles testable on a native host without any embedded toolchain.
 
 ```
-Role → Nmea2000ServiceInterface → Nmea2000Service → tNMEA2000 (CAN/TWAI)
-     → WifiServiceInterface    → WifiService
-     → AnalogInputInterface    → AnalogInputService (ADC)
-     → TcpServerInterface      → TcpServer
+Role → Nmea2000ServiceInterface  → Nmea2000Service     → tNMEA2000 (CAN/TWAI)
+     → WifiServiceInterface      → WifiService
+     → AnalogInputInterface      → AnalogInputService  (ADC)
+     → TcpServerInterface        → TcpServer
+     → I2cBusServiceInterface    → I2cBusService       (BME280 etc.)
+     → SerialSensorInterface     → SerialSensorService (UART — VE.Direct etc.)
 ```
 
 ### Adding a new role
@@ -127,14 +133,14 @@ Unit tests run natively (no ESP32 required) using the Unity framework. Hardware 
 
 ## Dependencies
 
-| Library | Purpose |
-|---------|---------|
-| [NMEA2000](https://github.com/ttlappalainen/NMEA2000) | NMEA 2000 protocol layer |
-| [NMEA2000_twai](https://github.com/skarlsson/NMEA2000_twai) | ESP32 CAN/TWAI driver for the above |
-| [ArduinoJson](https://arduinojson.org/) | JSON parsing and serialisation |
-| [NimBLE-Arduino / esp-nimble-cpp](https://github.com/h2zero/esp-nimble-cpp) | Bluetooth Low Energy |
-| [LittleFS](https://github.com/joltwallet/esp_littlefs) | Filesystem for role config persistence |
-| [Unity](https://github.com/ThrowTheSwitch/Unity) | Unit test framework (native only) |
+| Library                                                                     | Purpose                                |
+| --------------------------------------------------------------------------- | -------------------------------------- |
+| [NMEA2000](https://github.com/ttlappalainen/NMEA2000)                       | NMEA 2000 protocol layer               |
+| [NMEA2000_twai](https://github.com/skarlsson/NMEA2000_twai)                 | ESP32 CAN/TWAI driver for the above    |
+| [ArduinoJson](https://arduinojson.org/)                                     | JSON parsing and serialisation         |
+| [NimBLE-Arduino / esp-nimble-cpp](https://github.com/h2zero/esp-nimble-cpp) | Bluetooth Low Energy                   |
+| [LittleFS](https://github.com/joltwallet/esp_littlefs)                      | Filesystem for role config persistence |
+| [Unity](https://github.com/ThrowTheSwitch/Unity)                            | Unit test framework (native only)      |
 
 ---
 
