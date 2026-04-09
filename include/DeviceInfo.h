@@ -40,7 +40,7 @@ class DeviceInfo {
     void start();
 
     // Data structure size
-    static constexpr size_t STATUS_SIZE = 9;
+    static constexpr size_t STATUS_SIZE = 18;
 
     // Firmware version
     static constexpr uint8_t FW_VERSION_MAJOR = 0;
