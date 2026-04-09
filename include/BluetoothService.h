@@ -6,6 +6,7 @@
 #include <string>
 
 #include "DeviceInfo.h"
+#include "LogStream.h"
 #include "RoleManager.h"
 
 class BluetoothServiceInterface {
@@ -28,7 +29,8 @@ class BluetoothService : public BluetoothServiceInterface,
                          public NimBLECharacteristicCallbacks {
    public:
     BluetoothService(RoleManager* roleManager = nullptr,
-                     DeviceInfo* deviceInfo = nullptr);
+                     DeviceInfo* deviceInfo = nullptr,
+                     LogStream* logStream = nullptr);
 
     void start() override;
     void stop() override;
@@ -75,6 +77,10 @@ class BluetoothService : public BluetoothServiceInterface,
         "4e617669-0001-4d65-7368-00000000000a";
     static constexpr const char* ROLE_DELETE_CHAR_UUID =
         "4e617669-0001-4d65-7368-00000000000b";
+    static constexpr const char* LOG_CONTROL_CHAR_UUID =
+        "4e617669-0001-4d65-7368-00000000000c";
+    static constexpr const char* LOG_DATA_CHAR_UUID =
+        "4e617669-0001-4d65-7368-00000000000d";
 
     // NVS keys
     static constexpr const char* NVS_NAMESPACE = "yachtmesh";
@@ -83,6 +89,7 @@ class BluetoothService : public BluetoothServiceInterface,
     // Dependencies
     RoleManager* roleManager_ = nullptr;
     DeviceInfo* deviceInfo_ = nullptr;
+    LogStream* logStream_ = nullptr;
 
     // BLE objects
     NimBLEServer* pServer_ = nullptr;
@@ -96,6 +103,8 @@ class BluetoothService : public BluetoothServiceInterface,
     NimBLECharacteristic* pConfigRequestChar_ = nullptr;
     NimBLECharacteristic* pConfigResponseChar_ = nullptr;
     NimBLECharacteristic* pRoleDeleteChar_ = nullptr;
+    NimBLECharacteristic* pLogControlChar_ = nullptr;
+    NimBLECharacteristic* pLogDataChar_ = nullptr;
 
     std::set<uint16_t> authenticatedClients_;
 
@@ -103,6 +112,7 @@ class BluetoothService : public BluetoothServiceInterface,
     std::string pendingConfigUpdate_;
     uint16_t pendingConfigConnHandle_ = 0;
     bool pendingFactoryReset_ = false;
+    int pendingLogStreaming_ = -1;  // -1 = no change, 0 = stop, 1 = start
 
     // Status/roles update rate limiting
     uint32_t lastStatusUpdate_ = 0;
