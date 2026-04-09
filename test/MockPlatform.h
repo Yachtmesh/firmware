@@ -38,6 +38,18 @@ class MockPlatform : public PlatformInterface {
         return millis_;
     }
 
+    uint32_t getFreeHeap() const override {
+        return freeHeap_;
+    }
+
+    uint32_t getMinFreeHeap() const override {
+        return minFreeHeap_;
+    }
+
+    uint8_t getCpuLoad() override {
+        return cpuLoad_;
+    }
+
     // Test helpers - setters
     void setMacAddress(const uint8_t* mac) {
         memcpy(mac_, mac, 6);
@@ -55,6 +67,18 @@ class MockPlatform : public PlatformInterface {
         millis_ = ms;
     }
 
+    void setFreeHeap(uint32_t bytes) {
+        freeHeap_ = bytes;
+    }
+
+    void setMinFreeHeap(uint32_t bytes) {
+        minFreeHeap_ = bytes;
+    }
+
+    void setCpuLoad(uint8_t pct) {
+        cpuLoad_ = pct;
+    }
+
     // Test helpers - verification
     bool wasSaveDeviceIdCalled() const {
         return saveDeviceIdCalled_;
@@ -70,4 +94,7 @@ class MockPlatform : public PlatformInterface {
     float temperature_ = 25.0f;
     uint32_t millis_ = 0;
     bool saveDeviceIdCalled_ = false;
+    uint32_t freeHeap_ = 200000;
+    uint32_t minFreeHeap_ = 150000;
+    uint8_t cpuLoad_ = 0;
 };

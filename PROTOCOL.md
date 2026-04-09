@@ -1,8 +1,8 @@
 # Yachtmesh BLE Protocol Specification
 
-**Protocol Version:** `0.1.0`
+**Protocol Version:** `0.2.0`
 **Firmware Version:** `0.1.0`
-**Last Updated:** 2026-03-21
+**Last Updated:** 2026-04-09
 
 This document is the canonical specification for the Bluetooth Low Energy protocol between Yachtmesh firmware and client applications (iOS, Android, third-party). It is maintained in the firmware repository because the firmware is the GATT server and the authoritative definer of the protocol.
 
@@ -87,7 +87,7 @@ Read from the **Device Info** characteristic after authentication.
 | 15 | Firmware Version Patch | uint8 | |
 | 16–19 | Reserved | — | Always zero |
 
-### Status Characteristic (9 bytes)
+### Status Characteristic (18 bytes)
 
 Notified every 1000ms after authentication. Also readable on demand.
 
@@ -96,6 +96,11 @@ Notified every 1000ms after authentication. Also readable on demand.
 | 0 | Sequence Number | uint8 | Increments each emission, wraps at 255 |
 | 1–4 | CPU Temperature | float32 LE | Degrees Celsius |
 | 5–8 | Uptime | uint32 LE | Seconds since boot |
+| 9–12 | Free Heap | uint32 LE | Current free heap bytes |
+| 13–16 | Min Free Heap | uint32 LE | Lowest free heap recorded since boot |
+| 17 | CPU Load | uint8 | Approximate CPU load 0–100% |
+
+**Suggested UI:** Show heap in KB. Use `minFreeHeap` as the health indicator — it reflects the worst-case pressure since boot, not just the current snapshot. Suggested bands: >50 KB healthy, 20–50 KB warn, <20 KB critical. CPU load is approximate (idle hook based) — treat as an indicator, not a precise measurement.
 
 ---
 
@@ -246,6 +251,10 @@ Used in `FluidLevel` role config. Values are serialised as exact string names.
 ---
 
 ## Changelog
+
+### 0.2.0 — 2026-04-09
+
+- Status characteristic extended from 9 to 18 bytes: added free heap (bytes 9–12), min free heap (bytes 13–16), CPU load % (byte 17). Additive — clients reading only the first 9 bytes are unaffected.
 
 ### 0.1.0 — 2026-03-21
 

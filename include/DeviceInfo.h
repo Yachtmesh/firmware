@@ -23,10 +23,13 @@ class DeviceInfo {
     // [16-19] Reserved (4 bytes, zeroed)
     void buildDeviceInfo(uint8_t* buffer);
 
-    // Build 9-byte device status binary format:
+    // Build 18-byte device status binary format:
     // [0]     Sequence number (1 byte, auto-increments)
-    // [1-4]   CPU temperature (4 bytes, float32)
-    // [5-8]   Uptime in seconds (4 bytes, uint32)
+    // [1-4]   CPU temperature (4 bytes, float32 LE, °C)
+    // [5-8]   Uptime in seconds (4 bytes, uint32 LE)
+    // [9-12]  Free heap bytes (4 bytes, uint32 LE)
+    // [13-16] Min free heap bytes ever (4 bytes, uint32 LE)
+    // [17]    CPU load % (1 byte, 0-100, approximate)
     void buildDeviceStatus(uint8_t* buffer);
 
     // Get current CPU temperature
@@ -40,7 +43,7 @@ class DeviceInfo {
 
     // Data structure sizes
     static constexpr size_t DEVICE_INFO_SIZE = 20;
-    static constexpr size_t STATUS_SIZE = 9;
+    static constexpr size_t STATUS_SIZE = 18;
 
     // Firmware version
     static constexpr uint8_t FW_VERSION_MAJOR = 0;

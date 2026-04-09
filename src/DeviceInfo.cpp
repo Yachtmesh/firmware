@@ -77,11 +77,22 @@ void DeviceInfo::buildDeviceStatus(uint8_t* buffer) {
     // Sequence (1 byte)
     buffer[0] = statusSeq_++;
 
-    // Temperature (4 bytes, float32)
+    // CPU temperature (4 bytes, float32 LE)
     float temp = getCpuTemperature();
     memcpy(buffer + 1, &temp, sizeof(float));
 
-    // Uptime (4 bytes, uint32)
+    // Uptime (4 bytes, uint32 LE)
     uint32_t uptime = getUptime();
     memcpy(buffer + 5, &uptime, sizeof(uint32_t));
+
+    // Free heap (4 bytes, uint32 LE)
+    uint32_t freeHeap = platform_.getFreeHeap();
+    memcpy(buffer + 9, &freeHeap, sizeof(uint32_t));
+
+    // Min free heap ever (4 bytes, uint32 LE)
+    uint32_t minFreeHeap = platform_.getMinFreeHeap();
+    memcpy(buffer + 13, &minFreeHeap, sizeof(uint32_t));
+
+    // CPU load % (1 byte, approximate)
+    buffer[17] = platform_.getCpuLoad();
 }

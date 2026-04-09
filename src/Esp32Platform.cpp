@@ -1,7 +1,10 @@
 #include "Esp32Platform.h"
 
+#include <esp_heap_caps.h>
 #include <esp_mac.h>
 #include <esp_timer.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <nvs.h>
 #include <nvs_flash.h>
 
@@ -91,4 +94,47 @@ float Esp32Platform::getCpuTemperature() {
 
 uint32_t Esp32Platform::getMillis() {
     return (uint32_t)(esp_timer_get_time() / 1000);
+}
+
+// --- Heap ---
+
+uint32_t Esp32Platform::getFreeHeap() const {
+    return esp_get_free_heap_size();
+}
+
+uint32_t Esp32Platform::getMinFreeHeap() const {
+    return esp_get_minimum_free_heap_size();
+}
+
+// --- CPU load (approximate via idle hook) ---
+//
+// The idle hook increments a counter each time the FreeRTOS idle task runs.
+// getCpuLoad() reads the counter accumulated since the last call, resets it,
+// and computes load as: 100 - (idleCount / IDLE_MAX_PER_SEC * 100).
+//
+// IDLE_MAX_PER_SEC is the idle call count observed when fully idle. With the
+// default ESP-IDF tick rate of 1000 Hz and no other work, the idle task runs
+// approximately once per tick, giving ~1000 calls/s. This is an approximation
+// — reported load will be slightly off if tick rate differs, but is accurate
+// enough for a dashboard indicator.
+
+static constexpr uint32_t IDLE_MAX_PER_SEC = 1000;
+static volatile uint32_t idleCounter = 0;
+
+static bool idleHook() {
+    idleCounter++;
+    return true;
+}
+
+void Esp32Platform::installIdleHook() {
+    esp_register_freertos_idle_hook(idleHook);
+}
+
+uint8_t Esp32Platform::getCpuLoad() {
+    uint32_t count = idleCounter;
+    idleCounter = 0;
+    uint32_t idlePct = (count >= IDLE_MAX_PER_SEC)
+                           ? 100
+                           : (count * 100 / IDLE_MAX_PER_SEC);
+    return (uint8_t)(100 - idlePct);
 }

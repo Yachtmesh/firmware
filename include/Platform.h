@@ -17,6 +17,9 @@ class PlatformInterface {
     // System information
     virtual float getCpuTemperature() = 0;
     virtual uint32_t getMillis() = 0;
+    virtual uint32_t getFreeHeap() const = 0;
+    virtual uint32_t getMinFreeHeap() const = 0;
+    virtual uint8_t getCpuLoad() = 0;
 
     virtual ~PlatformInterface() = default;
 };

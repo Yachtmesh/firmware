@@ -114,13 +114,16 @@ void test_device_info_build_device_info_format() {
     TEST_ASSERT_EQUAL_UINT8(0, buffer[19]);
 }
 
-// Tests that buildDeviceStatus produces correct 9-byte format
+// Tests that buildDeviceStatus produces correct 18-byte format
 void test_device_info_build_device_status_format() {
     MockPlatform platform;
     MockNmea2000Service nmea;
     platform.setStoredDeviceId("DEVICE");
     platform.setTemperature(45.5f);
     platform.setMillis(0);
+    platform.setFreeHeap(180000);
+    platform.setMinFreeHeap(120000);
+    platform.setCpuLoad(25);
 
     DeviceInfo info(platform, nmea);
     info.start();
@@ -128,7 +131,7 @@ void test_device_info_build_device_status_format() {
     // Advance time by 5 seconds
     platform.setMillis(5000);
 
-    uint8_t buffer[9];
+    uint8_t buffer[DeviceInfo::STATUS_SIZE];
     info.buildDeviceStatus(buffer);
 
     // Sequence (byte 0) - starts at 0
@@ -143,6 +146,19 @@ void test_device_info_build_device_status_format() {
     uint32_t uptime;
     memcpy(&uptime, buffer + 5, sizeof(uint32_t));
     TEST_ASSERT_EQUAL_UINT32(5, uptime);
+
+    // Free heap (bytes 9-12, uint32)
+    uint32_t freeHeap;
+    memcpy(&freeHeap, buffer + 9, sizeof(uint32_t));
+    TEST_ASSERT_EQUAL_UINT32(180000, freeHeap);
+
+    // Min free heap (bytes 13-16, uint32)
+    uint32_t minFreeHeap;
+    memcpy(&minFreeHeap, buffer + 13, sizeof(uint32_t));
+    TEST_ASSERT_EQUAL_UINT32(120000, minFreeHeap);
+
+    // CPU load (byte 17)
+    TEST_ASSERT_EQUAL_UINT8(25, buffer[17]);
 }
 
 // Tests that status sequence increments on each build
