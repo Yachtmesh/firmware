@@ -125,7 +125,8 @@ int main() {
     RUN_TEST(test_device_info_id_format);
     RUN_TEST(test_device_info_loads_stored_id);
     RUN_TEST(test_device_info_regenerates_invalid_id);
-    RUN_TEST(test_device_info_build_device_info_format);
+    RUN_TEST(test_device_info_build_device_info_json_format);
+    RUN_TEST(test_device_info_build_device_info_json_empty_display_name);
     RUN_TEST(test_device_info_build_device_status_format);
     RUN_TEST(test_device_info_status_sequence_increments);
     RUN_TEST(test_device_info_uptime_calculation);

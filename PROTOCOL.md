@@ -45,7 +45,7 @@ All characteristics belong to this single service.
 |---|------|------|------------|---------------|
 | 1 | Password | `4e617669-0001-4d65-7368-000000000002` | WRITE | No |
 | 2 | Auth Status | `4e617669-0001-4d65-7368-000000000003` | READ, NOTIFY | No |
-| 3 | Device Info | `4e617669-0001-4d65-7368-000000000004` | READ | Yes |
+| 3 | Device Info | `4e617669-0001-4d65-7368-000000000004` | READ, NOTIFY | Yes |
 | 4 | Status | `4e617669-0001-4d65-7368-000000000005` | READ, NOTIFY | Yes |
 | 5 | Roles | `4e617669-0001-4d65-7368-000000000006` | READ, NOTIFY | Yes |
 | 6 | Config Update | `4e617669-0001-4d65-7368-000000000007` | WRITE | Yes |
@@ -73,19 +73,29 @@ Authentication is per-connection and must be completed before accessing any char
 
 ## Binary Formats
 
-### DeviceInfo Characteristic (20 bytes)
+### DeviceInfo Characteristic (JSON)
 
-Read from the **Device Info** characteristic after authentication.
+Read from the **Device Info** characteristic after authentication. Also notified whenever the display name changes.
 
-| Bytes | Field | Type | Notes |
-|-------|-------|------|-------|
-| 0–5 | Device ID | 6-byte ASCII | e.g. `HJ1DS2` |
-| 6–11 | MAC Address | 6 raw bytes | Big-endian MAC |
-| 12 | NMEA 2000 Address | uint8 | |
-| 13 | Firmware Version Major | uint8 | |
-| 14 | Firmware Version Minor | uint8 | |
-| 15 | Firmware Version Patch | uint8 | |
-| 16–19 | Reserved | — | Always zero |
+```json
+{
+  "id": "HJ1DS2",
+  "mac": "aa:bb:cc:dd:ee:ff",
+  "nmea": 22,
+  "fw": "0.1.0",
+  "displayName": "Sensor Engine Room"
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | string | 6-character alphanumeric device ID, fixed to hardware |
+| `mac` | string | BT MAC address, colon-separated lowercase hex |
+| `nmea` | uint8 | NMEA 2000 bus address |
+| `fw` | string | Firmware version, `"major.minor.patch"` |
+| `displayName` | string | User-assigned display label; empty string if never set |
+
+`displayName` is the only field that can change at runtime. The characteristic sends a NOTIFY when it does.
 
 ### Status Characteristic (18 bytes)
 
@@ -140,6 +150,32 @@ Response:
 ```
 
 The `config` object is role-specific — see Role Types section.
+
+### Setting the Display Name
+
+The display name is read as part of **Device Info** — no separate request needed. To update it, write JSON to **Config Update** omitting `roleType`:
+
+```json
+{ "displayName": "Sensor Engine Room" }
+```
+
+The firmware distinguishes this from a role config update by the absence of `roleType`. Response on **Config Response**:
+
+```json
+{ "status": "ok" }
+```
+
+```json
+{ "status": "error", "message": "displayName exceeds 64 characters" }
+```
+
+After a successful update, the **Device Info** characteristic sends a NOTIFY with the full updated JSON so connected clients stay in sync without re-reading.
+
+Constraints:
+- Maximum 64 UTF-8 characters
+- Write an empty string to clear: `{ "displayName": "" }`
+- Persisted in device flash; survives power cycles
+- Cleared by factory reset
 
 ### Creating or Updating a Role
 

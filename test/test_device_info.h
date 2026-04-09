@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ArduinoJson.h>
 #include <unity.h>
 
 #include "DeviceInfo.h"
@@ -70,8 +71,8 @@ void test_device_info_regenerates_invalid_id() {
     TEST_ASSERT_TRUE(platform.wasSaveDeviceIdCalled());
 }
 
-// Tests that buildDeviceInfo produces correct 20-byte format
-void test_device_info_build_device_info_format() {
+// Tests that buildDeviceInfoJson produces correct JSON fields
+void test_device_info_build_device_info_json_format() {
     MockPlatform platform;
     MockNmea2000Service nmea;
     platform.setStoredDeviceId("DEVICE");
@@ -80,38 +81,33 @@ void test_device_info_build_device_info_format() {
 
     DeviceInfo info(platform, nmea);
 
-    uint8_t buffer[20];
-    info.buildDeviceInfo(buffer);
+    std::string json = info.buildDeviceInfoJson("My Sensor");
 
-    // Device ID (bytes 0-5)
-    TEST_ASSERT_EQUAL_UINT8('D', buffer[0]);
-    TEST_ASSERT_EQUAL_UINT8('E', buffer[1]);
-    TEST_ASSERT_EQUAL_UINT8('V', buffer[2]);
-    TEST_ASSERT_EQUAL_UINT8('I', buffer[3]);
-    TEST_ASSERT_EQUAL_UINT8('C', buffer[4]);
-    TEST_ASSERT_EQUAL_UINT8('E', buffer[5]);
+    StaticJsonDocument<256> doc;
+    TEST_ASSERT_EQUAL(DeserializationError::Ok,
+                      deserializeJson(doc, json));
 
-    // MAC address (bytes 6-11)
-    TEST_ASSERT_EQUAL_UINT8(0x11, buffer[6]);
-    TEST_ASSERT_EQUAL_UINT8(0x22, buffer[7]);
-    TEST_ASSERT_EQUAL_UINT8(0x33, buffer[8]);
-    TEST_ASSERT_EQUAL_UINT8(0x44, buffer[9]);
-    TEST_ASSERT_EQUAL_UINT8(0x55, buffer[10]);
-    TEST_ASSERT_EQUAL_UINT8(0x66, buffer[11]);
+    TEST_ASSERT_EQUAL_STRING("DEVICE", doc["id"] | "");
+    TEST_ASSERT_EQUAL_STRING("11:22:33:44:55:66", doc["mac"] | "");
+    TEST_ASSERT_EQUAL_INT(22, doc["nmea"] | -1);
+    TEST_ASSERT_EQUAL_STRING("0.1.0", doc["fw"] | "");
+    TEST_ASSERT_EQUAL_STRING("My Sensor", doc["displayName"] | "");
+}
 
-    // NMEA address (byte 12)
-    TEST_ASSERT_EQUAL_UINT8(22, buffer[12]);
+// Tests that buildDeviceInfoJson includes empty displayName when not set
+void test_device_info_build_device_info_json_empty_display_name() {
+    MockPlatform platform;
+    MockNmea2000Service nmea;
+    platform.setStoredDeviceId("DEVICE");
 
-    // Firmware version (bytes 13-15)
-    TEST_ASSERT_EQUAL_UINT8(0, buffer[13]);  // major
-    TEST_ASSERT_EQUAL_UINT8(1, buffer[14]);  // minor
-    TEST_ASSERT_EQUAL_UINT8(0, buffer[15]);  // patch
+    DeviceInfo info(platform, nmea);
 
-    // Reserved (bytes 16-19)
-    TEST_ASSERT_EQUAL_UINT8(0, buffer[16]);
-    TEST_ASSERT_EQUAL_UINT8(0, buffer[17]);
-    TEST_ASSERT_EQUAL_UINT8(0, buffer[18]);
-    TEST_ASSERT_EQUAL_UINT8(0, buffer[19]);
+    std::string json = info.buildDeviceInfoJson("");
+
+    StaticJsonDocument<256> doc;
+    deserializeJson(doc, json);
+
+    TEST_ASSERT_EQUAL_STRING("", doc["displayName"] | "unset");
 }
 
 // Tests that buildDeviceStatus produces correct 18-byte format
@@ -229,7 +225,7 @@ void test_device_info_id_deterministic() {
                              info2.getDeviceId().c_str());
 }
 
-// Tests that buildDeviceInfo uses NMEA address from injected service
+// Tests that buildDeviceInfoJson uses NMEA address from injected service
 void test_device_info_nmea_address_from_service() {
     MockPlatform platform;
     MockNmea2000Service nmea;
@@ -238,8 +234,9 @@ void test_device_info_nmea_address_from_service() {
     nmea.address = 42;
     DeviceInfo info(platform, nmea);
 
-    uint8_t buffer[20];
-    info.buildDeviceInfo(buffer);
+    std::string json = info.buildDeviceInfoJson("");
+    StaticJsonDocument<256> doc;
+    deserializeJson(doc, json);
 
-    TEST_ASSERT_EQUAL_UINT8(42, buffer[12]);
+    TEST_ASSERT_EQUAL_INT(42, doc["nmea"] | -1);
 }
