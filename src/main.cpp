@@ -34,6 +34,8 @@ DeviceInfo deviceInfo(platform, nmea);
 BluetoothService bluetooth(&roleManager, &deviceInfo);
 
 extern "C" void app_main() {
+    platform.installIdleHook();
+
     if (!fileSystem.begin()) {
         ESP_LOGE(TAG, "LittleFS mount failed");
     }

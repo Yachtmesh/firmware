@@ -21,10 +21,13 @@ class DeviceInfo {
     // displayName is passed in by the caller (owned by BluetoothService).
     std::string buildDeviceInfoJson(const std::string& displayName);
 
-    // Build 9-byte device status binary format:
+    // Build 18-byte device status binary format:
     // [0]     Sequence number (1 byte, auto-increments)
-    // [1-4]   CPU temperature (4 bytes, float32)
-    // [5-8]   Uptime in seconds (4 bytes, uint32)
+    // [1-4]   CPU temperature (4 bytes, float32 LE, °C)
+    // [5-8]   Uptime in seconds (4 bytes, uint32 LE)
+    // [9-12]  Free heap bytes (4 bytes, uint32 LE)
+    // [13-16] Min free heap bytes ever (4 bytes, uint32 LE)
+    // [17]    CPU load % (1 byte, 0-100, approximate)
     void buildDeviceStatus(uint8_t* buffer);
 
     // Get current CPU temperature
