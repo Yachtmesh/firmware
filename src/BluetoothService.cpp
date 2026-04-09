@@ -311,7 +311,7 @@ bool BluetoothService::isClientAuthenticated(uint16_t connHandle) const {
 }
 
 void BluetoothService::updateStatus() {
-    if (!pServer_ || pServer_->getConnectedCount() == 0) {
+    if (!pServer_ || !hasAuthenticatedClient()) {
         return;
     }
 
@@ -330,7 +330,7 @@ void BluetoothService::updateStatus() {
         pStatusChar_->notify();
     }
 
-    // Roles: notify only when content has changed
+    // Roles: notify only when content has changed and client is authenticated
     if (roleManager_) {
         std::string rolesJson = buildRolesJson();
         if (rolesJson != lastRolesJson_) {
