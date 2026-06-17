@@ -22,11 +22,6 @@ class MsgBridge : public tNMEA2000::tMsgHandler {
         : tNMEA2000::tMsgHandler(0, &NMEA2000), listeners_(listeners) {}
 
     void HandleMsg(const tN2kMsg& msg) override {
-        if (!listeners_.empty()) {
-            ESP_LOGI(TAG, "RX PGN=%lu src=%u dst=%u len=%d listeners=%d",
-                     msg.PGN, msg.Source, msg.Destination, msg.DataLen,
-                     (int)listeners_.size());
-        }
         for (auto* listener : listeners_) {
             listener->onN2kMessage(msg.PGN, msg.Priority, msg.Source, msg.Data,
                                    msg.DataLen);
