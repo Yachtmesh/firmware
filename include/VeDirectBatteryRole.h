@@ -9,6 +9,13 @@
 
 struct VeDirectBatteryConfig : public RoleConfig {
     uint8_t inst = 0;
+    uint8_t rxPin = 0;
+    uint8_t txPin = 0;
+
+    VeDirectBatteryConfig() = default;
+    explicit VeDirectBatteryConfig(uint8_t inst) : inst(inst) {}
+    VeDirectBatteryConfig(uint8_t inst, uint8_t rxPin, uint8_t txPin)
+        : inst(inst), rxPin(rxPin), txPin(txPin) {}
 
     void toJson(JsonDocument& doc) const;
 };

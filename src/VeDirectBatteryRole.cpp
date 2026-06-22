@@ -87,7 +87,9 @@ void VeDirectBatteryRole::sendBatteryMetric(const VeDirectFrame& frame) {
 
 bool VeDirectBatteryRole::configureFromJson(const JsonDocument& doc) {
     VeDirectBatteryConfig newConfig;
-    newConfig.inst = doc["inst"] | (uint8_t)0;
+    newConfig.inst  = doc["inst"]  | (uint8_t)0;
+    newConfig.rxPin = doc["rxPin"] | (uint8_t)0;
+    newConfig.txPin = doc["txPin"] | (uint8_t)0;
     configure(newConfig);
     return validate();
 }
@@ -95,6 +97,8 @@ bool VeDirectBatteryRole::configureFromJson(const JsonDocument& doc) {
 void VeDirectBatteryRole::getConfigJson(JsonDocument& doc) { config.toJson(doc); }
 
 void VeDirectBatteryConfig::toJson(JsonDocument& doc) const {
-    doc["type"] = "VeDirectBattery";
-    doc["inst"] = inst;
+    doc["type"]  = "VeDirectBattery";
+    doc["inst"]  = inst;
+    doc["rxPin"] = rxPin;
+    doc["txPin"] = txPin;
 }

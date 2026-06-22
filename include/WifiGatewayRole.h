@@ -12,7 +12,7 @@
 struct WifiGatewayConfig : public RoleConfig {
     char ssid[33] = {0};
     char password[65] = {0};
-    uint16_t port = 10111;
+    uint16_t port = 10110;
 
     void toJson(JsonDocument& doc) const override;
 };

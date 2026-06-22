@@ -84,8 +84,7 @@ void test_device_info_build_device_info_json_format() {
     std::string json = info.buildDeviceInfoJson("My Sensor");
 
     StaticJsonDocument<256> doc;
-    TEST_ASSERT_EQUAL(DeserializationError::Ok,
-                      deserializeJson(doc, json));
+    TEST_ASSERT_FALSE(deserializeJson(doc, json));
 
     TEST_ASSERT_EQUAL_STRING("DEVICE", doc["id"] | "");
     TEST_ASSERT_EQUAL_STRING("11:22:33:44:55:66", doc["mac"] | "");
@@ -165,7 +164,7 @@ void test_device_info_status_sequence_increments() {
 
     DeviceInfo info(platform, nmea);
 
-    uint8_t buffer[9];
+    uint8_t buffer[DeviceInfo::STATUS_SIZE];
 
     info.buildDeviceStatus(buffer);
     TEST_ASSERT_EQUAL_UINT8(0, buffer[0]);
