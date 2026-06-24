@@ -87,7 +87,6 @@ ApplyConfigResult RoleManager::applyRoleConfig(const JsonDocument& doc,
         return result;
     }
 
-    Role* rolePtr = role.get();
     roles_.push_back(std::move(role));
     cacheValid_ = false;
 

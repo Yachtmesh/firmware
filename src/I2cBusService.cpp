@@ -7,14 +7,13 @@
 static const char* TAG = "I2cBus";
 
 Esp32I2cBus::Esp32I2cBus(int sdaPin, int sclPin, i2c_port_t port) {
-    i2c_master_bus_config_t config = {
-        .i2c_port = port,
-        .sda_io_num = (gpio_num_t)sdaPin,
-        .scl_io_num = (gpio_num_t)sclPin,
-        .clk_source = I2C_CLK_SRC_DEFAULT,
-        .glitch_ignore_cnt = 7,
-        .flags = {.enable_internal_pullup = true},
-    };
+    i2c_master_bus_config_t config = {};
+    config.i2c_port = port;
+    config.sda_io_num = (gpio_num_t)sdaPin;
+    config.scl_io_num = (gpio_num_t)sclPin;
+    config.clk_source = I2C_CLK_SRC_DEFAULT;
+    config.glitch_ignore_cnt = 7;
+    config.flags.enable_internal_pullup = true;
     esp_err_t err = i2c_new_master_bus(&config, &busHandle_);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to create I2C bus: %s", esp_err_to_name(err));
@@ -33,11 +32,10 @@ i2c_master_dev_handle_t Esp32I2cBus::getOrAddDevice(uint8_t addr) {
     if (it != devices_.end()) {
         return it->second;
     }
-    i2c_device_config_t dev_config = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = addr,
-        .scl_speed_hz = 400000,
-    };
+    i2c_device_config_t dev_config = {};
+    dev_config.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    dev_config.device_address = addr;
+    dev_config.scl_speed_hz = 400000;
     i2c_master_dev_handle_t dev;
     esp_err_t err = i2c_master_bus_add_device(busHandle_, &dev_config, &dev);
     if (err != ESP_OK) {

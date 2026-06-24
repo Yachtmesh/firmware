@@ -10,14 +10,13 @@ SerialSensorService::SerialSensorService(uart_port_t port, int rxPin, int txPin)
     : port_(port), rxPin_(rxPin), txPin_(txPin) {}
 
 void SerialSensorService::begin(int baudRate) {
-    uart_config_t config = {
-        .baud_rate = baudRate,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-        .source_clk = UART_SCLK_DEFAULT,
-    };
+    uart_config_t config = {};
+    config.baud_rate = baudRate;
+    config.data_bits = UART_DATA_8_BITS;
+    config.parity = UART_PARITY_DISABLE;
+    config.stop_bits = UART_STOP_BITS_1;
+    config.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+    config.source_clk = UART_SCLK_DEFAULT;
     uart_param_config(port_, &config);
     uart_set_pin(port_, txPin_, rxPin_, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     uart_driver_install(port_, RX_BUF_SIZE * 2, 0, 0, nullptr, 0);
