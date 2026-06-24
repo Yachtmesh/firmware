@@ -221,7 +221,7 @@ Config fields:
 
 ### `WifiGateway`
 
-Bridges NMEA 2000 bus traffic to TCP clients in Actisense format.
+Bridges NMEA 2000 bus traffic to clients in Actisense binary format.
 
 Config fields:
 
@@ -229,11 +229,21 @@ Config fields:
 |-------|------|----------|-------|
 | `ssid` | string | Yes | Wi-Fi network SSID |
 | `password` | string | Yes | Wi-Fi network password |
-| `port` | uint16 | Yes | TCP listen port (default 10110) |
+| `port` | uint16 | Yes | Port number (default 10110) |
+| `protocol` | string | No | Transport: `"tcp"` (default) or `"udp"`. UDP sends broadcast datagrams to 255.255.255.255 on the configured port. |
 
 ### `WifiGateway0183`
 
-Same config as `WifiGateway`. Bridges NMEA 0183 sentences instead of Actisense binary.
+Bridges NMEA 2000 bus traffic to clients as NMEA 0183 sentences.
+
+Config fields:
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `ssid` | string | Yes | Wi-Fi network SSID |
+| `password` | string | Yes | Wi-Fi network password |
+| `port` | uint16 | Yes | Port number (default 10110) |
+| `protocol` | string | No | Transport: `"tcp"` (default) or `"udp"`. UDP sends broadcast datagrams to 255.255.255.255 on the configured port. |
 
 ### `AisSimulator`
 

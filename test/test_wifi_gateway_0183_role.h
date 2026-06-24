@@ -315,3 +315,110 @@ void test_wifi_gateway_0183_forwards_static_data() {
     TEST_ASSERT_EQUAL(1, tcpPtr->sentData.size());
     TEST_ASSERT_TRUE(tcpPtr->sentData[0].find("!AIVDM") == 0);
 }
+
+// --- Protocol config ---
+
+void test_wifi_gateway_0183_config_default_protocol_is_tcp() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGateway0183Role role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    // No "protocol" field — should default to tcp
+    role.configureFromJson(doc);
+
+    TEST_ASSERT_EQUAL_STRING("tcp", role.config.protocol);
+}
+
+void test_wifi_gateway_0183_config_parses_tcp_protocol() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGateway0183Role role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    doc["protocol"] = "tcp";
+    role.configureFromJson(doc);
+
+    TEST_ASSERT_EQUAL_STRING("tcp", role.config.protocol);
+}
+
+void test_wifi_gateway_0183_config_parses_udp_protocol() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGateway0183Role role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    doc["protocol"] = "udp";
+    role.configureFromJson(doc);
+
+    TEST_ASSERT_EQUAL_STRING("udp", role.config.protocol);
+}
+
+void test_wifi_gateway_0183_config_json_roundtrip_includes_protocol() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGateway0183Role role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "MyBoat";
+    doc["password"] = "sailaway";
+    doc["port"] = 10110;
+    doc["protocol"] = "udp";
+    role.configureFromJson(doc);
+
+    StaticJsonDocument<256> outDoc;
+    role.getConfigJson(outDoc);
+
+    TEST_ASSERT_EQUAL_STRING("udp", outDoc["protocol"] | "");
+}
+
+void test_wifi_gateway_0183_factory_uses_tcp_by_default() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    MockPlatform platform;
+    MockCurrentSensorManager manager;
+    MockEnvironmentalSensorService envSensor;
+    MockSerialSensorService serialSensor;
+
+    RoleFactory factory(manager, nmea, wifi, platform, envSensor, serialSensor,
+                        fakeTcpCreator());
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "Net";
+    doc["password"] = "pw";
+    // No protocol — factory should use tcpCreator
+    auto role = factory.createRole("WifiGateway0183", doc);
+    TEST_ASSERT_NOT_NULL(role.get());
+}
+
+void test_wifi_gateway_0183_factory_creates_udp_transport_when_configured() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    MockPlatform platform;
+    MockCurrentSensorManager manager;
+    MockEnvironmentalSensorService envSensor;
+    MockSerialSensorService serialSensor;
+
+    RoleFactory factory(manager, nmea, wifi, platform, envSensor, serialSensor,
+                        fakeTcpCreator());
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "Net";
+    doc["password"] = "pw";
+    doc["protocol"] = "udp";
+    auto role = factory.createRole("WifiGateway0183", doc);
+    TEST_ASSERT_NOT_NULL(role.get());
+
+    auto* gateway = static_cast<WifiGateway0183Role*>(role.get());
+    TEST_ASSERT_EQUAL_STRING("udp", gateway->config.protocol);
+}

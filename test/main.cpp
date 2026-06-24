@@ -264,6 +264,12 @@ int main() {
     RUN_TEST(test_wifi_gateway_0183_forwards_ais_as_aivdm);
     RUN_TEST(test_wifi_gateway_0183_ignores_unsupported_pgn);
     RUN_TEST(test_wifi_gateway_0183_forwards_static_data);
+    RUN_TEST(test_wifi_gateway_0183_config_default_protocol_is_tcp);
+    RUN_TEST(test_wifi_gateway_0183_config_parses_tcp_protocol);
+    RUN_TEST(test_wifi_gateway_0183_config_parses_udp_protocol);
+    RUN_TEST(test_wifi_gateway_0183_config_json_roundtrip_includes_protocol);
+    RUN_TEST(test_wifi_gateway_0183_factory_uses_tcp_by_default);
+    RUN_TEST(test_wifi_gateway_0183_factory_creates_udp_transport_when_configured);
 
     // VeDirectParser tests
     RUN_TEST(test_ve_direct_parser_complete_frame_checksums_ok);

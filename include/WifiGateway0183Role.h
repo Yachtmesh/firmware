@@ -11,9 +11,10 @@
 #include "WifiService.h"
 
 struct WifiGateway0183Config : public RoleConfig {
-    char ssid[33] = {0};
+    char ssid[33]     = {0};
     char password[65] = {0};
-    uint16_t port = 10110;
+    uint16_t port     = 10110;
+    char protocol[4]  = "tcp";   // "tcp" | "udp"
 
     void toJson(JsonDocument& doc) const override;
 };

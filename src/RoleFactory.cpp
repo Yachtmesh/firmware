@@ -44,7 +44,7 @@ std::unique_ptr<Role> RoleFactory::createRole(const char* type,
                                               const JsonDocument& doc) {
     std::unique_ptr<Role> role;
 
-    // WifiGateway transport is chosen here (where JSON is available) rather
+    // WiFi gateway transport is chosen here (where JSON is available) rather
     // than inside the role, so ESP32-specific socket classes never appear in
     // native test builds.
     if (strcmp(type, "WifiGateway") == 0) {
@@ -52,6 +52,11 @@ std::unique_ptr<Role> RoleFactory::createRole(const char* type,
         bool wantUdp = (strncmp(protocol, "udp", 3) == 0);
         auto& creator = (wantUdp && udpCreator_) ? udpCreator_ : tcpCreator_;
         role = std::make_unique<WifiGatewayRole>(nmea_, wifi_, creator());
+    } else if (strcmp(type, "WifiGateway0183") == 0) {
+        const char* protocol = doc["protocol"] | "tcp";
+        bool wantUdp = (strncmp(protocol, "udp", 3) == 0);
+        auto& creator = (wantUdp && udpCreator_) ? udpCreator_ : tcpCreator_;
+        role = std::make_unique<WifiGateway0183Role>(nmea_, wifi_, creator());
     } else {
         role = createRoleInstance(type);
     }
@@ -65,16 +70,9 @@ std::unique_ptr<Role> RoleFactory::createRoleInstance(const char* type) {
     if (strcmp(type, "FluidLevel") == 0) {
         return std::make_unique<FluidLevelSensorRole>(currentSensorManager_, nmea_);
     }
-    // WifiGateway is handled in createRole (needs JSON for protocol selection).
-    if (strcmp(type, "WifiGateway") == 0) {
-        return std::make_unique<WifiGatewayRole>(nmea_, wifi_, tcpCreator_());
-    }
+    // WifiGateway and WifiGateway0183 are handled in createRole (need JSON for protocol selection).
     if (strcmp(type, "AisSimulator") == 0) {
         return std::make_unique<AisSimulatorRole>(nmea_, platform_);
-    }
-    if (strcmp(type, "WifiGateway0183") == 0) {
-        return std::make_unique<WifiGateway0183Role>(nmea_, wifi_,
-                                                     tcpCreator_());
     }
     if (strcmp(type, "WeatherStation") == 0) {
         return std::make_unique<WeatherStationRole>(envSensor_, nmea_, platform_);
