@@ -10,10 +10,11 @@ WifiGatewayRole::WifiGatewayRole(Nmea2000ServiceInterface& nmea,
     : nmea_(nmea), wifi_(wifi), tcpServer_(std::move(tcpServer)) {}
 
 void WifiGatewayConfig::toJson(JsonDocument& doc) const {
-    doc["type"] = "WifiGateway";
-    doc["ssid"] = ssid;
+    doc["type"]     = "WifiGateway";
+    doc["ssid"]     = ssid;
     doc["password"] = password;
-    doc["port"] = port;
+    doc["port"]     = port;
+    doc["protocol"] = protocol;
 }
 
 const char* WifiGatewayRole::type() {
@@ -26,14 +27,17 @@ void WifiGatewayRole::configure(const RoleConfig& cfg) {
 }
 
 bool WifiGatewayRole::configureFromJson(const JsonDocument& doc) {
-    const char* ssid = doc["ssid"] | "";
+    const char* ssid     = doc["ssid"]     | "";
     const char* password = doc["password"] | "";
-    uint16_t port = doc["port"] | uint16_t(10110);
+    const char* protocol = doc["protocol"] | "tcp";
+    uint16_t    port     = doc["port"]     | uint16_t(10110);
 
     strncpy(config.ssid, ssid, sizeof(config.ssid) - 1);
     config.ssid[sizeof(config.ssid) - 1] = '\0';
     strncpy(config.password, password, sizeof(config.password) - 1);
     config.password[sizeof(config.password) - 1] = '\0';
+    strncpy(config.protocol, protocol, sizeof(config.protocol) - 1);
+    config.protocol[sizeof(config.protocol) - 1] = '\0';
     config.port = port;
 
     return validate();

@@ -231,7 +231,8 @@ void test_ve_direct_battery_role_loop_correct_instance() {
     FakeNmea2000Service nmea;
     MockSerialSensorService serial;
     VeDirectBatteryRole role(nmea, serial);
-    VeDirectBatteryConfig cfg(/*inst=*/1);
+    VeDirectBatteryConfig cfg;
+    cfg.inst = 1;
     role.configure(cfg);
     role.start();
     enqueueFullFrame(serial);
@@ -268,14 +269,10 @@ void test_ve_direct_battery_role_configure_from_json() {
     VeDirectBatteryRole role(nmea, serial);
 
     StaticJsonDocument<128> doc;
-    doc["inst"]  = 2;
-    doc["rxPin"] = 16;
-    doc["txPin"] = 17;
+    doc["inst"] = 2;
 
     TEST_ASSERT_TRUE(role.configureFromJson(doc));
-    TEST_ASSERT_EQUAL(2,  role.config.inst);
-    TEST_ASSERT_EQUAL(16, role.config.rxPin);
-    TEST_ASSERT_EQUAL(17, role.config.txPin);
+    TEST_ASSERT_EQUAL(2, role.config.inst);
 }
 
 void test_ve_direct_battery_role_get_config_json() {
@@ -283,16 +280,15 @@ void test_ve_direct_battery_role_get_config_json() {
     MockSerialSensorService serial;
     VeDirectBatteryRole role(nmea, serial);
 
-    VeDirectBatteryConfig cfg(/*inst=*/1, /*rx=*/16, /*tx=*/17);
+    VeDirectBatteryConfig cfg;
+    cfg.inst = 1;
     role.configure(cfg);
 
     StaticJsonDocument<128> doc;
     role.getConfigJson(doc);
 
     TEST_ASSERT_EQUAL_STRING("VeDirectBattery", doc["type"]);
-    TEST_ASSERT_EQUAL(1,  doc["inst"]);
-    TEST_ASSERT_EQUAL(16, doc["rxPin"]);
-    TEST_ASSERT_EQUAL(17, doc["txPin"]);
+    TEST_ASSERT_EQUAL(1, doc["inst"]);
 }
 
 void test_ve_direct_battery_role_config_json_roundtrip() {
@@ -301,15 +297,11 @@ void test_ve_direct_battery_role_config_json_roundtrip() {
     VeDirectBatteryRole role(nmea, serial);
 
     StaticJsonDocument<128> doc;
-    doc["inst"]  = 3;
-    doc["rxPin"] = 16;
-    doc["txPin"] = 17;
+    doc["inst"] = 3;
     role.configureFromJson(doc);
 
     StaticJsonDocument<128> out;
     role.getConfigJson(out);
 
-    TEST_ASSERT_EQUAL(3,  out["inst"]);
-    TEST_ASSERT_EQUAL(16, out["rxPin"]);
-    TEST_ASSERT_EQUAL(17, out["txPin"]);
+    TEST_ASSERT_EQUAL(3, out["inst"]);
 }

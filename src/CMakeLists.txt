@@ -16,6 +16,7 @@ idf_component_register(
         "RoleManager.cpp"
         "WifiService.cpp"
         "TcpServer.cpp"
+        "UdpBroadcaster.cpp"
         "WifiGatewayRole.cpp"
         "WifiGateway0183Role.cpp"
         "ActisenseEncoder.cpp"

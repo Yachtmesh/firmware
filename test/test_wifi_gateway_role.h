@@ -10,8 +10,12 @@
 
 #include "ActisenseEncoder.h"
 #include "FluidLevelSensorRole.h"
-#include "WifiGatewayRole.h"
 #include "MockCurrentSensorManager.h"
+#include "MockEnvironmentalSensorService.h"
+#include "MockPlatform.h"
+#include "MockSerialSensorService.h"
+#include "RoleFactory.h"
+#include "WifiGatewayRole.h"
 #include "test_fluid_level_sensor_role.h"  // For FakeNmea2000Service
 
 // Mirrors WifiService ref-counting: multiple roles can connect/disconnect
@@ -564,6 +568,115 @@ void test_wifi_gateway_status_json_ip_empty_when_disconnected() {
     role.getStatusJson(statusDoc);
 
     TEST_ASSERT_EQUAL_STRING("", statusDoc["ip"] | "");
+}
+
+// --- Protocol config ---
+
+void test_wifi_gateway_config_default_protocol_is_tcp() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    // No "protocol" field — should default to tcp
+    role.configureFromJson(doc);
+
+    TEST_ASSERT_EQUAL_STRING("tcp", role.config.protocol);
+}
+
+void test_wifi_gateway_config_parses_tcp_protocol() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    doc["protocol"] = "tcp";
+    role.configureFromJson(doc);
+
+    TEST_ASSERT_EQUAL_STRING("tcp", role.config.protocol);
+}
+
+void test_wifi_gateway_config_parses_udp_protocol() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "TestNet";
+    doc["password"] = "pass";
+    doc["protocol"] = "udp";
+    role.configureFromJson(doc);
+
+    TEST_ASSERT_EQUAL_STRING("udp", role.config.protocol);
+}
+
+void test_wifi_gateway_config_json_roundtrip_includes_protocol() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    auto [tcp, tcpPtr] = makeFakeTcp();
+    WifiGatewayRole role(nmea, wifi, std::move(tcp));
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "MyBoat";
+    doc["password"] = "sailaway";
+    doc["port"] = 10110;
+    doc["protocol"] = "udp";
+    role.configureFromJson(doc);
+
+    StaticJsonDocument<256> outDoc;
+    role.getConfigJson(outDoc);
+
+    TEST_ASSERT_EQUAL_STRING("udp", outDoc["protocol"] | "");
+}
+
+void test_wifi_gateway_factory_uses_tcp_by_default() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    MockPlatform platform;
+    MockCurrentSensorManager manager;
+    MockEnvironmentalSensorService envSensor;
+    MockSerialSensorService serialSensor;
+
+    // fakeTcpCreator produces FakeTcpServer for both tcp and udp in tests.
+    RoleFactory factory(manager, nmea, wifi, platform, envSensor, serialSensor,
+                        fakeTcpCreator());
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "Net";
+    doc["password"] = "pw";
+    // No protocol field — factory should fall back to TCP creator.
+
+    auto role = factory.createRole("WifiGateway", doc);
+    TEST_ASSERT_NOT_NULL(role.get());
+    TEST_ASSERT_EQUAL_STRING("tcp", static_cast<WifiGatewayRole*>(role.get())->config.protocol);
+}
+
+void test_wifi_gateway_factory_uses_udp_when_configured() {
+    FakeNmea2000Service nmea;
+    FakeWifiService wifi;
+    MockPlatform platform;
+    MockCurrentSensorManager manager;
+    MockEnvironmentalSensorService envSensor;
+    MockSerialSensorService serialSensor;
+
+    RoleFactory factory(manager, nmea, wifi, platform, envSensor, serialSensor,
+                        fakeTcpCreator());
+
+    StaticJsonDocument<256> doc;
+    doc["ssid"] = "Net";
+    doc["password"] = "pw";
+    doc["protocol"] = "udp";
+
+    auto role = factory.createRole("WifiGateway", doc);
+    TEST_ASSERT_NOT_NULL(role.get());
+    TEST_ASSERT_EQUAL_STRING("udp", static_cast<WifiGatewayRole*>(role.get())->config.protocol);
 }
 
 // --- Integration: local echo from sensor to gateway ---

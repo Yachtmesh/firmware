@@ -37,4 +37,5 @@ class RoleFactory {
     EnvironmentalSensorInterface& envSensor_;
     SerialSensorInterface& serialSensor_;
     TcpServerCreator tcpCreator_;
+    TcpServerCreator udpCreator_;
 };

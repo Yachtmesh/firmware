@@ -182,6 +182,12 @@ int main() {
     RUN_TEST(test_wifi_gateway_status_json_includes_ip_when_connected);
     RUN_TEST(test_wifi_gateway_status_json_ip_empty_when_disconnected);
     RUN_TEST(test_wifi_gateway_receives_local_sensor_data);
+    RUN_TEST(test_wifi_gateway_config_default_protocol_is_tcp);
+    RUN_TEST(test_wifi_gateway_config_parses_tcp_protocol);
+    RUN_TEST(test_wifi_gateway_config_parses_udp_protocol);
+    RUN_TEST(test_wifi_gateway_config_json_roundtrip_includes_protocol);
+    RUN_TEST(test_wifi_gateway_factory_uses_tcp_by_default);
+    RUN_TEST(test_wifi_gateway_factory_uses_udp_when_configured);
 
     // AIS N2K encoder tests (PGN 129039)
     RUN_TEST(test_pgn129039_returns_correct_size);

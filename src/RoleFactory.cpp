@@ -6,17 +6,22 @@
 #include "FluidLevelSensorRole.h"
 #include "VeDirectBatteryRole.h"
 #include "WeatherStationRole.h"
+#include "UdpBroadcaster.h"
 #include "WifiGateway0183Role.h"
 #include "WifiGatewayRole.h"
 
-// On ESP32, provide a default TcpServerCreator that builds real TcpServer
-// instances. In native tests, callers pass their own creator to inject fakes.
+// On ESP32, provide default creators for TCP and UDP transports.
+// In native tests, callers pass their own creator (tcpCreator) to inject fakes.
 #ifdef ESP32
 static TcpServerCreator defaultTcpCreator() {
     return []() { return std::make_unique<TcpServer>(); };
 }
+static TcpServerCreator defaultUdpCreator() {
+    return []() { return std::make_unique<UdpBroadcaster>(); };
+}
 #else
 static TcpServerCreator defaultTcpCreator() { return nullptr; }
+static TcpServerCreator defaultUdpCreator() { return nullptr; }
 #endif
 
 RoleFactory::RoleFactory(CurrentSensorManagerInterface& currentSensorManager,
@@ -32,15 +37,26 @@ RoleFactory::RoleFactory(CurrentSensorManagerInterface& currentSensorManager,
       platform_(platform),
       envSensor_(envSensor),
       serialSensor_(serialSensor),
-      tcpCreator_(tcpCreator ? std::move(tcpCreator) : defaultTcpCreator()) {}
+      tcpCreator_(tcpCreator ? std::move(tcpCreator) : defaultTcpCreator()),
+    udpCreator_(defaultUdpCreator()) {}
 
 std::unique_ptr<Role> RoleFactory::createRole(const char* type,
                                               const JsonDocument& doc) {
-    auto role = createRoleInstance(type);
-    if (!role) {
-        return nullptr;
+    std::unique_ptr<Role> role;
+
+    // WifiGateway transport is chosen here (where JSON is available) rather
+    // than inside the role, so ESP32-specific socket classes never appear in
+    // native test builds.
+    if (strcmp(type, "WifiGateway") == 0) {
+        const char* protocol = doc["protocol"] | "tcp";
+        bool wantUdp = (strncmp(protocol, "udp", 3) == 0);
+        auto& creator = (wantUdp && udpCreator_) ? udpCreator_ : tcpCreator_;
+        role = std::make_unique<WifiGatewayRole>(nmea_, wifi_, creator());
+    } else {
+        role = createRoleInstance(type);
     }
 
+    if (!role) return nullptr;
     role->configureFromJson(doc);
     return role;
 }
@@ -49,6 +65,7 @@ std::unique_ptr<Role> RoleFactory::createRoleInstance(const char* type) {
     if (strcmp(type, "FluidLevel") == 0) {
         return std::make_unique<FluidLevelSensorRole>(currentSensorManager_, nmea_);
     }
+    // WifiGateway is handled in createRole (needs JSON for protocol selection).
     if (strcmp(type, "WifiGateway") == 0) {
         return std::make_unique<WifiGatewayRole>(nmea_, wifi_, tcpCreator_());
     }
