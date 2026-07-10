@@ -78,6 +78,7 @@ void test_device_info_build_device_info_json_format() {
     platform.setStoredDeviceId("DEVICE");
     uint8_t mac[] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
     platform.setMacAddress(mac);
+    platform.setFirmwareVersion("v1.4.0");
 
     DeviceInfo info(platform, nmea);
 
@@ -89,7 +90,7 @@ void test_device_info_build_device_info_json_format() {
     TEST_ASSERT_EQUAL_STRING("DEVICE", doc["id"] | "");
     TEST_ASSERT_EQUAL_STRING("11:22:33:44:55:66", doc["mac"] | "");
     TEST_ASSERT_EQUAL_INT(22, doc["nmea"] | -1);
-    TEST_ASSERT_EQUAL_STRING("0.1.0", doc["fw"] | "");
+    TEST_ASSERT_EQUAL_STRING("v1.4.0", doc["fw"] | "");
     TEST_ASSERT_EQUAL_STRING("My Sensor", doc["displayName"] | "");
 }
 

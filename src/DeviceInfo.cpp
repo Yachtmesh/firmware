@@ -67,10 +67,7 @@ std::string DeviceInfo::buildDeviceInfoJson(const std::string& displayName) {
 
     doc["nmea"] = nmea_.getAddress();
 
-    char fwStr[12];
-    snprintf(fwStr, sizeof(fwStr), "%d.%d.%d",
-             FW_VERSION_MAJOR, FW_VERSION_MINOR, FW_VERSION_PATCH);
-    doc["fw"] = fwStr;
+    doc["fw"] = platform_.getFirmwareVersion();
 
     doc["displayName"] = displayName;
 

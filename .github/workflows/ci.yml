@@ -40,6 +40,10 @@ jobs:
         env: [esp32dev, esp32s3]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history + tags so ESP-IDF's `git describe` can derive
+          # PROJECT_VER (embedded firmware version) correctly.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
