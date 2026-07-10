@@ -5,7 +5,6 @@
 #include <esp_app_desc.h>
 #include <esp_log.h>
 #include <esp_mac.h>
-#include <esp_ota_ops.h>
 #include <esp_timer.h>
 
 #include <algorithm>
@@ -68,7 +67,7 @@ static uint32_t generateUniqueNumber() {
 // begin(): actually start hardware (Serial, CAN bus)
 void Nmea2000Service::start() {
     // Set Product information
-    const esp_app_desc_t* appDesc = esp_ota_get_app_description();
+    const esp_app_desc_t* appDesc = esp_app_get_description();
     NMEA2000.SetProductInformation(
         "1",                                      // Manufacturer's Model serial code
         100,                                       // Manufacturer's product code

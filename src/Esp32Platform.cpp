@@ -3,7 +3,6 @@
 #include <esp_app_desc.h>
 #include <esp_heap_caps.h>
 #include <esp_mac.h>
-#include <esp_ota_ops.h>
 #include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -149,6 +148,6 @@ uint8_t Esp32Platform::getCpuLoad() {
 // project.cmake via `git describe` on tagged releases, e.g. "v1.4.0").
 
 std::string Esp32Platform::getFirmwareVersion() {
-    const esp_app_desc_t* desc = esp_ota_get_app_description();
+    const esp_app_desc_t* desc = esp_app_get_description();
     return desc ? std::string(desc->version) : std::string("unknown");
 }
