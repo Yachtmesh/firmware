@@ -27,6 +27,8 @@ idf_component_register(
         "WeatherStationRole.cpp"
         "VeDirectParser.cpp"
         "VeDirectBatteryRole.cpp"
+        "OtaService.cpp"
+        "OtaManager.cpp"
     INCLUDE_DIRS
         "../include"
     REQUIRES
@@ -40,4 +42,8 @@ idf_component_register(
         arduinojson
         NMEA2000
         NMEA2000_twai
+        esp_https_ota
+        esp_http_client
+        app_update
+        mbedtls
     )
