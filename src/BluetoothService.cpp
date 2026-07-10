@@ -13,11 +13,20 @@
 static const char* TAG = "ble";
 
 BluetoothService::BluetoothService(RoleManager* roleManager,
-                                   DeviceInfo* deviceInfo)
-    : roleManager_(roleManager), deviceInfo_(deviceInfo) {}
+                                   DeviceInfo* deviceInfo,
+                                   OtaManager* otaManager)
+    : roleManager_(roleManager),
+      deviceInfo_(deviceInfo),
+      otaManager_(otaManager) {}
 
 void BluetoothService::start() {
     displayName_ = loadDisplayName();
+
+    if (otaManager_) {
+        std::string ssid, password;
+        loadOtaWifiCredentials(ssid, password);
+        otaManager_->setWifiCredentials(ssid, password);
+    }
 
     if (deviceInfo_) {
         deviceInfo_->start();
@@ -86,6 +95,23 @@ void BluetoothService::start() {
                                                       NIMBLE_PROPERTY::WRITE);
     pRoleDeleteChar_->setCallbacks(this);
 
+    // Wi-Fi credentials characteristic - write only (requires auth)
+    // Device-level Wi-Fi used only for OTA downloads — separate from any
+    // WifiGateway-type role's own ssid/password config.
+    pWifiCredsChar_ = pService->createCharacteristic(WIFI_CREDS_CHAR_UUID,
+                                                      NIMBLE_PROPERTY::WRITE);
+    pWifiCredsChar_->setCallbacks(this);
+
+    // OTA control characteristic - write only (requires auth)
+    pOtaControlChar_ = pService->createCharacteristic(OTA_CONTROL_CHAR_UUID,
+                                                       NIMBLE_PROPERTY::WRITE);
+    pOtaControlChar_->setCallbacks(this);
+
+    // OTA status characteristic - read + notify (requires auth)
+    pOtaStatusChar_ = pService->createCharacteristic(
+        OTA_STATUS_CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+    pOtaStatusChar_->setCallbacks(this);
+
     pService->start();
 
     NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
@@ -109,6 +135,87 @@ void BluetoothService::stop() {
 void BluetoothService::loop() {
     updateStatus();
 
+    // OTA processing — independent of RoleManager, so it runs even when no
+    // roles are configured.
+    if (otaManager_) {
+        if (!pendingWifiCreds_.empty()) {
+            std::string payload = std::move(pendingWifiCreds_);
+            uint16_t connHandle = pendingWifiCredsConnHandle_;
+            pendingWifiCredsConnHandle_ = 0;
+
+            StaticJsonDocument<128> ack;
+            StaticJsonDocument<128> doc;
+            if (deserializeJson(doc, payload)) {
+                ESP_LOGW(TAG, "BLE Wi-Fi credentials update failed: invalid JSON");
+                ack["status"] = "error";
+                ack["message"] = "invalid JSON";
+            } else {
+                std::string ssid = doc["ssid"] | "";
+                std::string password = doc["password"] | "";
+                if (ssid.empty()) {
+                    ack["status"] = "error";
+                    ack["message"] = "ssid required";
+                } else if (ssid.length() > WIFI_SSID_MAX_LEN ||
+                          password.length() > WIFI_PASSWORD_MAX_LEN) {
+                    ack["status"] = "error";
+                    ack["message"] = "ssid or password too long";
+                } else {
+                    saveOtaWifiCredentials(ssid, password);
+                    otaManager_->setWifiCredentials(ssid, password);
+                    ESP_LOGI(TAG, "BLE OTA Wi-Fi credentials updated");
+                    ack["status"] = "ok";
+                }
+            }
+
+            std::string ackJson;
+            serializeJson(ack, ackJson);
+            pConfigResponseChar_->setValue(ackJson);
+            pConfigResponseChar_->notify(connHandle);
+        }
+
+        if (!pendingOtaCommand_.empty()) {
+            std::string payload = std::move(pendingOtaCommand_);
+            uint16_t connHandle = pendingOtaConnHandle_;
+            pendingOtaConnHandle_ = 0;
+
+            StaticJsonDocument<128> ack;
+            StaticJsonDocument<512> doc;
+            if (deserializeJson(doc, payload)) {
+                ESP_LOGW(TAG, "BLE OTA command failed: invalid JSON");
+                ack["status"] = "error";
+                ack["message"] = "invalid JSON";
+            } else {
+                OtaCommandResult result = otaManager_->handleCommand(doc);
+                ack["status"] = result.success ? "ok" : "error";
+                if (!result.success) {
+                    ESP_LOGW(TAG, "BLE OTA command rejected: %s",
+                             result.message.c_str());
+                    ack["message"] = result.message;
+                } else {
+                    ESP_LOGI(TAG, "BLE OTA command accepted");
+                }
+            }
+
+            std::string ackJson;
+            serializeJson(ack, ackJson);
+            pConfigResponseChar_->setValue(ackJson);
+            pConfigResponseChar_->notify(connHandle);
+        }
+
+        otaManager_->loop();
+
+        if (otaManager_->statusChanged()) {
+            std::string statusJson = otaManager_->buildStatusJson();
+            pOtaStatusChar_->setValue(statusJson);
+            pOtaStatusChar_->notify();
+        }
+
+        if (otaManager_->shouldReboot()) {
+            ESP_LOGI(TAG, "BLE OTA update succeeded — rebooting");
+            otaManager_->reboot();
+        }
+    }
+
     if (!roleManager_) {
         return;
     }
@@ -118,6 +225,13 @@ void BluetoothService::loop() {
         roleManager_->factoryReset();
         displayName_ = "";
         saveDisplayName("");
+        if (otaManager_) {
+            StaticJsonDocument<32> cancelDoc;
+            cancelDoc["action"] = "cancel";
+            otaManager_->handleCommand(cancelDoc);
+            otaManager_->setWifiCredentials("", "");
+        }
+        saveOtaWifiCredentials("", "");
         ESP_LOGI(TAG, "BLE factory reset initiated");
     }
 
@@ -232,6 +346,20 @@ void BluetoothService::onWrite(NimBLECharacteristic* pCharacteristic,
         return;
     }
 
+    if (pCharacteristic == pWifiCredsChar_) {
+        pendingWifiCreds_ = pCharacteristic->getValue();
+        pendingWifiCredsConnHandle_ = connHandle;
+        ESP_LOGI(TAG, "BLE Wi-Fi credentials payload received");
+        return;
+    }
+
+    if (pCharacteristic == pOtaControlChar_) {
+        pendingOtaCommand_ = pCharacteristic->getValue();
+        pendingOtaConnHandle_ = connHandle;
+        ESP_LOGI(TAG, "BLE OTA control payload received");
+        return;
+    }
+
     if (!roleManager_) {
         ESP_LOGW(TAG, "BLE write rejected: no role manager");
         return;
@@ -272,7 +400,7 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
         return;
     }
 
-    // Device info, status, and roles require authentication
+    // Device info, status, roles, and OTA status require authentication
     if (!authenticated) {
         if (pCharacteristic == pDeviceInfoChar_) {
             pCharacteristic->setValue("{}");
@@ -281,6 +409,8 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
             pCharacteristic->setValue(empty, sizeof(empty));
         } else if (pCharacteristic == pRolesChar_) {
             pCharacteristic->setValue("[]");
+        } else if (pCharacteristic == pOtaStatusChar_) {
+            pCharacteristic->setValue("{}");
         }
         return;
     }
@@ -301,6 +431,9 @@ void BluetoothService::onRead(NimBLECharacteristic* pCharacteristic,
         pCharacteristic->setValue(buffer, sizeof(buffer));
     } else if (pCharacteristic == pRolesChar_) {
         std::string json = buildRolesJson();
+        pCharacteristic->setValue(json);
+    } else if (pCharacteristic == pOtaStatusChar_) {
+        std::string json = otaManager_ ? otaManager_->buildStatusJson() : "{}";
         pCharacteristic->setValue(json);
     }
 }
@@ -381,6 +514,52 @@ void BluetoothService::saveDisplayName(const std::string& name) {
         return;
     }
     nvs_set_str(handle, NVS_DISPLAY_NAME_KEY, name.c_str());
+    nvs_commit(handle);
+    nvs_close(handle);
+}
+
+void BluetoothService::loadOtaWifiCredentials(std::string& ssid,
+                                              std::string& password) {
+    ssid.clear();
+    password.clear();
+
+    nvs_handle_t handle;
+    if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &handle) != ESP_OK) {
+        return;
+    }
+
+    size_t size = 0;
+    if (nvs_get_str(handle, NVS_OTA_WIFI_SSID_KEY, nullptr, &size) == ESP_OK &&
+        size > 0) {
+        char* buf = new char[size];
+        if (nvs_get_str(handle, NVS_OTA_WIFI_SSID_KEY, buf, &size) == ESP_OK) {
+            ssid = buf;
+        }
+        delete[] buf;
+    }
+
+    size = 0;
+    if (nvs_get_str(handle, NVS_OTA_WIFI_PASS_KEY, nullptr, &size) == ESP_OK &&
+        size > 0) {
+        char* buf = new char[size];
+        if (nvs_get_str(handle, NVS_OTA_WIFI_PASS_KEY, buf, &size) == ESP_OK) {
+            password = buf;
+        }
+        delete[] buf;
+    }
+
+    nvs_close(handle);
+}
+
+void BluetoothService::saveOtaWifiCredentials(const std::string& ssid,
+                                              const std::string& password) {
+    nvs_handle_t handle;
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open NVS for writing OTA Wi-Fi credentials");
+        return;
+    }
+    nvs_set_str(handle, NVS_OTA_WIFI_SSID_KEY, ssid.c_str());
+    nvs_set_str(handle, NVS_OTA_WIFI_PASS_KEY, password.c_str());
     nvs_commit(handle);
     nvs_close(handle);
 }
