@@ -50,6 +50,20 @@ static void bmeLoadTemperatureData(MockI2cBus& bus) {
     bus.setRegisterBytes(BME_ADDR, BME_REG_DATA, data, 8);
 }
 
+// Realistic humidity calibration: dig_H1=75, dig_H2=371, dig_H3=0, dig_H4=461, dig_H5=50, dig_H6=30
+static void bmeLoadHumidityCalibration(MockI2cBus& bus) {
+    bus.setRegisterByte(BME_ADDR, 0xA1, 75);
+    // Encoding: dig_H4=(h[3]<<4)|(h[4]&0x0F)=461, dig_H5=(h[5]<<4)|(h[4]>>4)=50
+    uint8_t cal_h[7] = {0x73, 0x01, 0x00, 0x1C, 0x2D, 0x03, 0x1E};
+    bus.setRegisterBytes(BME_ADDR, 0xE1, cal_h, 7);
+}
+
+// ADC data for adc_T=519888 (25.08 °C) and adc_H=33000 (~19.3% RH with humidity calibration above)
+static void bmeLoadHumidityData(MockI2cBus& bus) {
+    uint8_t data[8] = {0, 0, 0, 0x7E, 0xED, 0x00, 0x80, 0xE8};
+    bus.setRegisterBytes(BME_ADDR, BME_REG_DATA, data, 8);
+}
+
 // --- Tests ---
 
 void test_environmental_sensor_init_writes_reset() {
@@ -178,4 +192,20 @@ void test_environmental_sensor_result_valid_after_init() {
     TEST_ASSERT_TRUE(r.valid);
     TEST_ASSERT_TRUE(r.humidity >= 0.0f);
     TEST_ASSERT_TRUE(r.pressure >= 0.0f);
+}
+
+void test_environmental_sensor_reads_humidity() {
+    MockI2cBus bus;
+    bmeSetChipId(bus);
+    bmeLoadReferenceCalibration(bus);
+    bmeLoadHumidityCalibration(bus);
+    bmeLoadHumidityData(bus);
+    EnvironmentalSensorService sensor(bus, BME_ADDR);
+
+    auto r = sensor.read();
+
+    // dig_H1=75 dig_H2=371 dig_H3=0 dig_H4=461 dig_H5=50 dig_H6=30
+    // adc_T=519888 (25.08°C) adc_H=33000 → Bosch integer algorithm gives 19741/1024 = 19.28% RH
+    TEST_ASSERT_TRUE(r.valid);
+    TEST_ASSERT_FLOAT_WITHIN(0.5f, 19.3f, r.humidity);
 }

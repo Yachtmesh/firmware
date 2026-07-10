@@ -147,14 +147,13 @@ uint32_t EnvironmentalSensorService::compensatePressure(int32_t adc_P) {
 uint32_t EnvironmentalSensorService::compensateHumidity(int32_t adc_H) {
     int32_t v = t_fine_ - (int32_t)76800;
     v = (((adc_H << 14) - ((int32_t)cal_.dig_H4 << 20) - ((int32_t)cal_.dig_H5 * v) + 16384) >> 15) *
-        ((((((v * (int32_t)cal_.dig_H6) >> 10) *
-            (((v * (int32_t)cal_.dig_H3) >> 11) + 32768)) >>
-           10) +
-          2097152) *
-             (int32_t)cal_.dig_H2 +
-         8192) >>
-        14;
-    v -= (((v >> 15) * (v >> 15) * (int32_t)cal_.dig_H1) >> 7) - (16384 >> 4);
+        (((((((v * (int32_t)cal_.dig_H6) >> 10) *
+             (((v * (int32_t)cal_.dig_H3) >> 11) + 32768)) >>
+            10) +
+           2097152) *
+              (int32_t)cal_.dig_H2 +
+          8192) >> 14);
+    v -= (((((v >> 15) * (v >> 15)) >> 7) * (int32_t)cal_.dig_H1) >> 4);
     if (v < 0) v = 0;
     if (v > (int32_t)HUMIDITY_MAX_Q22_10) v = (int32_t)HUMIDITY_MAX_Q22_10;
     return (uint32_t)(v >> 12);  // Q22.10 fixed point

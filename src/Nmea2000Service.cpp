@@ -134,65 +134,38 @@ void Nmea2000Service::sendMetric(const Metric& metric) {
             const auto& e = metric.context.environmental;
             tN2kMsg msg;
 
-            ESP_LOGI(
-                TAG,
-                "TX Environmental inst=%u temp=%.2fC hum=%.1f%% pres=%.1fmBar",
-                e.inst, e.temperature, e.humidity, e.pressure);
-
-            // PGN 130310 — Outside Environmental Parameters (temp + pressure,
-            // widest compatibility)
             SetN2kOutsideEnvironmentalParameters(
                 msg, 0, N2kDoubleNA,
                 CToKelvin(static_cast<double>(e.temperature)),
                 mBarToPascal(static_cast<double>(e.pressure)));
-            if (!NMEA2000.SendMsg(msg))
-                ESP_LOGW(TAG, "TX PGN 130310 (OutsideEnv) FAILED");
-            else
-                ESP_LOGI(TAG, "TX PGN 130310 (OutsideEnv) ok");
+            NMEA2000.SendMsg(msg);
             notifyListeners(msg);
             NMEA2000.ParseMessages();
 
-            // PGN 130311 — Environmental Parameters (temp + humidity +
-            // pressure)
             SetN2kEnvironmentalParameters(
                 msg, 0, N2kts_OutsideTemperature,
                 CToKelvin(static_cast<double>(e.temperature)),
                 N2khs_OutsideHumidity, static_cast<double>(e.humidity),
                 mBarToPascal(static_cast<double>(e.pressure)));
-            if (!NMEA2000.SendMsg(msg))
-                ESP_LOGW(TAG, "TX PGN 130311 (Env) FAILED");
-            else
-                ESP_LOGI(TAG, "TX PGN 130311 (Env) ok");
+            NMEA2000.SendMsg(msg);
             notifyListeners(msg);
             NMEA2000.ParseMessages();
 
-            // PGN 130312 — Temperature
             SetN2kTemperature(msg, 0, e.inst, N2kts_OutsideTemperature,
                               CToKelvin(static_cast<double>(e.temperature)));
-            if (!NMEA2000.SendMsg(msg))
-                ESP_LOGW(TAG, "TX PGN 130312 (Temp) FAILED");
-            else
-                ESP_LOGI(TAG, "TX PGN 130312 (Temp) ok");
+            NMEA2000.SendMsg(msg);
             notifyListeners(msg);
             NMEA2000.ParseMessages();
 
-            // PGN 130313 — Humidity
             SetN2kHumidity(msg, 0, e.inst, N2khs_OutsideHumidity,
                            static_cast<double>(e.humidity));
-            if (!NMEA2000.SendMsg(msg))
-                ESP_LOGW(TAG, "TX PGN 130313 (Humidity) FAILED");
-            else
-                ESP_LOGI(TAG, "TX PGN 130313 (Humidity) ok");
+            NMEA2000.SendMsg(msg);
             notifyListeners(msg);
             NMEA2000.ParseMessages();
 
-            // PGN 130314 — Pressure
             SetN2kPressure(msg, 0, e.inst, N2kps_Atmospheric,
                            mBarToPascal(static_cast<double>(e.pressure)));
-            if (!NMEA2000.SendMsg(msg))
-                ESP_LOGW(TAG, "TX PGN 130314 (Pressure) FAILED");
-            else
-                ESP_LOGI(TAG, "TX PGN 130314 (Pressure) ok");
+            NMEA2000.SendMsg(msg);
             notifyListeners(msg);
             NMEA2000.ParseMessages();
             return;

@@ -37,6 +37,7 @@ int main() {
     RUN_TEST(test_environmental_sensor_init_only_once);
     RUN_TEST(test_environmental_sensor_reads_temperature);
     RUN_TEST(test_environmental_sensor_result_valid_after_init);
+    RUN_TEST(test_environmental_sensor_reads_humidity);
 
     // CurrentSensorService tests
     RUN_TEST(test_current_sensor_writes_calibration_register);
