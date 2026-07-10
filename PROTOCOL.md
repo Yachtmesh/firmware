@@ -1,8 +1,8 @@
 # Yachtmesh BLE Protocol Specification
 
-**Protocol Version:** `0.2.0`
-**Firmware Version:** `0.1.0`
-**Last Updated:** 2026-04-09
+**Protocol Version:** `0.3.0`
+**Firmware Version:** see the `fw` field of the Device Info characteristic — derived from the git tag of the release build, no longer tracked in this document
+**Last Updated:** 2026-07-10
 
 This document is the canonical specification for the Bluetooth Low Energy protocol between Yachtmesh firmware and client applications (iOS, Android, third-party). It is maintained in the firmware repository because the firmware is the GATT server and the authoritative definer of the protocol.
 
@@ -51,8 +51,14 @@ All characteristics belong to this single service.
 | 6 | Config Update | `4e617669-0001-4d65-7368-000000000007` | WRITE | Yes |
 | 7 | Factory Reset | `4e617669-0001-4d65-7368-000000000008` | WRITE | Yes |
 | 8 | Config Request | `4e617669-0001-4d65-7368-000000000009` | WRITE | Yes |
-| 9 | Config Response | `4e617669-0001-4d65-7368-000000000010` | READ, NOTIFY | Yes |
-| 10 | Role Delete | `4e617669-0001-4d65-7368-000000000011` | WRITE | Yes |
+| 9 | Config Response | `4e617669-0001-4d65-7368-00000000000a` | READ, NOTIFY | Yes |
+| 10 | Role Delete | `4e617669-0001-4d65-7368-00000000000b` | WRITE | Yes |
+| 11 | Wi-Fi Credentials | `4e617669-0001-4d65-7368-00000000000d` | WRITE | Yes |
+| 12 | OTA Control | `4e617669-0001-4d65-7368-00000000000e` | WRITE | Yes |
+| 13 | OTA Status | `4e617669-0001-4d65-7368-00000000000f` | READ, NOTIFY | Yes |
+
+`...00c` is reserved for a future "Events" characteristic and intentionally
+skipped here.
 
 ---
 
@@ -82,7 +88,7 @@ Read from the **Device Info** characteristic after authentication. Also notified
   "id": "HJ1DS2",
   "mac": "aa:bb:cc:dd:ee:ff",
   "nmea": 22,
-  "fw": "0.1.0",
+  "fw": "v1.4.0",
   "displayName": "Sensor Engine Room"
 }
 ```
@@ -92,7 +98,7 @@ Read from the **Device Info** characteristic after authentication. Also notified
 | `id` | string | 6-character alphanumeric device ID, fixed to hardware |
 | `mac` | string | BT MAC address, colon-separated lowercase hex |
 | `nmea` | uint8 | NMEA 2000 bus address |
-| `fw` | string | Firmware version, `"major.minor.patch"` |
+| `fw` | string | Running firmware version, derived from the git tag of the release build (e.g. `"v1.4.0"`). Non-release builds report a `git describe`-style string (e.g. `"v1.4.0-2-gabc1234"`). This is the version to compare against an OTA release's `version` when deciding whether an update is available. |
 | `displayName` | string | User-assigned display label; empty string if never set |
 
 `displayName` is the only field that can change at runtime. The characteristic sends a NOTIFY when it does.
@@ -201,6 +207,117 @@ Constraints:
 
 ---
 
+## Wi-Fi Credentials & OTA Updates
+
+Over-the-air firmware updates are delivered over Wi-Fi, not BLE — BLE is used
+only to supply the device with credentials and a download URL, and to report
+progress. The device does one plain HTTPS GET against the exact URL it's
+given; it never talks to the GitHub API itself. The client app is expected to
+resolve the release it wants (e.g. via the GitHub Releases API or a published
+manifest) and hand the device a direct asset URL.
+
+### Wi-Fi Credentials
+
+**Write** JSON to the **Wi-Fi Credentials** characteristic:
+
+```json
+{ "ssid": "BoatWifi", "password": "secret123" }
+```
+
+This is a **device-level** credential store, separate from any
+`WifiGateway`/`WifiGateway0183` role's own `ssid`/`password` config — setting
+one does not affect the other. It exists solely so the OTA flow can connect
+to Wi-Fi independent of whether a gateway role is configured or currently
+running. Persisted in device flash; survives power cycles; cleared by
+factory reset.
+
+Response on **Config Response** (reused, same as other write
+acknowledgements):
+
+```json
+{ "status": "ok" }
+```
+```json
+{ "status": "error", "message": "ssid or password too long" }
+```
+
+Constraints: `ssid` up to 32 UTF-8 characters, `password` up to 64 UTF-8
+characters, matching ESP-IDF's `wifi_config_t` limits. `ssid` is required and
+must be non-empty.
+
+### OTA Control
+
+**Write** JSON to the **OTA Control** characteristic:
+
+```json
+{
+  "action": "start",
+  "url": "https://github.com/Yachtmesh/firmware/releases/download/v1.4.0/firmware-esp32dev-v1.4.0.bin",
+  "version": "v1.4.0",
+  "sha256": "b1946ac92492d2347c6235b4d2611184"
+}
+```
+
+or
+
+```json
+{ "action": "cancel" }
+```
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `action` | Yes | `"start"` or `"cancel"` |
+| `url` | Yes for `start` | Must be `https://` — plain HTTP is rejected |
+| `version` | No | Echoed back in OTA Status; informational only |
+| `sha256` | No | Accepted and echoed back, but **not currently verified** by the firmware. Integrity relies on HTTPS delivery plus ESP-IDF's own image validation. Full verification is a possible future enhancement — do not treat this field as a security guarantee today. |
+
+The write is acknowledged synchronously on **Config Response** (same
+`{"status":"ok"}` / `{"status":"error","message":"..."}` shape as other
+commands) — this only confirms the command was accepted, not that the update
+succeeded. Rejections include: an update already in progress, missing/non-
+`https://` `url`, or no Wi-Fi credentials configured (write **Wi-Fi
+Credentials** first). Ongoing progress is reported on **OTA Status**.
+
+`cancel` aborts an in-progress connect/download/finish and returns the
+device to `idle`; it is rejected (as an error ack) if nothing is in
+progress.
+
+### OTA Status
+
+**Read** or **subscribe to notifications** on the **OTA Status**
+characteristic:
+
+```json
+{
+  "state": "Downloading",
+  "bytesRead": 512000,
+  "version": "v1.4.0",
+  "currentVersion": "v1.3.2",
+  "message": ""
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `state` | string | One of `Idle`, `ConnectingWifi`, `Downloading`, `Finishing`, `Success`, `Failed` |
+| `bytesRead` | uint32 | Bytes of the firmware image downloaded so far |
+| `version` | string | The `version` supplied in the `start` command, if any |
+| `currentVersion` | string | The device's currently-running firmware version (same value as Device Info's `fw` field) |
+| `message` | string | Empty in normal states; the failure reason when `state` is `Failed` |
+
+Notified on every state transition and periodically during `Downloading` as
+bytes accumulate.
+
+**Reboot behavior:** on reaching `Success`, the device reboots
+automatically — there is no separate confirm step. A short grace window
+(~1.5s) is held after entering `Success` before the actual reboot, so a
+subscribed client has a realistic chance to receive the final `Success`
+notification before the BLE connection drops for the restart. Clients should
+expect the connection to close shortly after observing `state: "Success"`
+and should not send further commands during that window.
+
+---
+
 ## Role Types
 
 Role type strings are case-sensitive.
@@ -297,6 +414,12 @@ Used in `FluidLevel` role config. Values are serialised as exact string names.
 ---
 
 ## Changelog
+
+### 0.3.0 — 2026-07-10
+
+- Added **Wi-Fi Credentials** (`...00d`), **OTA Control** (`...00e`), and **OTA Status** (`...00f`) characteristics for over-the-air firmware updates over Wi-Fi (triggered/monitored via BLE). Additive — existing characteristics and clients are unaffected.
+- `Firmware Version` is no longer hardcoded in this document; it's derived from the release git tag and reported live via Device Info's `fw` field.
+- Fixed a transcription error in the characteristics table: **Config Response** and **Role Delete** UUIDs were incorrectly listed as `...000000000010`/`...000000000011` (decimal-looking suffixes); the firmware has always used `...00000000000a`/`...00000000000b` (hex). No wire behavior changed — this was a documentation-only bug.
 
 ### 0.2.0 — 2026-04-09
 

@@ -8,6 +8,7 @@
 #include "test_current_sensor_service.h"
 #include "test_environmental_sensor_service.h"
 #include "test_fluid_level_sensor_role.h"
+#include "test_ota_manager.h"
 #include "test_role_manager.h"
 #include "test_weather_station_role.h"
 #include "test_tcp_server.h"
@@ -302,6 +303,31 @@ int main() {
     RUN_TEST(test_ve_direct_battery_role_configure_from_json);
     RUN_TEST(test_ve_direct_battery_role_get_config_json);
     RUN_TEST(test_ve_direct_battery_role_config_json_roundtrip);
+
+    // OtaManager tests
+    RUN_TEST(test_ota_manager_start_missing_url_rejected);
+    RUN_TEST(test_ota_manager_start_non_https_url_rejected);
+    RUN_TEST(test_ota_manager_start_without_wifi_credentials_rejected);
+    RUN_TEST(test_ota_manager_unknown_action_rejected);
+    RUN_TEST(test_ota_manager_cancel_while_idle_rejected);
+    RUN_TEST(test_ota_manager_start_while_busy_rejected);
+    RUN_TEST(test_ota_manager_start_connects_wifi_with_stored_credentials);
+    RUN_TEST(test_ota_manager_connecting_wifi_transitions_to_downloading_once_connected);
+    RUN_TEST(test_ota_manager_downloading_completes_and_finishes_to_success);
+    RUN_TEST(test_ota_manager_perform_error_fails);
+    RUN_TEST(test_ota_manager_begin_failure_fails);
+    RUN_TEST(test_ota_manager_finish_failure_fails);
+    RUN_TEST(test_ota_manager_wifi_connect_timeout_fails);
+    RUN_TEST(test_ota_manager_download_stall_timeout_fails);
+    RUN_TEST(test_ota_manager_download_progress_resets_stall_timer);
+    RUN_TEST(test_ota_manager_cancel_from_connecting_wifi);
+    RUN_TEST(test_ota_manager_cancel_from_downloading);
+    RUN_TEST(test_ota_manager_retry_after_failure);
+    RUN_TEST(test_ota_manager_status_json_shape);
+    RUN_TEST(test_ota_manager_status_json_includes_message_on_failure);
+    RUN_TEST(test_ota_manager_should_not_reboot_immediately_on_success);
+    RUN_TEST(test_ota_manager_should_reboot_after_grace_period);
+    RUN_TEST(test_ota_manager_status_changed_true_on_transition);
 
     return UNITY_END();
 }

@@ -1,5 +1,6 @@
 #include "Esp32Platform.h"
 
+#include <esp_app_desc.h>
 #include <esp_heap_caps.h>
 #include <esp_mac.h>
 #include <esp_timer.h>
@@ -139,4 +140,14 @@ uint8_t Esp32Platform::getCpuLoad() {
     uint32_t idlePct =
         (count >= IDLE_MAX_PER_SEC) ? 100 : (count * 100 / IDLE_MAX_PER_SEC);
     return (uint8_t)(100 - idlePct);
+}
+
+// --- Firmware version ---
+//
+// Populated at build time from PROJECT_VER (auto-derived by ESP-IDF's
+// project.cmake via `git describe` on tagged releases, e.g. "v1.4.0").
+
+std::string Esp32Platform::getFirmwareVersion() {
+    const esp_app_desc_t* desc = esp_app_get_description();
+    return desc ? std::string(desc->version) : std::string("unknown");
 }

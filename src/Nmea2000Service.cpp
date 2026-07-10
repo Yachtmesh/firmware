@@ -2,6 +2,7 @@
 
 #include <N2kMessages.h>
 #include <NMEA2000_esp32.h>
+#include <esp_app_desc.h>
 #include <esp_log.h>
 #include <esp_mac.h>
 #include <esp_timer.h>
@@ -66,11 +67,12 @@ static uint32_t generateUniqueNumber() {
 // begin(): actually start hardware (Serial, CAN bus)
 void Nmea2000Service::start() {
     // Set Product information
+    const esp_app_desc_t* appDesc = esp_app_get_description();
     NMEA2000.SetProductInformation(
-        "1",         // Manufacturer's Model serial code
-        100,         // Manufacturer's product code
-        "YM-BW-1",   // YM-[BW] B=Bluetooth, W=WIFI
-        "0.0.1",     // Software version
+        "1",                                      // Manufacturer's Model serial code
+        100,                                       // Manufacturer's product code
+        "YM-BW-1",                                 // YM-[BW] B=Bluetooth, W=WIFI
+        appDesc ? appDesc->version : "unknown",    // Software version
         "Yachtmesh"  // Model version, Manufacturer's Model ID
     );
 

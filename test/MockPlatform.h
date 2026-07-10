@@ -50,6 +50,10 @@ class MockPlatform : public PlatformInterface {
         return cpuLoad_;
     }
 
+    std::string getFirmwareVersion() override {
+        return firmwareVersion_;
+    }
+
     // Test helpers - setters
     void setMacAddress(const uint8_t* mac) {
         memcpy(mac_, mac, 6);
@@ -79,6 +83,10 @@ class MockPlatform : public PlatformInterface {
         cpuLoad_ = pct;
     }
 
+    void setFirmwareVersion(const std::string& version) {
+        firmwareVersion_ = version;
+    }
+
     // Test helpers - verification
     bool wasSaveDeviceIdCalled() const {
         return saveDeviceIdCalled_;
@@ -97,4 +105,5 @@ class MockPlatform : public PlatformInterface {
     uint32_t freeHeap_ = 200000;
     uint32_t minFreeHeap_ = 150000;
     uint8_t cpuLoad_ = 0;
+    std::string firmwareVersion_ = "0.0.0-test";
 };

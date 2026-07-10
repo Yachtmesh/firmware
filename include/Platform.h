@@ -21,5 +21,8 @@ class PlatformInterface {
     virtual uint32_t getMinFreeHeap() const = 0;
     virtual uint8_t getCpuLoad() = 0;
 
+    // Running firmware version (from the app image descriptor)
+    virtual std::string getFirmwareVersion() = 0;
+
     virtual ~PlatformInterface() = default;
 };

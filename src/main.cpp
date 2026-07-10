@@ -1,4 +1,5 @@
 #include <esp_log.h>
+#include <esp_ota_ops.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -11,6 +12,8 @@
 #include "I2cBusService.h"
 #include "LittleFSAdapter.h"
 #include "NMEA2000Service.h"
+#include "OtaManager.h"
+#include "OtaService.h"
 #include "RoleFactory.h"
 #include "RoleManager.h"
 #include "SerialSensorService.h"
@@ -22,6 +25,8 @@ Nmea2000Service nmea;
 WifiService wifi;
 LittleFSAdapter fileSystem;
 Esp32Platform platform;
+OtaService otaService;
+OtaManager otaManager(otaService, wifi, platform);
 
 Esp32I2cBus i2cBus(BOARD_I2C_SDA, BOARD_I2C_SCL);
 CurrentSensorManager currentSensorManager(i2cBus);
@@ -31,7 +36,7 @@ SerialSensorService serialSensor(UART_NUM_2, BOARD_SERIAL_RX, BOARD_SERIAL_TX);
 RoleFactory roleFactory(currentSensorManager, nmea, wifi, platform, envSensor, serialSensor);
 RoleManager roleManager(roleFactory, fileSystem);
 DeviceInfo deviceInfo(platform, nmea);
-BluetoothService bluetooth(&roleManager, &deviceInfo);
+BluetoothService bluetooth(&roleManager, &deviceInfo, &otaManager);
 
 extern "C" void app_main() {
     platform.installIdleHook();
@@ -48,6 +53,15 @@ extern "C" void app_main() {
     // Load roles from filesystem and start all roles
     loadRolesFromDirectory(roleManager, fileSystem, "/roles");
     roleManager.startAll();
+
+    // Reaching this point means boot succeeded (filesystem mounted, NMEA
+    // and BLE started, roles loaded) — cancel any pending OTA rollback so
+    // the bootloader stops treating this image as unconfirmed.
+    esp_err_t markValidErr = esp_ota_mark_app_valid_cancel_rollback();
+    if (markValidErr != ESP_OK) {
+        ESP_LOGW(TAG, "esp_ota_mark_app_valid_cancel_rollback failed: %s",
+                 esp_err_to_name(markValidErr));
+    }
 
     // Main loop
     while (true) {

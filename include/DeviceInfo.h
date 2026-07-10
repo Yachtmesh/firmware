@@ -42,11 +42,6 @@ class DeviceInfo {
     // Data structure size
     static constexpr size_t STATUS_SIZE = 18;
 
-    // Firmware version
-    static constexpr uint8_t FW_VERSION_MAJOR = 0;
-    static constexpr uint8_t FW_VERSION_MINOR = 1;
-    static constexpr uint8_t FW_VERSION_PATCH = 0;
-
    private:
     PlatformInterface& platform_;
     Nmea2000ServiceInterface& nmea_;
