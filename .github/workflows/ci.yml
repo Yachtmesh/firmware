@@ -90,6 +90,39 @@ jobs:
           cp artifacts/firmware-esp32dev/firmware.bin firmware-esp32dev-${{ github.ref_name }}.bin
           cp artifacts/firmware-esp32s3/firmware.bin  firmware-esp32s3-${{ github.ref_name }}.bin
 
+      - name: Generate checksums
+        run: |
+          shasum -a 256 firmware-esp32dev-${{ github.ref_name }}.bin \
+                        firmware-esp32s3-${{ github.ref_name }}.bin \
+            > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Generate OTA manifest
+        run: |
+          dev_sha=$(shasum -a 256 firmware-esp32dev-${{ github.ref_name }}.bin | cut -d' ' -f1)
+          s3_sha=$(shasum -a 256 firmware-esp32s3-${{ github.ref_name }}.bin | cut -d' ' -f1)
+          dev_size=$(wc -c < firmware-esp32dev-${{ github.ref_name }}.bin | tr -d ' ')
+          s3_size=$(wc -c < firmware-esp32s3-${{ github.ref_name }}.bin | tr -d ' ')
+
+          jq -n \
+            --arg version "${{ github.ref_name }}" \
+            --arg notes "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}" \
+            --arg devFile "firmware-esp32dev-${{ github.ref_name }}.bin" \
+            --arg devSha "$dev_sha" \
+            --argjson devSize "$dev_size" \
+            --arg s3File "firmware-esp32s3-${{ github.ref_name }}.bin" \
+            --arg s3Sha "$s3_sha" \
+            --argjson s3Size "$s3_size" \
+            '{
+              version: $version,
+              releaseNotesUrl: $notes,
+              targets: {
+                esp32dev: { file: $devFile, sha256: $devSha, sizeBytes: $devSize },
+                esp32s3:  { file: $s3File,  sha256: $s3Sha,  sizeBytes: $s3Size }
+              }
+            }' > manifest.json
+          cat manifest.json
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -97,3 +130,5 @@ jobs:
           files: |
             firmware-esp32dev-${{ github.ref_name }}.bin
             firmware-esp32s3-${{ github.ref_name }}.bin
+            SHA256SUMS.txt
+            manifest.json
