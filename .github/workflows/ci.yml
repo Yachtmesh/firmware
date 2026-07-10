@@ -30,7 +30,9 @@ jobs:
           enable-cache: true
 
       - name: Install PlatformIO
-        run: uv pip install --system platformio
+        run: |
+          uv tool install platformio
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Run native tests
         run: pio test -e native
@@ -65,7 +67,9 @@ jobs:
           enable-cache: true
 
       - name: Install PlatformIO
-        run: uv pip install --system platformio
+        run: |
+          uv tool install platformio
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Build ${{ matrix.env }}
         run: pio run -e ${{ matrix.env }}
