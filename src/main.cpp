@@ -1,4 +1,5 @@
 #include <esp_log.h>
+#include <esp_ota_ops.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -48,6 +49,15 @@ extern "C" void app_main() {
     // Load roles from filesystem and start all roles
     loadRolesFromDirectory(roleManager, fileSystem, "/roles");
     roleManager.startAll();
+
+    // Reaching this point means boot succeeded (filesystem mounted, NMEA
+    // and BLE started, roles loaded) — cancel any pending OTA rollback so
+    // the bootloader stops treating this image as unconfirmed.
+    esp_err_t markValidErr = esp_ota_mark_app_valid_cancel_rollback();
+    if (markValidErr != ESP_OK) {
+        ESP_LOGW(TAG, "esp_ota_mark_app_valid_cancel_rollback failed: %s",
+                 esp_err_to_name(markValidErr));
+    }
 
     // Main loop
     while (true) {
