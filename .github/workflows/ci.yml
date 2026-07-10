@@ -25,8 +25,12 @@ jobs:
           key: ${{ runner.os }}-pio-native-${{ hashFiles('platformio.ini') }}
           restore-keys: ${{ runner.os }}-pio-native-
 
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
       - name: Install PlatformIO
-        run: pip install platformio
+        run: uv pip install --system platformio
 
       - name: Run native tests
         run: pio test -e native
@@ -56,8 +60,12 @@ jobs:
           key: ${{ runner.os }}-pio-${{ matrix.env }}-${{ hashFiles('platformio.ini', 'dependencies.lock') }}
           restore-keys: ${{ runner.os }}-pio-${{ matrix.env }}-
 
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
       - name: Install PlatformIO
-        run: pip install platformio
+        run: uv pip install --system platformio
 
       - name: Build ${{ matrix.env }}
         run: pio run -e ${{ matrix.env }}
