@@ -305,8 +305,8 @@ int main() {
     RUN_TEST(test_ve_direct_battery_role_config_json_roundtrip);
 
     // OtaManager tests
-    RUN_TEST(test_ota_manager_start_missing_url_rejected);
-    RUN_TEST(test_ota_manager_start_non_https_url_rejected);
+    RUN_TEST(test_ota_manager_start_missing_manifest_url_rejected);
+    RUN_TEST(test_ota_manager_start_non_https_manifest_url_rejected);
     RUN_TEST(test_ota_manager_start_without_wifi_credentials_rejected);
     RUN_TEST(test_ota_manager_unknown_action_rejected);
     RUN_TEST(test_ota_manager_cancel_while_idle_rejected);
@@ -317,6 +317,11 @@ int main() {
     RUN_TEST(test_ota_manager_perform_error_fails);
     RUN_TEST(test_ota_manager_begin_failure_fails);
     RUN_TEST(test_ota_manager_finish_failure_fails);
+    RUN_TEST(test_ota_manager_manifest_fetch_failure_fails);
+    RUN_TEST(test_ota_manager_manifest_missing_target_for_board_fails);
+    RUN_TEST(test_ota_manager_manifest_malformed_json_fails);
+    RUN_TEST(test_ota_manager_resolves_binary_url_from_manifest_directory);
+    RUN_TEST(test_ota_manager_resolves_target_matching_own_board);
     RUN_TEST(test_ota_manager_wifi_connect_timeout_fails);
     RUN_TEST(test_ota_manager_download_stall_timeout_fails);
     RUN_TEST(test_ota_manager_download_progress_resets_stall_timer);

@@ -24,5 +24,9 @@ class PlatformInterface {
     // Running firmware version (from the app image descriptor)
     virtual std::string getFirmwareVersion() = 0;
 
+    // Board variant this binary was built for (e.g. "esp32dev", "esp32s3").
+    // Matches the PlatformIO env name and the OTA manifest's `targets` keys.
+    virtual std::string getBoardName() = 0;
+
     virtual ~PlatformInterface() = default;
 };

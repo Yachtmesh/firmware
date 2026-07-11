@@ -20,7 +20,7 @@ StaticJsonDocument<256> parseCommand(const char* json) {
 
 // --- Command parsing / rejection ---
 
-void test_ota_manager_start_missing_url_rejected() {
+void test_ota_manager_start_missing_manifest_url_rejected() {
     MockOtaService ota;
     FakeWifiService wifi;
     MockPlatform platform;
@@ -34,14 +34,14 @@ void test_ota_manager_start_missing_url_rejected() {
     TEST_ASSERT_EQUAL(OtaState::Idle, manager.state());
 }
 
-void test_ota_manager_start_non_https_url_rejected() {
+void test_ota_manager_start_non_https_manifest_url_rejected() {
     MockOtaService ota;
     FakeWifiService wifi;
     MockPlatform platform;
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"http://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"http://example.com/manifest.json"})");
     OtaCommandResult result = manager.handleCommand(doc);
 
     TEST_ASSERT_FALSE(result.success);
@@ -55,7 +55,7 @@ void test_ota_manager_start_without_wifi_credentials_rejected() {
     OtaManager manager(ota, wifi, platform);
     // No setWifiCredentials() call.
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     OtaCommandResult result = manager.handleCommand(doc);
 
     TEST_ASSERT_FALSE(result.success);
@@ -94,7 +94,7 @@ void test_ota_manager_start_while_busy_rejected() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     TEST_ASSERT_EQUAL(OtaState::ConnectingWifi, manager.state());
 
@@ -111,7 +111,7 @@ void test_ota_manager_start_connects_wifi_with_stored_credentials() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
 
     TEST_ASSERT_TRUE(wifi.connectCalled);
@@ -129,7 +129,7 @@ void test_ota_manager_connecting_wifi_transitions_to_downloading_once_connected(
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     // FakeWifiService reports connected=true immediately after connect().
     manager.loop();
@@ -146,7 +146,7 @@ void test_ota_manager_downloading_completes_and_finishes_to_success() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     manager.loop();  // ConnectingWifi -> Downloading
     TEST_ASSERT_EQUAL(OtaState::Downloading, manager.state());
@@ -171,7 +171,7 @@ void test_ota_manager_perform_error_fails() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     manager.loop();  // -> Downloading
     manager.loop();  // perform() -> Error -> Failed
@@ -188,7 +188,7 @@ void test_ota_manager_begin_failure_fails() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     manager.loop();  // ConnectingWifi -> begin() fails -> Failed
 
@@ -205,13 +205,102 @@ void test_ota_manager_finish_failure_fails() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     manager.loop();  // -> Downloading
     manager.loop();  // perform() -> Complete -> Finishing
     manager.loop();  // finish() fails -> Failed
 
     TEST_ASSERT_EQUAL(OtaState::Failed, manager.state());
+}
+
+// --- Manifest resolution ---
+
+void test_ota_manager_manifest_fetch_failure_fails() {
+    MockOtaService ota;
+    ota.fetchManifestResult = false;
+    ota.fetchManifestErrorMessage = "network unreachable";
+    FakeWifiService wifi;
+    MockPlatform platform;
+    OtaManager manager(ota, wifi, platform);
+    manager.setWifiCredentials("BoatWifi", "secret123");
+
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/manifest.json"})");
+    manager.handleCommand(doc);
+    manager.loop();  // wifi connects -> manifest fetch fails -> Failed
+
+    TEST_ASSERT_EQUAL(OtaState::Failed, manager.state());
+    TEST_ASSERT_EQUAL(0, ota.beginCallCount);
+}
+
+void test_ota_manager_manifest_missing_target_for_board_fails() {
+    MockOtaService ota;
+    ota.manifestBody = R"({"version":"v1.4.0","targets":{"esp32s3":{"file":"fw-s3.bin"}}})";
+    FakeWifiService wifi;
+    MockPlatform platform;  // default board "esp32dev" — not in this manifest
+    OtaManager manager(ota, wifi, platform);
+    manager.setWifiCredentials("BoatWifi", "secret123");
+
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/manifest.json"})");
+    manager.handleCommand(doc);
+    manager.loop();
+
+    TEST_ASSERT_EQUAL(OtaState::Failed, manager.state());
+    TEST_ASSERT_EQUAL(0, ota.beginCallCount);
+}
+
+void test_ota_manager_manifest_malformed_json_fails() {
+    MockOtaService ota;
+    ota.manifestBody = "not json{{{";
+    FakeWifiService wifi;
+    MockPlatform platform;
+    OtaManager manager(ota, wifi, platform);
+    manager.setWifiCredentials("BoatWifi", "secret123");
+
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/manifest.json"})");
+    manager.handleCommand(doc);
+    manager.loop();
+
+    TEST_ASSERT_EQUAL(OtaState::Failed, manager.state());
+    TEST_ASSERT_EQUAL(0, ota.beginCallCount);
+}
+
+void test_ota_manager_resolves_binary_url_from_manifest_directory() {
+    MockOtaService ota;
+    ota.manifestBody =
+        R"({"version":"v1.4.0","targets":{"esp32dev":{"file":"firmware-esp32dev-v1.4.0.bin","sha256":"abc","sizeBytes":123}}})";
+    FakeWifiService wifi;
+    MockPlatform platform;
+    OtaManager manager(ota, wifi, platform);
+    manager.setWifiCredentials("BoatWifi", "secret123");
+
+    auto doc = parseCommand(
+        R"({"action":"start","manifestUrl":"https://github.com/Yachtmesh/firmware/releases/download/v1.4.0/manifest.json"})");
+    manager.handleCommand(doc);
+    manager.loop();
+
+    TEST_ASSERT_EQUAL(OtaState::Downloading, manager.state());
+    TEST_ASSERT_EQUAL_STRING(
+        "https://github.com/Yachtmesh/firmware/releases/download/v1.4.0/firmware-esp32dev-v1.4.0.bin",
+        ota.lastBeginUrl.c_str());
+}
+
+void test_ota_manager_resolves_target_matching_own_board() {
+    MockOtaService ota;
+    ota.manifestBody =
+        R"({"version":"v1.4.0","targets":{"esp32dev":{"file":"fw-dev.bin"},"esp32s3":{"file":"fw-s3.bin"}}})";
+    FakeWifiService wifi;
+    MockPlatform platform;
+    platform.setBoardName("esp32s3");
+    OtaManager manager(ota, wifi, platform);
+    manager.setWifiCredentials("BoatWifi", "secret123");
+
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/manifest.json"})");
+    manager.handleCommand(doc);
+    manager.loop();
+
+    TEST_ASSERT_EQUAL(OtaState::Downloading, manager.state());
+    TEST_ASSERT_EQUAL_STRING("https://example.com/fw-s3.bin", ota.lastBeginUrl.c_str());
 }
 
 // --- Timeouts ---
@@ -225,7 +314,7 @@ void test_ota_manager_wifi_connect_timeout_fails() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     wifi.connected = false;  // handleCommand's connect() call sets true; force back off
     manager.loop();
@@ -245,7 +334,7 @@ void test_ota_manager_download_stall_timeout_fails() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     manager.loop();  // -> Downloading
     TEST_ASSERT_EQUAL(OtaState::Downloading, manager.state());
@@ -267,7 +356,7 @@ void test_ota_manager_download_progress_resets_stall_timer() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     manager.loop();  // -> Downloading
 
@@ -291,7 +380,7 @@ void test_ota_manager_cancel_from_connecting_wifi() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto startDoc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto startDoc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(startDoc);
     TEST_ASSERT_EQUAL(OtaState::ConnectingWifi, manager.state());
 
@@ -310,7 +399,7 @@ void test_ota_manager_cancel_from_downloading() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto startDoc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto startDoc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(startDoc);
     manager.loop();  // -> Downloading
     TEST_ASSERT_EQUAL(OtaState::Downloading, manager.state());
@@ -333,7 +422,7 @@ void test_ota_manager_retry_after_failure() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     manager.loop();  // begin() fails -> Failed
     TEST_ASSERT_EQUAL(OtaState::Failed, manager.state());
@@ -354,7 +443,7 @@ void test_ota_manager_status_json_shape() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin","version":"v1.4.0"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     manager.loop();  // -> Downloading
     ota.bytesReadValue = 4096;
@@ -379,7 +468,7 @@ void test_ota_manager_status_json_includes_message_on_failure() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     manager.loop();  // begin() fails -> Failed
 
@@ -402,7 +491,7 @@ void test_ota_manager_should_not_reboot_immediately_on_success() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     manager.loop();  // -> Downloading
     manager.loop();  // -> Finishing
@@ -421,7 +510,7 @@ void test_ota_manager_should_reboot_after_grace_period() {
     OtaManager manager(ota, wifi, platform);
     manager.setWifiCredentials("BoatWifi", "secret123");
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
     manager.loop();  // -> Downloading
     manager.loop();  // -> Finishing
@@ -442,7 +531,7 @@ void test_ota_manager_status_changed_true_on_transition() {
 
     manager.statusChanged();  // clear initial dirty bit from construction
 
-    auto doc = parseCommand(R"({"action":"start","url":"https://example.com/fw.bin"})");
+    auto doc = parseCommand(R"({"action":"start","manifestUrl":"https://example.com/fw.bin"})");
     manager.handleCommand(doc);
 
     TEST_ASSERT_TRUE(manager.statusChanged());

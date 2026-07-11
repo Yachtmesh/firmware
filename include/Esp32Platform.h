@@ -14,6 +14,7 @@ class Esp32Platform : public PlatformInterface {
     uint32_t getMinFreeHeap() const override;
     uint8_t getCpuLoad() override;
     std::string getFirmwareVersion() override;
+    std::string getBoardName() override;
 
     // Call once at boot before the scheduler starts to register the idle hook
     void installIdleHook();

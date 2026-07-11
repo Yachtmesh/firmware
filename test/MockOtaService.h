@@ -20,6 +20,17 @@ class MockOtaService : public OtaServiceInterface {
     int beginCallCount = 0;
     int finishCallCount = 0;
 
+    bool fetchManifestResult = true;
+    // Resolves to "esp32dev" -> "fw.bin", joined against a manifestUrl whose
+    // directory is itself "https://example.com/" -- matches MockPlatform's
+    // default board and keeps existing tests' "https://example.com/fw.bin"
+    // lastBeginUrl assertions unchanged unless a test overrides this.
+    std::string manifestBody =
+        R"({"version":"v1.4.0","targets":{"esp32dev":{"file":"fw.bin","sha256":"abc123","sizeBytes":1000}}})";
+    std::string fetchManifestErrorMessage = "manifest fetch error";
+    std::string lastFetchManifestUrl;
+    int fetchManifestCallCount = 0;
+
     bool begin(const std::string& url) override {
         beginCallCount++;
         lastBeginUrl = url;
@@ -45,4 +56,15 @@ class MockOtaService : public OtaServiceInterface {
     std::string lastError() const override { return errorMessage; }
 
     void reboot() override { rebootCalled = true; }
+
+    bool fetchManifest(const std::string& url, std::string& outBody) override {
+        fetchManifestCallCount++;
+        lastFetchManifestUrl = url;
+        if (!fetchManifestResult) {
+            errorMessage = fetchManifestErrorMessage;
+            return false;
+        }
+        outBody = manifestBody;
+        return true;
+    }
 };

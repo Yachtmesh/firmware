@@ -1,8 +1,8 @@
 # Yachtmesh BLE Protocol Specification
 
-**Protocol Version:** `0.3.0`
+**Protocol Version:** `0.4.0`
 **Firmware Version:** see the `fw` field of the Device Info characteristic — derived from the git tag of the release build, no longer tracked in this document
-**Last Updated:** 2026-07-10
+**Last Updated:** 2026-07-11
 
 This document is the canonical specification for the Bluetooth Low Energy protocol between Yachtmesh firmware and client applications (iOS, Android, third-party). It is maintained in the firmware repository because the firmware is the GATT server and the authoritative definer of the protocol.
 
@@ -252,9 +252,7 @@ must be non-empty.
 ```json
 {
   "action": "start",
-  "url": "https://github.com/Yachtmesh/firmware/releases/download/v1.4.0/firmware-esp32dev-v1.4.0.bin",
-  "version": "v1.4.0",
-  "sha256": "b1946ac92492d2347c6235b4d2611184"
+  "manifestUrl": "https://github.com/Yachtmesh/firmware/releases/download/v1.4.0/manifest.json"
 }
 ```
 
@@ -267,20 +265,34 @@ or
 | Field | Required | Notes |
 |-------|----------|-------|
 | `action` | Yes | `"start"` or `"cancel"` |
-| `url` | Yes for `start` | Must be `https://` — plain HTTP is rejected |
-| `version` | No | Echoed back in OTA Status; informational only |
-| `sha256` | No | Accepted and echoed back, but **not currently verified** by the firmware. Integrity relies on HTTPS delivery plus ESP-IDF's own image validation. Full verification is a possible future enhancement — do not treat this field as a security guarantee today. |
+| `manifestUrl` | Yes for `start` | Must be `https://` — plain HTTP is rejected. Points at a release's `manifest.json` asset (see "Wi-Fi Credentials & OTA Updates" above for the manifest shape). |
+
+As of protocol 0.4.0, the client no longer resolves a specific board binary
+itself. Firmware fetches `manifestUrl` directly (a plain HTTPS GET, same
+`manifest.json` shape a client would use to read `version`/`targets`),
+determines its own board (`esp32dev` or `esp32s3`), looks up
+`targets[<board>]`, and downloads that target's `file` from the same
+directory as `manifestUrl` (GitHub release assets for one tag always share
+that directory). `version` in OTA Status is now taken from the fetched
+manifest's top-level `version` field, not supplied by the client.
+`targets[<board>].sha256` is available to firmware once fetched, but — same
+as before — it is **not currently verified** against the downloaded image;
+that remains a deliberately deferred future enhancement, not a security
+guarantee today.
 
 The write is acknowledged synchronously on **Config Response** (same
 `{"status":"ok"}` / `{"status":"error","message":"..."}` shape as other
 commands) — this only confirms the command was accepted, not that the update
 succeeded. Rejections include: an update already in progress, missing/non-
-`https://` `url`, or no Wi-Fi credentials configured (write **Wi-Fi
-Credentials** first). Ongoing progress is reported on **OTA Status**.
+`https://` `manifestUrl`, or no Wi-Fi credentials configured (write **Wi-Fi
+Credentials** first). Once Wi-Fi connects, further failures — manifest fetch
+error, invalid manifest JSON, no target for this board — surface as a
+`Failed` state on **OTA Status** with a descriptive `message`, not as a
+Config Response rejection. Ongoing progress is reported on **OTA Status**.
 
-`cancel` aborts an in-progress connect/download/finish and returns the
-device to `idle`; it is rejected (as an error ack) if nothing is in
-progress.
+`cancel` aborts an in-progress connect/manifest-fetch/download/finish and
+returns the device to `idle`; it is rejected (as an error ack) if nothing is
+in progress.
 
 ### OTA Status
 
@@ -301,7 +313,7 @@ characteristic:
 |-------|------|-------|
 | `state` | string | One of `Idle`, `ConnectingWifi`, `Downloading`, `Finishing`, `Success`, `Failed` |
 | `bytesRead` | uint32 | Bytes of the firmware image downloaded so far |
-| `version` | string | The `version` supplied in the `start` command, if any |
+| `version` | string | The `version` read from the fetched manifest once resolved; empty until then |
 | `currentVersion` | string | The device's currently-running firmware version (same value as Device Info's `fw` field) |
 | `message` | string | Empty in normal states; the failure reason when `state` is `Failed` |
 
@@ -414,6 +426,11 @@ Used in `FluidLevel` role config. Values are serialised as exact string names.
 ---
 
 ## Changelog
+
+### 0.4.0 — 2026-07-11
+
+- **Breaking:** **OTA Control**'s `start` command no longer takes `url`/`version`/`sha256`. It now takes a single `manifestUrl` pointing at a release's `manifest.json`. Firmware fetches the manifest itself, determines its own board (`esp32dev`/`esp32s3`), and resolves the matching target's download URL — the client no longer needs to know which board a device is running. Rationale: `DeviceInfo` had no way to report board type to clients, so client-side target resolution was either unsafe (guessing) or permanently blocked; firmware already knows its own board at compile time. A client sending the old `{"url":...}` shape after this change gets a `"manifestUrl required"` rejection on **Config Response**.
+- **OTA Status**'s `version` field is now sourced from the fetched manifest's top-level `version`, not echoed from the client's command.
 
 ### 0.3.0 — 2026-07-10
 

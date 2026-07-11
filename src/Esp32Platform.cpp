@@ -151,3 +151,19 @@ std::string Esp32Platform::getFirmwareVersion() {
     const esp_app_desc_t* desc = esp_app_get_description();
     return desc ? std::string(desc->version) : std::string("unknown");
 }
+
+// --- Board identification ---
+//
+// Matches this binary's PlatformIO env name and the OTA manifest's `targets`
+// keys (see firmware/.github/workflows/ci.yml). An unhandled target fails the
+// build rather than silently mislabeling the board at runtime.
+
+std::string Esp32Platform::getBoardName() {
+#if CONFIG_IDF_TARGET_ESP32S3
+    return "esp32s3";
+#elif CONFIG_IDF_TARGET_ESP32
+    return "esp32dev";
+#else
+#error "unhandled board target: add a case in Esp32Platform::getBoardName()"
+#endif
+}

@@ -30,6 +30,14 @@ struct OtaCommandResult {
     std::string message;
 };
 
+// Result of resolving this board's download URL out of a fetched manifest.
+struct OtaResolvedTarget {
+    bool ok;
+    std::string url;
+    std::string version;
+    std::string error;
+};
+
 // Drives an OTA update over Wi-Fi from a BLE-supplied URL. Plain C++, no
 // ESP32 dependencies — natively testable. Extracted as its own class (rather
 // than embedded in BluetoothService, which has no native test coverage)
@@ -45,8 +53,10 @@ class OtaManager {
     void setWifiCredentials(const std::string& ssid,
                             const std::string& password);
 
-    // Handle a parsed OTA Control command: {"action":"start", "url":...,
-    // "version":..., "sha256":...} or {"action":"cancel"}.
+    // Handle a parsed OTA Control command: {"action":"start",
+    // "manifestUrl":...} or {"action":"cancel"}. On "start", firmware fetches
+    // the manifest itself and resolves the target matching its own board
+    // (see resolveTarget()) once Wi-Fi connects.
     OtaCommandResult handleCommand(const JsonDocument& command);
 
     // Advance the state machine. Call once per main-loop tick.
@@ -85,7 +95,7 @@ class OtaManager {
     std::string wifiSsid_;
     std::string wifiPassword_;
 
-    std::string pendingUrl_;
+    std::string pendingManifestUrl_;
     std::string targetVersion_;
     std::string lastMessage_;
 
@@ -95,7 +105,13 @@ class OtaManager {
     size_t lastNotifiedBytes_ = 0;
     uint32_t successAtMs_ = 0;
 
+    static constexpr size_t MANIFEST_JSON_CAPACITY = 1024;
+
     bool isBusy() const;
     void transitionTo(OtaState next);
     void fail(const std::string& message);
+
+    // Fetches pendingManifestUrl_ and resolves this board's target from it —
+    // called once, synchronously, when Wi-Fi finishes connecting.
+    OtaResolvedTarget fetchAndResolveTarget();
 };

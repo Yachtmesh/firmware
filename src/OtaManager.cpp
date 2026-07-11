@@ -35,19 +35,19 @@ OtaCommandResult OtaManager::handleCommand(const JsonDocument& command) {
             return {false, "already in progress"};
         }
 
-        std::string url = command["url"] | "";
-        if (url.empty()) {
-            return {false, "url required"};
+        std::string manifestUrl = command["manifestUrl"] | "";
+        if (manifestUrl.empty()) {
+            return {false, "manifestUrl required"};
         }
-        if (url.rfind("https://", 0) != 0) {
-            return {false, "url must use https"};
+        if (manifestUrl.rfind("https://", 0) != 0) {
+            return {false, "manifestUrl must use https"};
         }
         if (wifiSsid_.empty()) {
             return {false, "wifi credentials not set"};
         }
 
-        pendingUrl_ = url;
-        targetVersion_ = std::string(command["version"] | "");
+        pendingManifestUrl_ = manifestUrl;
+        targetVersion_.clear();
         lastMessage_.clear();
         lastBytesRead_ = 0;
         lastNotifiedBytes_ = 0;
@@ -76,7 +76,15 @@ void OtaManager::loop() {
     switch (state_) {
         case OtaState::ConnectingWifi: {
             if (wifi_.isConnected()) {
-                if (ota_.begin(pendingUrl_)) {
+                OtaResolvedTarget resolved = fetchAndResolveTarget();
+                if (!resolved.ok) {
+                    wifi_.disconnect();
+                    fail(resolved.error);
+                    break;
+                }
+
+                targetVersion_ = resolved.version;
+                if (ota_.begin(resolved.url)) {
                     lastProgressMs_ = platform_.getMillis();
                     transitionTo(OtaState::Downloading);
                 } else {
@@ -153,6 +161,41 @@ std::string OtaManager::buildStatusJson() const {
     std::string result;
     serializeJson(doc, result);
     return result;
+}
+
+OtaResolvedTarget OtaManager::fetchAndResolveTarget() {
+    std::string manifestBody;
+    if (!ota_.fetchManifest(pendingManifestUrl_, manifestBody)) {
+        return {false, "", "", "manifest fetch failed: " + ota_.lastError()};
+    }
+
+    StaticJsonDocument<MANIFEST_JSON_CAPACITY> doc;
+    if (deserializeJson(doc, manifestBody) != DeserializationError::Ok) {
+        return {false, "", "", "invalid manifest json"};
+    }
+
+    std::string board = platform_.getBoardName();
+    JsonObjectConst target = doc["targets"][board.c_str()];
+    if (target.isNull()) {
+        return {false, "", "", "no firmware image for board: " + board};
+    }
+
+    std::string file = target["file"] | "";
+    if (file.empty()) {
+        return {false, "", "", "manifest missing file for board: " + board};
+    }
+
+    size_t lastSlash = pendingManifestUrl_.rfind('/');
+    if (lastSlash == std::string::npos) {
+        return {false, "", "", "invalid manifest url"};
+    }
+    std::string binUrl = pendingManifestUrl_.substr(0, lastSlash + 1) + file;
+    if (binUrl.rfind("https://", 0) != 0) {
+        return {false, "", "", "invalid manifest url"};
+    }
+
+    std::string version = doc["version"] | "";
+    return {true, binUrl, version, ""};
 }
 
 bool OtaManager::shouldReboot() const {

@@ -54,6 +54,10 @@ class MockPlatform : public PlatformInterface {
         return firmwareVersion_;
     }
 
+    std::string getBoardName() override {
+        return boardName_;
+    }
+
     // Test helpers - setters
     void setMacAddress(const uint8_t* mac) {
         memcpy(mac_, mac, 6);
@@ -87,6 +91,10 @@ class MockPlatform : public PlatformInterface {
         firmwareVersion_ = version;
     }
 
+    void setBoardName(const std::string& board) {
+        boardName_ = board;
+    }
+
     // Test helpers - verification
     bool wasSaveDeviceIdCalled() const {
         return saveDeviceIdCalled_;
@@ -106,4 +114,5 @@ class MockPlatform : public PlatformInterface {
     uint32_t minFreeHeap_ = 150000;
     uint8_t cpuLoad_ = 0;
     std::string firmwareVersion_ = "0.0.0-test";
+    std::string boardName_ = "esp32dev";
 };

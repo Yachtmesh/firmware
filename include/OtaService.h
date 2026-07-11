@@ -35,6 +35,11 @@ class OtaServiceInterface {
     // Reboot into the newly-flashed partition.
     virtual void reboot() = 0;
 
+    // Plain HTTPS GET of a small JSON body (the OTA manifest) — distinct from
+    // begin()/perform(), which stream an ESP-IDF OTA binary image instead.
+    // Returns false on network error, non-2xx status, or an oversized body.
+    virtual bool fetchManifest(const std::string& url, std::string& outBody) = 0;
+
     virtual ~OtaServiceInterface() = default;
 };
 
@@ -53,6 +58,11 @@ class OtaService : public OtaServiceInterface {
     size_t bytesRead() const override;
     std::string lastError() const override;
     void reboot() override;
+    bool fetchManifest(const std::string& url, std::string& outBody) override;
+
+    static constexpr uint32_t MANIFEST_FETCH_TIMEOUT_MS = 10000;
+    static constexpr size_t MANIFEST_MAX_BYTES = 4096;
+    static constexpr int MANIFEST_MAX_REDIRECTS = 5;
 
    private:
     esp_https_ota_handle_t handle_ = nullptr;
