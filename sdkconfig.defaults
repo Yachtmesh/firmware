@@ -24,6 +24,13 @@ CONFIG_TWAI_ISR_IN_IRAM=y
 # FreeRTOS
 CONFIG_FREERTOS_HZ=1000
 
+# app_main() runs the entire application loop (NMEA2000, roles, BLE) on the
+# IDF "main" task for the life of the program rather than just during init.
+# The default 3584-byte stack is only sized for a brief init routine and
+# overflows under NimBLE's GATT notify call chain combined with the rest of
+# the loop's stack usage (JSON serialization, etc.).
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+
 # Log level
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 CONFIG_LOG_DEFAULT_LEVEL=3
