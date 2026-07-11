@@ -39,6 +39,11 @@ DeviceInfo deviceInfo(platform, nmea);
 BluetoothService bluetooth(&roleManager, &deviceInfo, &otaManager);
 
 extern "C" void app_main() {
+    // NimBLE's host stack logs an INFO line for every GATT procedure
+    // (e.g. "GATT procedure initiated: notify"), which fires on every
+    // BLE notify and drowns out useful application logs.
+    esp_log_level_set("NimBLE", ESP_LOG_WARN);
+
     platform.installIdleHook();
 
     if (!fileSystem.begin()) {
