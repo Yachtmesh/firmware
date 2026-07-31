@@ -3,7 +3,7 @@
 #include <unity.h>
 
 #include "FileSystem.h"
-#include "MockCurrentSensorManager.h"
+#include "MockAnalogInputManager.h"
 #include "MockEnvironmentalSensorService.h"
 #include "MockFileSystem.h"
 #include "MockPlatform.h"
@@ -44,12 +44,12 @@ inline bool loadRoleFromJsonString(RoleManager& manager, const char* json,
 
 // Tests that RoleManager can load a valid JSON config
 void test_role_manager_loads_valid_config() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json = R"({
@@ -57,10 +57,9 @@ void test_role_manager_loads_valid_config() {
         "fluidType": "Water",
         "inst": 1,
         "capacity": 100,
-        "minCurrent": 0.005,
-        "maxCurrent": 0.02,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.005,
+        "maxVoltage": 0.02,
+        "i2cAddress": 72
     })";
 
     bool loaded = loadRoleFromJsonString(manager, json);
@@ -70,12 +69,12 @@ void test_role_manager_loads_valid_config() {
 
 // Tests that RoleManager rejects unknown role types
 void test_role_manager_rejects_unknown_type() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json = R"({"type": "UnknownRole"})";
@@ -87,12 +86,12 @@ void test_role_manager_rejects_unknown_type() {
 
 // Tests that RoleManager rejects invalid JSON
 void test_role_manager_rejects_invalid_json() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json = "{ invalid json }";
@@ -104,12 +103,12 @@ void test_role_manager_rejects_invalid_json() {
 
 // Tests that startAll starts all loaded roles
 void test_role_manager_starts_all_roles() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json1 = R"({
@@ -117,20 +116,18 @@ void test_role_manager_starts_all_roles() {
         "fluidType": "Water",
         "inst": 0,
         "capacity": 100,
-        "minCurrent": 0.005,
-        "maxCurrent": 0.02,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.005,
+        "maxVoltage": 0.02,
+        "i2cAddress": 72
     })";
     const char* json2 = R"({
         "type": "FluidLevel",
         "fluidType": "Fuel",
         "inst": 1,
         "capacity": 200,
-        "minCurrent": 0.002,
-        "maxCurrent": 0.018,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.002,
+        "maxVoltage": 0.018,
+        "i2cAddress": 72
     })";
 
     loadRoleFromJsonString(manager, json1, "FluidLevel-001");
@@ -143,12 +140,12 @@ void test_role_manager_starts_all_roles() {
 
 // Tests that loopAll calls loop on all roles
 void test_role_manager_loops_all_roles() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json = R"({
@@ -156,16 +153,15 @@ void test_role_manager_loops_all_roles() {
         "fluidType": "Water",
         "inst": 0,
         "capacity": 100,
-        "minCurrent": 1.0,
-        "maxCurrent": 5.0,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 1.0,
+        "maxVoltage": 5.0,
+        "i2cAddress": 72
     })";
 
     loadRoleFromJsonString(manager, json);
     manager.startAll();
 
-    currentSensorManager.sensor.reading.current = 3.0f;  // 50% with min=1.0, max=5.0
+    analogInputManager.sensor.reading.voltage = 3.0f;  // 50% with min=1.0, max=5.0
     manager.loopAll();
 
     // Verify the role processed data
@@ -175,12 +171,12 @@ void test_role_manager_loops_all_roles() {
 
 // Tests that loadRolesFromDirectory loads from filesystem
 void test_role_manager_loads_from_file() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     fs.addFile("/roles/FluidLevel-atd.json", R"({
@@ -190,8 +186,8 @@ void test_role_manager_loads_from_file() {
             "fluidType": "BlackWater",
             "inst": 2,
             "capacity": 50,
-            "minCurrent": 0.1,
-            "maxCurrent": 3.3
+            "minVoltage": 0.1,
+            "maxVoltage": 3.3
         }
     })");
     fs.addDirectory("/roles", {"/roles/FluidLevel-atd.json"});
@@ -202,12 +198,12 @@ void test_role_manager_loads_from_file() {
 
 // Tests that loadRolesFromDirectory loads all files
 void test_role_manager_loads_from_directory() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     fs.addFile("/roles/water.json", R"({
@@ -217,8 +213,8 @@ void test_role_manager_loads_from_directory() {
             "fluidType": "Water",
             "inst": 0,
             "capacity": 100,
-            "minCurrent": 0.5,
-            "maxCurrent": 4.5
+            "minVoltage": 0.5,
+            "maxVoltage": 4.5
         }
     })");
     fs.addFile("/roles/fuel.json", R"({
@@ -228,8 +224,8 @@ void test_role_manager_loads_from_directory() {
             "fluidType": "Fuel",
             "inst": 1,
             "capacity": 200,
-            "minCurrent": 0.2,
-            "maxCurrent": 4.8
+            "minVoltage": 0.2,
+            "maxVoltage": 4.8
         }
     })");
     fs.addDirectory("/roles", {"/roles/water.json", "/roles/fuel.json"});
@@ -240,12 +236,12 @@ void test_role_manager_loads_from_directory() {
 
 // Tests that getRolesAsJson returns empty array when no roles loaded
 void test_role_manager_get_roles_as_json_empty() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     std::string json = manager.getRolesAsJson();
@@ -254,12 +250,12 @@ void test_role_manager_get_roles_as_json_empty() {
 
 // Tests that getRolesAsJson returns role with running=false before start
 void test_role_manager_get_roles_as_json_not_started() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -267,10 +263,9 @@ void test_role_manager_get_roles_as_json_not_started() {
         "fluidType": "Water",
         "inst": 0,
         "capacity": 100,
-        "minCurrent": 0.005,
-        "maxCurrent": 0.02,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.005,
+        "maxVoltage": 0.02,
+        "i2cAddress": 72
     })";
 
     loadRoleFromJsonString(manager, roleJson, "FluidLevel-y01");
@@ -290,12 +285,12 @@ void test_role_manager_get_roles_as_json_not_started() {
 
 // Tests that getRolesAsJson shows running=true after startAll
 void test_role_manager_get_roles_as_json_after_start() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -303,10 +298,9 @@ void test_role_manager_get_roles_as_json_after_start() {
         "fluidType": "Water",
         "inst": 0,
         "capacity": 100,
-        "minCurrent": 0.005,
-        "maxCurrent": 0.02,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.005,
+        "maxVoltage": 0.02,
+        "i2cAddress": 72
     })";
 
     loadRoleFromJsonString(manager, roleJson);
@@ -322,12 +316,12 @@ void test_role_manager_get_roles_as_json_after_start() {
 
 // Tests that getRolesAsJson works with multiple roles
 void test_role_manager_get_roles_as_json_multiple() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json1 = R"({
@@ -335,20 +329,18 @@ void test_role_manager_get_roles_as_json_multiple() {
         "fluidType": "Water",
         "inst": 0,
         "capacity": 100,
-        "minCurrent": 0.005,
-        "maxCurrent": 0.02,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.005,
+        "maxVoltage": 0.02,
+        "i2cAddress": 72
     })";
     const char* json2 = R"({
         "type": "FluidLevel",
         "fluidType": "Fuel",
         "inst": 1,
         "capacity": 200,
-        "minCurrent": 0.002,
-        "maxCurrent": 0.018,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.002,
+        "maxVoltage": 0.018,
+        "i2cAddress": 72
     })";
 
     loadRoleFromJsonString(manager, json1, "FluidLevel-abc");
@@ -366,12 +358,12 @@ void test_role_manager_get_roles_as_json_multiple() {
 
 // Tests that getRolesAsJson includes ipAddress in WifiGateway role status when connected
 void test_role_manager_get_roles_as_json_includes_ip_address() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -398,12 +390,12 @@ void test_role_manager_get_roles_as_json_includes_ip_address() {
 
 // Tests that ip address assigned after startup propagates to JSON on next loopAll
 void test_role_manager_ip_address_updates_after_wifi_connects() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -436,12 +428,12 @@ void test_role_manager_ip_address_updates_after_wifi_connects() {
 
 // Tests that getRolesAsJson omits ipAddress for roles that don't have one
 void test_role_manager_get_roles_as_json_no_ip_for_other_roles() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -449,10 +441,9 @@ void test_role_manager_get_roles_as_json_no_ip_for_other_roles() {
         "fluidType": "Water",
         "inst": 0,
         "capacity": 100,
-        "minCurrent": 0.005,
-        "maxCurrent": 0.02,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.005,
+        "maxVoltage": 0.02,
+        "i2cAddress": 72
     })";
 
     loadRoleFromJsonString(manager, roleJson, "FluidLevel-abc");
@@ -469,12 +460,12 @@ void test_role_manager_get_roles_as_json_no_ip_for_other_roles() {
 
 // Tests that getRolesAsJson includes config with all fields
 void test_role_manager_get_roles_as_json_config_fields() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -482,10 +473,9 @@ void test_role_manager_get_roles_as_json_config_fields() {
         "fluidType": "Water",
         "inst": 1,
         "capacity": 100,
-        "minCurrent": 0.005,
-        "maxCurrent": 0.02,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.005,
+        "maxVoltage": 0.02,
+        "i2cAddress": 72
     })";
 
     loadRoleFromJsonString(manager, roleJson, "FluidLevel-cfg");
@@ -501,18 +491,18 @@ void test_role_manager_get_roles_as_json_config_fields() {
     TEST_ASSERT_EQUAL_STRING("Water", config["fluidType"]);
     TEST_ASSERT_EQUAL(1, config["inst"]);
     TEST_ASSERT_EQUAL(100, config["capacity"]);
-    TEST_ASSERT_FLOAT_WITHIN(0.001, 0.005, config["minCurrent"]);
-    TEST_ASSERT_FLOAT_WITHIN(0.001, 0.02, config["maxCurrent"]);
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 0.005, config["minVoltage"]);
+    TEST_ASSERT_FLOAT_WITHIN(0.001, 0.02, config["maxVoltage"]);
 }
 
 // Tests that applyRoleConfig updates existing role
 void test_role_manager_update_role_config() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -520,10 +510,9 @@ void test_role_manager_update_role_config() {
         "fluidType": "Water",
         "inst": 0,
         "capacity": 100,
-        "minCurrent": 0.005,
-        "maxCurrent": 0.02,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.005,
+        "maxVoltage": 0.02,
+        "i2cAddress": 72
     })";
 
     loadRoleFromJsonString(manager, roleJson, "FluidLevel-abc");
@@ -535,8 +524,8 @@ void test_role_manager_update_role_config() {
     config["fluidType"] = "Fuel";
     config["inst"] = 2;
     config["capacity"] = 200;
-    config["minCurrent"] = 0.2;
-    config["maxCurrent"] = 4.8;
+    config["minVoltage"] = 0.2;
+    config["maxVoltage"] = 4.8;
 
     ApplyConfigResult result = manager.applyRoleConfig(updateDoc);
     TEST_ASSERT_TRUE_MESSAGE(result.success, "Update succeeded");
@@ -554,12 +543,12 @@ void test_role_manager_update_role_config() {
 
 // Tests that applyRoleConfig with unknown roleId creates new role (if roleType provided)
 void test_role_manager_update_role_config_unknown_role() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // Without roleType, should fail for unknown roleId
@@ -569,8 +558,8 @@ void test_role_manager_update_role_config_unknown_role() {
     config["fluidType"] = "Water";
     config["inst"] = 0;
     config["capacity"] = 100;
-    config["minCurrent"] = 0.5;
-    config["maxCurrent"] = 4.5;
+    config["minVoltage"] = 0.5;
+    config["maxVoltage"] = 4.5;
 
     ApplyConfigResult result = manager.applyRoleConfig(updateDoc);
     // Now creates a new role since roleId not found but falls through to create
@@ -581,12 +570,12 @@ void test_role_manager_update_role_config_unknown_role() {
 
 // Tests that applyRoleConfig persists updates to filesystem
 void test_role_manager_update_role_config_persists() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // Load role with specific ID (no persist)
@@ -595,10 +584,9 @@ void test_role_manager_update_role_config_persists() {
         "fluidType": "Water",
         "inst": 0,
         "capacity": 100,
-        "minCurrent": 0.005,
-        "maxCurrent": 0.02,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.005,
+        "maxVoltage": 0.02,
+        "i2cAddress": 72
     })";
 
     loadRoleFromJsonString(manager, roleJson, "FluidLevel-abc");
@@ -610,8 +598,8 @@ void test_role_manager_update_role_config_persists() {
     config["fluidType"] = "Fuel";
     config["inst"] = 2;
     config["capacity"] = 200;
-    config["minCurrent"] = 0.2;
-    config["maxCurrent"] = 4.8;
+    config["minVoltage"] = 0.2;
+    config["maxVoltage"] = 4.8;
 
     ApplyConfigResult result = manager.applyRoleConfig(updateDoc);
     TEST_ASSERT_TRUE(result.success);
@@ -637,12 +625,12 @@ void test_role_manager_update_role_config_persists() {
 
 // Tests that updating a running role's config stops it and restarts it
 void test_role_manager_config_update_restarts_running_role() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -687,12 +675,12 @@ void test_role_manager_config_update_restarts_running_role() {
 
 // Tests that applyRoleConfig returns error for invalid config
 void test_role_manager_update_role_config_invalid() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* roleJson = R"({
@@ -700,23 +688,22 @@ void test_role_manager_update_role_config_invalid() {
         "fluidType": "Water",
         "inst": 0,
         "capacity": 100,
-        "minCurrent": 0.005,
-        "maxCurrent": 0.02,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.005,
+        "maxVoltage": 0.02,
+        "i2cAddress": 72
     })";
 
     loadRoleFromJsonString(manager, roleJson, "FluidLevel-abc");
 
-    // Invalid: minCurrent >= maxCurrent
+    // Invalid: minVoltage >= maxVoltage
     StaticJsonDocument<512> updateDoc;
     updateDoc["roleId"] = "FluidLevel-abc";
     JsonObject config = updateDoc.createNestedObject("config");
     config["fluidType"] = "Water";
     config["inst"] = 0;
     config["capacity"] = 100;
-    config["minCurrent"] = 5.0;
-    config["maxCurrent"] = 1.0;
+    config["minVoltage"] = 5.0;
+    config["maxVoltage"] = 1.0;
 
     ApplyConfigResult result = manager.applyRoleConfig(updateDoc);
     TEST_ASSERT_FALSE(result.success);
@@ -724,12 +711,12 @@ void test_role_manager_update_role_config_invalid() {
 
 // Tests that applyRoleConfig creates a new role and returns generated ID
 void test_role_manager_create_role() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -738,8 +725,8 @@ void test_role_manager_create_role() {
     config["fluidType"] = "Water";
     config["inst"] = 0;
     config["capacity"] = 100;
-    config["minCurrent"] = 0.5;
-    config["maxCurrent"] = 4.5;
+    config["minVoltage"] = 0.5;
+    config["maxVoltage"] = 4.5;
 
     ApplyConfigResult result = manager.applyRoleConfig(doc);
     TEST_ASSERT_TRUE(result.success);
@@ -752,12 +739,12 @@ void test_role_manager_create_role() {
 
 // Tests that applyRoleConfig fails for unknown type
 void test_role_manager_create_role_unknown_type() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -772,12 +759,12 @@ void test_role_manager_create_role_unknown_type() {
 
 // Tests that applyRoleConfig fails for missing/empty type
 void test_role_manager_create_role_missing_type() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -794,23 +781,23 @@ void test_role_manager_create_role_missing_type() {
 
 // Tests that applyRoleConfig fails for invalid config
 void test_role_manager_create_role_invalid_config() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
-    // Invalid: minCurrent >= maxCurrent
+    // Invalid: minVoltage >= maxVoltage
     StaticJsonDocument<512> doc;
     doc["roleType"] = "FluidLevel";
     JsonObject config = doc.createNestedObject("config");
     config["fluidType"] = "Water";
     config["inst"] = 0;
     config["capacity"] = 100;
-    config["minCurrent"] = 5.0;
-    config["maxCurrent"] = 1.0;
+    config["minVoltage"] = 5.0;
+    config["maxVoltage"] = 1.0;
 
     ApplyConfigResult result = manager.applyRoleConfig(doc);
     TEST_ASSERT_FALSE(result.success);
@@ -820,12 +807,12 @@ void test_role_manager_create_role_invalid_config() {
 
 // Tests that applyRoleConfig persists the new role to filesystem
 void test_role_manager_create_role_persists() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -834,8 +821,8 @@ void test_role_manager_create_role_persists() {
     config["fluidType"] = "Fuel";
     config["inst"] = 1;
     config["capacity"] = 200;
-    config["minCurrent"] = 0.2;
-    config["maxCurrent"] = 4.8;
+    config["minVoltage"] = 0.2;
+    config["maxVoltage"] = 4.8;
 
     ApplyConfigResult result = manager.applyRoleConfig(doc);
     TEST_ASSERT_TRUE(result.success);
@@ -863,12 +850,12 @@ void test_role_manager_create_role_persists() {
 // Tests that new roles are not started immediately in applyRoleConfig (BLE
 // callback safety) but are started after loopAll
 void test_role_manager_new_role_start_deferred_to_loop() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -898,12 +885,12 @@ void test_role_manager_new_role_start_deferred_to_loop() {
 
 // Tests that applyRoleConfig generates unique IDs for multiple roles
 void test_role_manager_create_role_unique_ids() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc1;
@@ -912,8 +899,8 @@ void test_role_manager_create_role_unique_ids() {
     config1["fluidType"] = "Water";
     config1["inst"] = 0;
     config1["capacity"] = 100;
-    config1["minCurrent"] = 0.5;
-    config1["maxCurrent"] = 4.5;
+    config1["minVoltage"] = 0.5;
+    config1["maxVoltage"] = 4.5;
 
     StaticJsonDocument<512> doc2;
     doc2["roleType"] = "FluidLevel";
@@ -921,8 +908,8 @@ void test_role_manager_create_role_unique_ids() {
     config2["fluidType"] = "Fuel";
     config2["inst"] = 1;
     config2["capacity"] = 200;
-    config2["minCurrent"] = 0.2;
-    config2["maxCurrent"] = 4.8;
+    config2["minVoltage"] = 0.2;
+    config2["maxVoltage"] = 4.8;
 
     ApplyConfigResult result1 = manager.applyRoleConfig(doc1);
     ApplyConfigResult result2 = manager.applyRoleConfig(doc2);
@@ -937,12 +924,12 @@ void test_role_manager_create_role_unique_ids() {
 
 // Tests that factoryReset clears all roles
 void test_role_manager_factory_reset_clears_roles() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     const char* json1 = R"({
@@ -950,20 +937,18 @@ void test_role_manager_factory_reset_clears_roles() {
         "fluidType": "Water",
         "inst": 0,
         "capacity": 100,
-        "minCurrent": 0.005,
-        "maxCurrent": 0.02,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.005,
+        "maxVoltage": 0.02,
+        "i2cAddress": 72
     })";
     const char* json2 = R"({
         "type": "FluidLevel",
         "fluidType": "Fuel",
         "inst": 1,
         "capacity": 200,
-        "minCurrent": 0.002,
-        "maxCurrent": 0.018,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.002,
+        "maxVoltage": 0.018,
+        "i2cAddress": 72
     })";
 
     loadRoleFromJsonString(manager, json1, "FluidLevel-001");
@@ -980,12 +965,12 @@ void test_role_manager_factory_reset_clears_roles() {
 
 // Tests that factoryReset deletes config files
 void test_role_manager_factory_reset_deletes_files() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // Set up files and directory with hierarchical format
@@ -996,8 +981,8 @@ void test_role_manager_factory_reset_deletes_files() {
             "fluidType": "Water",
             "inst": 0,
             "capacity": 100,
-            "minCurrent": 0.5,
-            "maxCurrent": 4.5
+            "minVoltage": 0.5,
+            "maxVoltage": 4.5
         }
     })");
     fs.addFile("/roles/FluidLevel-xyz.json", R"({
@@ -1007,8 +992,8 @@ void test_role_manager_factory_reset_deletes_files() {
             "fluidType": "Fuel",
             "inst": 1,
             "capacity": 200,
-            "minCurrent": 0.2,
-            "maxCurrent": 4.8
+            "minVoltage": 0.2,
+            "maxVoltage": 4.8
         }
     })");
     fs.addDirectory(
@@ -1029,12 +1014,12 @@ void test_role_manager_factory_reset_deletes_files() {
 
 // Tests that factoryReset works with empty roles directory
 void test_role_manager_factory_reset_empty() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     fs.addDirectory("/roles", {});
@@ -1048,12 +1033,12 @@ void test_role_manager_factory_reset_empty() {
 
 // Tests that factoryReset clears pending persists
 void test_role_manager_factory_reset_clears_pending() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // Create a role (adds to pending persist)
@@ -1063,8 +1048,8 @@ void test_role_manager_factory_reset_clears_pending() {
     config["fluidType"] = "Water";
     config["inst"] = 0;
     config["capacity"] = 100;
-    config["minCurrent"] = 0.5;
-    config["maxCurrent"] = 4.5;
+    config["minVoltage"] = 0.5;
+    config["maxVoltage"] = 4.5;
 
     ApplyConfigResult result = manager.applyRoleConfig(doc);
     TEST_ASSERT_TRUE(result.success);
@@ -1086,12 +1071,12 @@ void test_role_manager_factory_reset_clears_pending() {
 
 // Tests that applyRoleConfig creates role when no roleId provided
 void test_role_manager_apply_config_creates_role() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -1100,8 +1085,8 @@ void test_role_manager_apply_config_creates_role() {
     config["fluidType"] = "Water";
     config["inst"] = 0;
     config["capacity"] = 100;
-    config["minCurrent"] = 0.5;
-    config["maxCurrent"] = 4.5;
+    config["minVoltage"] = 0.5;
+    config["maxVoltage"] = 4.5;
 
     ApplyConfigResult result = manager.applyRoleConfig(doc);
 
@@ -1113,12 +1098,12 @@ void test_role_manager_apply_config_creates_role() {
 
 // Tests that applyRoleConfig updates role when roleId provided
 void test_role_manager_apply_config_updates_role() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // First create a role
@@ -1127,10 +1112,9 @@ void test_role_manager_apply_config_updates_role() {
         "fluidType": "Water",
         "inst": 0,
         "capacity": 100,
-        "minCurrent": 0.005,
-        "maxCurrent": 0.02,
-        "i2cAddress": 64,
-        "shuntOhms": 0.1
+        "minVoltage": 0.005,
+        "maxVoltage": 0.02,
+        "i2cAddress": 72
     })";
     loadRoleFromJsonString(manager, roleJson, "FluidLevel-xyz");
 
@@ -1141,8 +1125,8 @@ void test_role_manager_apply_config_updates_role() {
     config["fluidType"] = "Fuel";
     config["inst"] = 1;
     config["capacity"] = 200;
-    config["minCurrent"] = 0.2;
-    config["maxCurrent"] = 4.8;
+    config["minVoltage"] = 0.2;
+    config["maxVoltage"] = 4.8;
 
     ApplyConfigResult result = manager.applyRoleConfig(doc);
 
@@ -1161,12 +1145,12 @@ void test_role_manager_apply_config_updates_role() {
 
 // Tests that applyRoleConfig returns correct roleId
 void test_role_manager_apply_config_returns_role_id() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -1175,8 +1159,8 @@ void test_role_manager_apply_config_returns_role_id() {
     config["fluidType"] = "Water";
     config["inst"] = 0;
     config["capacity"] = 100;
-    config["minCurrent"] = 0.5;
-    config["maxCurrent"] = 4.5;
+    config["minVoltage"] = 0.5;
+    config["maxVoltage"] = 4.5;
 
     ApplyConfigResult result = manager.applyRoleConfig(doc);
 
@@ -1191,12 +1175,12 @@ void test_role_manager_apply_config_returns_role_id() {
 
 // Tests that applyRoleConfig fails on missing config
 void test_role_manager_apply_config_missing_config() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<256> doc;
@@ -1213,12 +1197,12 @@ void test_role_manager_apply_config_missing_config() {
 
 // Tests that applyRoleConfig fails on missing roleType for create
 void test_role_manager_apply_config_missing_role_type() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     StaticJsonDocument<512> doc;
@@ -1238,12 +1222,12 @@ void test_role_manager_apply_config_missing_role_type() {
 
 // Tests that applyRoleConfig with unknown roleId falls through to create (needs roleType)
 void test_role_manager_apply_config_unknown_role() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // Unknown roleId without roleType should fail
@@ -1261,17 +1245,17 @@ void test_role_manager_apply_config_unknown_role() {
 
 // Tests that removeRole is a no-op for an unknown ID
 void test_role_manager_remove_role_unknown_id() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     loadRoleFromJsonString(manager, R"({
         "type": "FluidLevel", "fluidType": "Water",
-        "inst": 0, "capacity": 100, "minCurrent": 0.5, "maxCurrent": 4.5
+        "inst": 0, "capacity": 100, "minVoltage": 0.5, "maxVoltage": 4.5
     })", "FluidLevel-abc");
     TEST_ASSERT_EQUAL(1, manager.roleCount());
 
@@ -1283,21 +1267,21 @@ void test_role_manager_remove_role_unknown_id() {
 
 // Tests that removeRole stops and removes an existing role
 void test_role_manager_remove_role_removes_from_list() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     loadRoleFromJsonString(manager, R"({
         "type": "FluidLevel", "fluidType": "Water",
-        "inst": 0, "capacity": 100, "minCurrent": 0.5, "maxCurrent": 4.5
+        "inst": 0, "capacity": 100, "minVoltage": 0.5, "maxVoltage": 4.5
     })", "FluidLevel-abc");
     loadRoleFromJsonString(manager, R"({
         "type": "FluidLevel", "fluidType": "Fuel",
-        "inst": 1, "capacity": 200, "minCurrent": 0.2, "maxCurrent": 4.8
+        "inst": 1, "capacity": 200, "minVoltage": 0.2, "maxVoltage": 4.8
     })", "FluidLevel-xyz");
     manager.startAll();
     TEST_ASSERT_EQUAL(2, manager.roleCount());
@@ -1316,18 +1300,18 @@ void test_role_manager_remove_role_removes_from_list() {
 
 // Tests that removeRole deletes the config file from the filesystem
 void test_role_manager_remove_role_deletes_file() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     fs.addFile("/roles/FluidLevel-abc.json", R"({
         "roleId": "FluidLevel-abc", "roleType": "FluidLevel",
         "config": {"fluidType": "Water", "inst": 0, "capacity": 100,
-                   "minCurrent": 0.5, "maxCurrent": 4.5}
+                   "minVoltage": 0.5, "maxVoltage": 4.5}
     })");
     fs.addDirectory("/roles", {"/roles/FluidLevel-abc.json"});
     loadRolesFromDirectory(manager, fs, "/roles");
@@ -1341,12 +1325,12 @@ void test_role_manager_remove_role_deletes_file() {
 
 // Tests that removeRole cancels a pending persist for that role
 void test_role_manager_remove_role_clears_pending_persist() {
-    MockCurrentSensorManager currentSensorManager;
+    MockAnalogInputManager analogInputManager;
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockFileSystem fs;
     MockPlatform platform;
-    RoleFactory factory(currentSensorManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
+    RoleFactory factory(analogInputManager, nmea, wifi, platform, gTestEnvSensor, gTestSerialSensor, fakeTcpCreator());
     RoleManager manager(factory, fs);
 
     // Create a role (queues a persist)
@@ -1356,8 +1340,8 @@ void test_role_manager_remove_role_clears_pending_persist() {
     config["fluidType"] = "Water";
     config["inst"] = 0;
     config["capacity"] = 100;
-    config["minCurrent"] = 0.5;
-    config["maxCurrent"] = 4.5;
+    config["minVoltage"] = 0.5;
+    config["maxVoltage"] = 4.5;
 
     ApplyConfigResult result = manager.applyRoleConfig(doc);
     TEST_ASSERT_TRUE(result.success);

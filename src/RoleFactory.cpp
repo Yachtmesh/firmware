@@ -24,14 +24,14 @@ static TcpServerCreator defaultTcpCreator() { return nullptr; }
 static TcpServerCreator defaultUdpCreator() { return nullptr; }
 #endif
 
-RoleFactory::RoleFactory(CurrentSensorManagerInterface& currentSensorManager,
+RoleFactory::RoleFactory(AnalogInputManagerInterface& analogInputManager,
                          Nmea2000ServiceInterface& nmea,
                          WifiServiceInterface& wifi,
                          PlatformInterface& platform,
                          EnvironmentalSensorInterface& envSensor,
                          SerialSensorInterface& serialSensor,
                          TcpServerCreator tcpCreator)
-    : currentSensorManager_(currentSensorManager),
+    : analogInputManager_(analogInputManager),
       nmea_(nmea),
       wifi_(wifi),
       platform_(platform),
@@ -68,7 +68,7 @@ std::unique_ptr<Role> RoleFactory::createRole(const char* type,
 
 std::unique_ptr<Role> RoleFactory::createRoleInstance(const char* type) {
     if (strcmp(type, "FluidLevel") == 0) {
-        return std::make_unique<FluidLevelSensorRole>(currentSensorManager_, nmea_);
+        return std::make_unique<FluidLevelSensorRole>(analogInputManager_, nmea_);
     }
     // WifiGateway and WifiGateway0183 are handled in createRole (need JSON for protocol selection).
     if (strcmp(type, "AisSimulator") == 0) {

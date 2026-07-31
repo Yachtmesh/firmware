@@ -5,25 +5,28 @@
 static const char* TAG = "FluidLevel";
 #else
 #define ESP_LOGE(tag, fmt, ...) ((void)0)
+#define ESP_LOGI(tag, fmt, ...) ((void)0)
 #endif
 
 #include "NMEA2000Service.h"
 
 static bool isValidI2cAddress(uint8_t addr) {
-    return addr == 0x40 || addr == 0x41 || addr == 0x44 || addr == 0x45;
+    return addr == 0x48 || addr == 0x49 || addr == 0x4A || addr == 0x4B;
 }
 
-FluidLevelCalculator::FluidLevelCalculator(float minCurrent, float maxCurrent)
-    : min_(minCurrent), max_(maxCurrent) {}
+static bool isValidChannel(uint8_t channel) { return channel <= 3; }
 
-float FluidLevelCalculator::toPercent(float current) const {
-    if (current <= min_) return 0.0f;
-    if (current >= max_) return 100.0f;
-    return (current - min_) / (max_ - min_) * 100.0f;
+FluidLevelCalculator::FluidLevelCalculator(float minVoltage, float maxVoltage)
+    : min_(minVoltage), max_(maxVoltage) {}
+
+float FluidLevelCalculator::toPercent(float voltage) const {
+    if (voltage <= min_) return 0.0f;
+    if (voltage >= max_) return 100.0f;
+    return (voltage - min_) / (max_ - min_) * 100.0f;
 }
 
-FluidLevelSensorRole::FluidLevelSensorRole(
-    CurrentSensorManagerInterface& manager, Nmea2000ServiceInterface& nmea)
+FluidLevelSensorRole::FluidLevelSensorRole(AnalogInputManagerInterface& manager,
+                                           Nmea2000ServiceInterface& nmea)
     : manager_(manager), nmea_(nmea) {}
 
 const char* FluidLevelSensorRole::type() { return "FluidLevel"; }
@@ -33,22 +36,23 @@ void FluidLevelSensorRole::configure(const RoleConfig& cfg) {
 
     delete calculator_;
     calculator_ =
-        new FluidLevelCalculator(config.minCurrent, config.maxCurrent);
+        new FluidLevelCalculator(config.minVoltage, config.maxVoltage);
 }
 
 bool FluidLevelSensorRole::validate() {
-    // Todo: need to fix until final solution for sensor readings
-    if (config.minCurrent >= config.maxCurrent) return false;
+    if (config.minVoltage >= config.maxVoltage) return false;
     if (!isValidI2cAddress(config.i2cAddress)) return false;
+    if (!isValidChannel(config.channel)) return false;
     return true;
 }
 
 void FluidLevelSensorRole::start() {
     if (!validate()) return;
 
-    sensor_ = manager_.claim(config.i2cAddress, config.shuntOhms);
+    sensor_ = manager_.claim(config.i2cAddress, config.channel);
     if (!sensor_) {
-        ESP_LOGE(TAG, "Address 0x%02X already in use", config.i2cAddress);
+        ESP_LOGE(TAG, "Address 0x%02X channel %d already in use",
+                 config.i2cAddress, config.channel);
         return;
     }
     status_.running = true;
@@ -57,7 +61,7 @@ void FluidLevelSensorRole::start() {
 
 void FluidLevelSensorRole::stop() {
     if (sensor_) {
-        manager_.release(config.i2cAddress);
+        manager_.release(config.i2cAddress, config.channel);
         sensor_ = nullptr;
     }
     status_.running = false;
@@ -70,7 +74,10 @@ void FluidLevelSensorRole::loop() {
     auto r = sensor_->read();
     if (!r.valid) return;
 
-    lastLevel = calculator_->toPercent(r.current);
+    lastLevel = calculator_->toPercent(r.voltage);
+    ESP_LOGI(TAG, "inst=%u addr=0x%02X ch=%d voltage=%.3fV level=%.1f%%",
+             config.inst, config.i2cAddress, config.channel, r.voltage,
+             lastLevel);
 
     Metric metric{MetricType::FluidLevel, lastLevel};
     metric.context.fluidLevel.inst = config.inst;
@@ -85,16 +92,16 @@ void FluidLevelSensorRole::getConfigJson(JsonDocument& doc) {
 }
 
 bool FluidLevelSensorRole::configureFromJson(const JsonDocument& doc) {
-    float minC = doc["minCurrent"] | 0.0f;
-    float maxC = doc["maxCurrent"] | 0.0f;
+    float minV = doc["minVoltage"] | 0.0f;
+    float maxV = doc["maxVoltage"] | 0.0f;
     unsigned char inst = doc["inst"] | 0;
     const char* ftStr = doc["fluidType"] | "Unavailable";
     uint16_t cap = doc["capacity"] | 0;
-    uint8_t addr = doc["i2cAddress"] | (uint8_t)0x40;
-    float shunt = doc["shuntOhms"] | 0.1f;
+    uint8_t addr = doc["i2cAddress"] | (uint8_t)0x48;
+    uint8_t channel = doc["channel"] | (uint8_t)2;
 
-    FluidLevelConfig newConfig(FluidTypeFromString(ftStr), inst, cap, minC,
-                               maxC, addr, shunt);
+    FluidLevelConfig newConfig(FluidTypeFromString(ftStr), inst, cap, minV,
+                               maxV, addr, channel);
     configure(newConfig);
     return validate();
 }
@@ -104,8 +111,8 @@ void FluidLevelConfig::toJson(JsonDocument& doc) const {
     doc["fluidType"] = FluidTypeToString(fluidType);
     doc["inst"] = inst;
     doc["capacity"] = capacity;
-    doc["minCurrent"] = minCurrent;
-    doc["maxCurrent"] = maxCurrent;
+    doc["minVoltage"] = minVoltage;
+    doc["maxVoltage"] = maxVoltage;
     doc["i2cAddress"] = i2cAddress;
-    doc["shuntOhms"] = shuntOhms;
+    doc["channel"] = channel;
 }

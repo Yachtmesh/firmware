@@ -4,7 +4,7 @@
 #include <functional>
 #include <memory>
 
-#include "CurrentSensorManager.h"
+#include "AnalogInputManager.h"
 #include "EnvironmentalSensorService.h"
 #include "NMEA2000Service.h"
 #include "Platform.h"
@@ -17,7 +17,7 @@ using TcpServerCreator = std::function<std::unique_ptr<TcpServerInterface>()>;
 
 class RoleFactory {
    public:
-    RoleFactory(CurrentSensorManagerInterface& currentSensorManager,
+    RoleFactory(AnalogInputManagerInterface& analogInputManager,
                 Nmea2000ServiceInterface& nmea,
                 WifiServiceInterface& wifi,
                 PlatformInterface& platform,
@@ -30,7 +30,7 @@ class RoleFactory {
    private:
     std::unique_ptr<Role> createRoleInstance(const char* type);
 
-    CurrentSensorManagerInterface& currentSensorManager_;
+    AnalogInputManagerInterface& analogInputManager_;
     Nmea2000ServiceInterface& nmea_;
     WifiServiceInterface& wifi_;
     PlatformInterface& platform_;

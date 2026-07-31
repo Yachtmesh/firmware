@@ -3,9 +3,10 @@
 #include "test_ais_encoder.h"
 #include "test_ais_n2k_to_0183_converter.h"
 #include "test_ais_simulator_role.h"
+#include "test_analog_input_manager.h"
+#include "test_analog_input_service.h"
 #include "test_boat_simulator.h"
 #include "test_device_info.h"
-#include "test_current_sensor_service.h"
 #include "test_environmental_sensor_service.h"
 #include "test_fluid_level_sensor_role.h"
 #include "test_ota_manager.h"
@@ -40,14 +41,20 @@ int main() {
     RUN_TEST(test_environmental_sensor_result_valid_after_init);
     RUN_TEST(test_environmental_sensor_reads_humidity);
 
-    // CurrentSensorService tests
-    RUN_TEST(test_current_sensor_writes_calibration_register);
-    RUN_TEST(test_current_sensor_writes_config_register);
-    RUN_TEST(test_current_sensor_calibrates_only_once);
-    RUN_TEST(test_current_sensor_reads_current);
-    RUN_TEST(test_current_sensor_reads_bus_voltage);
-    RUN_TEST(test_current_sensor_reads_power);
-    RUN_TEST(test_current_sensor_calibration_scales_with_shunt);
+    // Ads1115Chip / AnalogInputService tests
+    RUN_TEST(test_ads1115_first_read_after_channel_select_is_invalid);
+    RUN_TEST(test_ads1115_writes_config_register_on_channel_select);
+    RUN_TEST(test_ads1115_config_register_selects_requested_channel);
+    RUN_TEST(test_ads1115_second_read_same_channel_returns_valid_reading);
+    RUN_TEST(test_ads1115_switching_channel_invalidates_next_read);
+    RUN_TEST(test_ads1115_channel_reader_delegates_to_chip);
+
+    // AnalogInputManager tests
+    RUN_TEST(test_analog_input_manager_claim_returns_reader);
+    RUN_TEST(test_analog_input_manager_claim_same_channel_twice_fails);
+    RUN_TEST(test_analog_input_manager_claim_different_channels_same_address_succeeds);
+    RUN_TEST(test_analog_input_manager_release_allows_reclaim);
+    RUN_TEST(test_analog_input_manager_release_other_channel_does_not_free_target);
 
     // FluidLevelSensorRole tests
     RUN_TEST(test_fluid_level_sensor_role_basic_flow);

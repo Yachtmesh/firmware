@@ -89,5 +89,6 @@ class Nmea2000Service : public Nmea2000ServiceInterface {
     void notifyListeners(const tN2kMsg& msg);
     int toN2kFluidType(FluidType t);
     std::vector<N2kListenerInterface*> listeners_;
+    uint8_t lastLoggedAddress_ = 22;  // matches preferred address in SetMode()
 };
 #endif

@@ -3,9 +3,9 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
+#include "AnalogInputManager.h"
 #include "BluetoothService.h"
 #include "board_config.h"
-#include "CurrentSensorManager.h"
 #include "DeviceInfo.h"
 #include "EnvironmentalSensorService.h"
 #include "Esp32Platform.h"
@@ -29,11 +29,11 @@ OtaService otaService;
 OtaManager otaManager(otaService, wifi, platform);
 
 Esp32I2cBus i2cBus(BOARD_I2C_SDA, BOARD_I2C_SCL);
-CurrentSensorManager currentSensorManager(i2cBus);
+AnalogInputManager analogInputManager(i2cBus);
 EnvironmentalSensorService envSensor(i2cBus, 0x76);  // BME280 default address
 SerialSensorService serialSensor(UART_NUM_2, BOARD_SERIAL_RX, BOARD_SERIAL_TX);
 
-RoleFactory roleFactory(currentSensorManager, nmea, wifi, platform, envSensor, serialSensor);
+RoleFactory roleFactory(analogInputManager, nmea, wifi, platform, envSensor, serialSensor);
 RoleManager roleManager(roleFactory, fileSystem);
 DeviceInfo deviceInfo(platform, nmea);
 BluetoothService bluetooth(&roleManager, &deviceInfo, &otaManager);

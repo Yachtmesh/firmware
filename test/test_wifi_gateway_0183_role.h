@@ -386,7 +386,7 @@ void test_wifi_gateway_0183_factory_uses_tcp_by_default() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockPlatform platform;
-    MockCurrentSensorManager manager;
+    MockAnalogInputManager manager;
     MockEnvironmentalSensorService envSensor;
     MockSerialSensorService serialSensor;
 
@@ -405,7 +405,7 @@ void test_wifi_gateway_0183_factory_creates_udp_transport_when_configured() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockPlatform platform;
-    MockCurrentSensorManager manager;
+    MockAnalogInputManager manager;
     MockEnvironmentalSensorService envSensor;
     MockSerialSensorService serialSensor;
 

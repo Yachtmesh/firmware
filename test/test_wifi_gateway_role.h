@@ -10,7 +10,7 @@
 
 #include "ActisenseEncoder.h"
 #include "FluidLevelSensorRole.h"
-#include "MockCurrentSensorManager.h"
+#include "MockAnalogInputManager.h"
 #include "MockEnvironmentalSensorService.h"
 #include "MockPlatform.h"
 #include "MockSerialSensorService.h"
@@ -607,7 +607,7 @@ void test_wifi_gateway_factory_uses_tcp_by_default() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockPlatform platform;
-    MockCurrentSensorManager manager;
+    MockAnalogInputManager manager;
     MockEnvironmentalSensorService envSensor;
     MockSerialSensorService serialSensor;
 
@@ -629,7 +629,7 @@ void test_wifi_gateway_factory_uses_udp_when_configured() {
     FakeNmea2000Service nmea;
     FakeWifiService wifi;
     MockPlatform platform;
-    MockCurrentSensorManager manager;
+    MockAnalogInputManager manager;
     MockEnvironmentalSensorService envSensor;
     MockSerialSensorService serialSensor;
 
@@ -651,7 +651,7 @@ void test_wifi_gateway_factory_uses_udp_when_configured() {
 void test_wifi_gateway_receives_local_sensor_data() {
     // Shared NMEA service so sensor and gateway are co-located
     FakeNmea2000Service nmea;
-    MockCurrentSensorManager manager;
+    MockAnalogInputManager manager;
     FakeWifiService wifi;
     auto [tcp, tcpPtr] = makeFakeTcp();
 
@@ -659,7 +659,7 @@ void test_wifi_gateway_receives_local_sensor_data() {
     WifiGatewayRole gateway(nmea, wifi, std::move(tcp));
 
     // Configure sensor
-    FluidLevelConfig sensorCfg{FluidType::Fuel, 1, 200, 1.0f, 5.0f, 0x40, 0.1f};
+    FluidLevelConfig sensorCfg{FluidType::Fuel, 1, 200, 1.0f, 5.0f, 0x48, 2};
     sensor.configure(sensorCfg);
     sensor.start();
 
@@ -671,7 +671,7 @@ void test_wifi_gateway_receives_local_sensor_data() {
     gateway.start();
 
     // Simulate sensor reading
-    manager.sensor.reading.current = 3.0f;
+    manager.sensor.reading.voltage = 3.0f;
     sensor.loop();
 
     // Gateway should have received data via local echo and forwarded to TCP
