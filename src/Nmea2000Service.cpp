@@ -4,11 +4,12 @@
 #include <NMEA2000_esp32.h>
 #include <esp_app_desc.h>
 #include <esp_log.h>
-#include <esp_mac.h>
 #include <esp_timer.h>
 
 #include <algorithm>
+#include <cstdio>
 
+#include "DeviceId.h"
 #include "board_config.h"
 
 static const char* TAG = "N2kSvc";
@@ -49,11 +50,9 @@ void OnN2kOpen() {
     BatteryStatusScheduler.UpdateNextTime();
 }
 
-// Generate unique number from industry code 2040 and ESP32 chip ID
+// Generate unique number from industry code 2040 and a MAC address
 // NMEA2000 unique number is 21 bits (0-2097151)
-static uint32_t generateUniqueNumber() {
-    uint8_t mac[6];
-    esp_efuse_mac_get_default(mac);
+uint32_t nmea2000UniqueNumberFromMac(const uint8_t mac[6]) {
     uint64_t chipId = ((uint64_t)mac[0] << 40) | ((uint64_t)mac[1] << 32) |
                       ((uint64_t)mac[2] << 24) | ((uint64_t)mac[3] << 16) |
                       ((uint64_t)mac[4] << 8) | mac[5];
@@ -64,23 +63,36 @@ static uint32_t generateUniqueNumber() {
     return uniqueNumber & 0x1FFFFF;  // Mask to 21 bits
 }
 
+void Nmea2000Service::setIdentity(const uint8_t mac[6]) {
+    deviceId_ = deviceIdFromMac(mac);
+    uniqueNumber_ = nmea2000UniqueNumberFromMac(mac);
+}
+
 // begin(): actually start hardware (Serial, CAN bus)
 void Nmea2000Service::start() {
     // Set Product information
     const esp_app_desc_t* appDesc = esp_app_get_description();
+
+    // Suffix the Model ID with the same 6-char device ID shown in the BLE
+    // advertised name (Yachtmesh-<ID>) so MFDs like Raymarine's Axiom can
+    // tell multiple Yachtmesh devices apart on the bus.
+    char modelId[Max_N2kModelID_len + 1];
+    snprintf(modelId, sizeof(modelId), "YM-BW-%s", deviceId_.c_str());
+
     NMEA2000.SetProductInformation(
-        "1",                                      // Manufacturer's Model serial code
-        100,                                       // Manufacturer's product code
-        "YM-BW-1",                                 // YM-[BW] B=Bluetooth, W=WIFI
-        appDesc ? appDesc->version : "unknown",    // Software version
+        "1",      // Manufacturer's Model serial code
+        100,      // Manufacturer's product code
+        modelId,  // YM-[BW] B=Bluetooth, W=WIFI; we can add codes for
+                  // capabilities like GPS. Suffixed with the per-device ID.
+        appDesc ? appDesc->version : "unknown",  // Software version
         "Yachtmesh"  // Model version, Manufacturer's Model ID
     );
 
     // Set device information
     NMEA2000.SetDeviceInformation(
-        generateUniqueNumber(),  // Unique number derived from ESP32 chip ID
-        130,                     // Device function = Temperature
-        75,            // Device class = Sensor Communication Interface
+        uniqueNumber_,  // Unique number derived from MAC (see main.cpp)
+        130,                     // Device function = Gateway
+        25,            // Device class = Sensor Communication Interface
         kIndustryCode  // Industry code / manufacturer ID
     );
 

@@ -21,10 +21,10 @@
 
 static const char* TAG = "main";
 
-Nmea2000Service nmea;
 WifiService wifi;
 LittleFSAdapter fileSystem;
 Esp32Platform platform;
+Nmea2000Service nmea;
 OtaService otaService;
 OtaManager otaManager(otaService, wifi, platform);
 
@@ -52,6 +52,9 @@ extern "C" void app_main() {
     fileSystem.mkdir("/roles");
 
     // Start services
+    uint8_t mac[6];
+    platform.getMacAddress(mac);
+    nmea.setIdentity(mac);
     nmea.start();
     bluetooth.start();
 

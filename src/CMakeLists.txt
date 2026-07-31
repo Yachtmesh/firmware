@@ -8,6 +8,7 @@ idf_component_register(
         "EnvironmentalSensorService.cpp"
         "SerialSensorService.cpp"
         "BluetoothService.cpp"
+        "DeviceId.cpp"
         "DeviceInfo.cpp"
         "Esp32Platform.cpp"
         "FluidLevelSensorRole.cpp"

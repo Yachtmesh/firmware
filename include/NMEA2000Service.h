@@ -71,11 +71,26 @@ class Nmea2000ServiceInterface {
     virtual ~Nmea2000ServiceInterface() = default;
 };
 
+// Derive the NMEA2000 "unique number" (21 bits, 0-2097151) from a 6-byte MAC
+// address, combined with Yachtmesh's NMEA2000 industry code (2040). Pure
+// function of the MAC so callers can resolve it once alongside the device ID
+// (see DeviceId.h) from the same MAC read.
+uint32_t nmea2000UniqueNumberFromMac(const uint8_t mac[6]);
+
 #ifdef ESP32
 #include <N2kMsg.h>
 
+#include <string>
+
 class Nmea2000Service : public Nmea2000ServiceInterface {
    public:
+    // Derives the device ID (for the Model ID, shown alongside the same ID
+    // in the BLE advertised name) and the NMEA2000 unique number from the
+    // given MAC. Caller resolves the MAC (see PlatformInterface) and must
+    // call this before start(); this class owns how NMEA2000-specific
+    // identity fields are built from it.
+    void setIdentity(const uint8_t mac[6]);
+
     void start() override;
     void sendMetric(const Metric& metric) override;
     void sendMsg(uint32_t pgn, uint8_t priority, const unsigned char* data,
@@ -88,6 +103,8 @@ class Nmea2000Service : public Nmea2000ServiceInterface {
    private:
     void notifyListeners(const tN2kMsg& msg);
     int toN2kFluidType(FluidType t);
+    std::string deviceId_;
+    uint32_t uniqueNumber_ = 0;
     std::vector<N2kListenerInterface*> listeners_;
     uint8_t lastLoggedAddress_ = 22;  // matches preferred address in SetMode()
 };

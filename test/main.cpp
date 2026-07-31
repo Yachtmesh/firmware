@@ -6,6 +6,7 @@
 #include "test_analog_input_manager.h"
 #include "test_analog_input_service.h"
 #include "test_boat_simulator.h"
+#include "test_device_id.h"
 #include "test_device_info.h"
 #include "test_environmental_sensor_service.h"
 #include "test_fluid_level_sensor_role.h"
@@ -128,6 +129,11 @@ int main() {
     RUN_TEST(test_role_manager_remove_role_removes_from_list);
     RUN_TEST(test_role_manager_remove_role_deletes_file);
     RUN_TEST(test_role_manager_remove_role_clears_pending_persist);
+
+    // DeviceId tests
+    RUN_TEST(test_device_id_from_mac_format);
+    RUN_TEST(test_device_id_from_mac_deterministic);
+    RUN_TEST(test_device_id_from_mac_differs_for_different_mac);
 
     // DeviceInfo tests
     RUN_TEST(test_device_info_generates_id_from_mac);
