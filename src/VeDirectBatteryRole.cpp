@@ -82,6 +82,10 @@ void VeDirectBatteryRole::sendBatteryMetric(const VeDirectFrame& frame) {
     metric.context.battery.soc        = frame.soc;
     metric.context.battery.ttg        = frame.ttg;
     metric.context.battery.consumedAh = frame.consumedAh;
+    metric.context.battery.hasTemperature = frame.hasTemperature;
+    metric.context.battery.temperature    = frame.temperature;
+    metric.context.battery.hasAuxVoltage  = frame.hasAuxVoltage;
+    metric.context.battery.auxVoltage     = frame.auxVoltage;
     nmea_.sendMetric(metric);
 }
 

@@ -195,15 +195,33 @@ void Nmea2000Service::sendMetric(const Metric& metric) {
                      "TX Battery inst=%u V=%.3f A=%.3f SOC=%.1f%% TTG=%.0fmin",
                      b.inst, b.voltage, b.current, b.soc, b.ttg);
 
-            // PGN 127508 — Battery Status (voltage, current)
+            // PGN 127508 — Battery Status (voltage, current, case temperature)
+            double batteryTemp = b.hasTemperature
+                                     ? CToKelvin(static_cast<double>(b.temperature))
+                                     : N2kDoubleNA;
             SetN2kDCBatStatus(msg, b.inst, static_cast<double>(b.voltage),
-                              static_cast<double>(b.current), N2kDoubleNA);
+                              static_cast<double>(b.current), batteryTemp);
             if (!NMEA2000.SendMsg(msg))
                 ESP_LOGW(TAG, "TX PGN 127508 (BatStatus) FAILED");
             else
                 ESP_LOGI(TAG, "TX PGN 127508 (BatStatus) ok");
             notifyListeners(msg);
             NMEA2000.ParseMessages();
+
+            // PGN 127508 — second Battery Status for AUX starter/mid-point
+            // voltage, at instance+1, voltage only (no accompanying 127506).
+            if (b.hasAuxVoltage) {
+                tN2kMsg auxMsg;
+                uint8_t auxInst = static_cast<uint8_t>(b.inst + 1);
+                SetN2kDCBatStatus(auxMsg, auxInst, static_cast<double>(b.auxVoltage));
+                if (!NMEA2000.SendMsg(auxMsg))
+                    ESP_LOGW(TAG, "TX PGN 127508 (Aux BatStatus) FAILED");
+                else
+                    ESP_LOGI(TAG, "TX PGN 127508 (Aux BatStatus) ok inst=%u V=%.3f",
+                             auxInst, b.auxVoltage);
+                notifyListeners(auxMsg);
+                NMEA2000.ParseMessages();
+            }
 
             // PGN 127506 — DC Detailed Status (SOC, time remaining)
             double timeRemaining = (b.ttg >= 0.0f)

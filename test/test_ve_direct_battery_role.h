@@ -108,6 +108,49 @@ void test_ve_direct_parser_reset_clears_state() {
     TEST_ASSERT_FALSE(parser.getFrame().checksumOk);
 }
 
+void test_ve_direct_parser_full_frame_has_no_aux_fields() {
+    // Regression: a frame with no VS/VM/T fields must not report AUX data.
+    VeDirectParser parser;
+    feedFullFrame(parser);
+    TEST_ASSERT_FALSE(parser.getFrame().hasAuxVoltage);
+    TEST_ASSERT_FALSE(parser.getFrame().hasTemperature);
+}
+
+void test_ve_direct_parser_aux_starter_voltage() {
+    // V=12000 mV, VS=13500 mV. Checksum byte = 0x82 (verified by mod-256 sum).
+    VeDirectParser parser;
+    parser.feedLine("V", "12000");
+    parser.feedLine("VS", "13500");
+    parser.feedLine("Checksum", "\x82");
+    TEST_ASSERT_TRUE(parser.getFrame().checksumOk);
+    TEST_ASSERT_TRUE(parser.getFrame().hasAuxVoltage);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 13.5f, parser.getFrame().auxVoltage);
+}
+
+void test_ve_direct_parser_aux_midpoint_voltage() {
+    // V=12000 mV, VM=6200 mV. Checksum byte = 0xB9 (verified by mod-256 sum).
+    // VM (mid-point voltage) is treated identically to VS (starter voltage) —
+    // both populate auxVoltage, since NMEA2000 has no field to distinguish them.
+    VeDirectParser parser;
+    parser.feedLine("V", "12000");
+    parser.feedLine("VM", "6200");
+    parser.feedLine("Checksum", "\xb9");
+    TEST_ASSERT_TRUE(parser.getFrame().checksumOk);
+    TEST_ASSERT_TRUE(parser.getFrame().hasAuxVoltage);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 6.2f, parser.getFrame().auxVoltage);
+}
+
+void test_ve_direct_parser_aux_temperature() {
+    // V=12000 mV, T=23 degrees C. Checksum byte = 'k' (0x6B).
+    VeDirectParser parser;
+    parser.feedLine("V", "12000");
+    parser.feedLine("T", "23");
+    parser.feedLine("Checksum", "k");
+    TEST_ASSERT_TRUE(parser.getFrame().checksumOk);
+    TEST_ASSERT_TRUE(parser.getFrame().hasTemperature);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 23.0f, parser.getFrame().temperature);
+}
+
 void test_ve_direct_parser_checksum_only_frame_has_no_data() {
     // Regression: after a parser reset, if only the Checksum line arrives
     // (data fields lost to UART overflow/desync), hasData must be false even
@@ -238,6 +281,48 @@ void test_ve_direct_battery_role_loop_correct_instance() {
     enqueueFullFrame(serial);
     role.loop();
     TEST_ASSERT_EQUAL(1, nmea.lastMetric.context.battery.inst);
+}
+
+void test_ve_direct_battery_role_loop_no_aux_fields_by_default() {
+    // Regression: a normal frame (no VS/VM/T) must not mark AUX data present.
+    FakeNmea2000Service nmea;
+    MockSerialSensorService serial;
+    VeDirectBatteryRole role(nmea, serial);
+    role.start();
+    enqueueFullFrame(serial);
+    role.loop();
+    TEST_ASSERT_FALSE(nmea.lastMetric.context.battery.hasAuxVoltage);
+    TEST_ASSERT_FALSE(nmea.lastMetric.context.battery.hasTemperature);
+}
+
+void test_ve_direct_battery_role_loop_carries_aux_starter_voltage() {
+    FakeNmea2000Service nmea;
+    MockSerialSensorService serial;
+    VeDirectBatteryRole role(nmea, serial);
+    role.start();
+
+    serial.enqueue("V\t12000");
+    serial.enqueue("VS\t13500");
+    serial.enqueue("Checksum\t\x82");
+    role.loop();
+
+    TEST_ASSERT_TRUE(nmea.lastMetric.context.battery.hasAuxVoltage);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 13.5f, nmea.lastMetric.context.battery.auxVoltage);
+}
+
+void test_ve_direct_battery_role_loop_carries_aux_temperature() {
+    FakeNmea2000Service nmea;
+    MockSerialSensorService serial;
+    VeDirectBatteryRole role(nmea, serial);
+    role.start();
+
+    serial.enqueue("V\t12000");
+    serial.enqueue("T\t23");
+    serial.enqueue("Checksum\tk");
+    role.loop();
+
+    TEST_ASSERT_TRUE(nmea.lastMetric.context.battery.hasTemperature);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 23.0f, nmea.lastMetric.context.battery.temperature);
 }
 
 void test_ve_direct_battery_role_loop_bad_checksum_not_sent() {

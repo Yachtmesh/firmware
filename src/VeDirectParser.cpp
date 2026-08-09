@@ -47,6 +47,14 @@ bool VeDirectParser::feedLine(const char* key, const char* val) {
     } else if (strcmp(key, "CE") == 0) {
         pending_.consumedAh = raw * -0.001f;  // CE is negative in VE.Direct
         pending_.hasData = true;
+    } else if (strcmp(key, "VS") == 0 || strcmp(key, "VM") == 0) {
+        pending_.auxVoltage = raw * 0.001f;
+        pending_.hasAuxVoltage = true;
+        pending_.hasData = true;
+    } else if (strcmp(key, "T") == 0) {
+        pending_.temperature = (float)raw;
+        pending_.hasTemperature = true;
+        pending_.hasData = true;
     }
 
     return false;

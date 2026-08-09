@@ -299,6 +299,10 @@ int main() {
     RUN_TEST(test_ve_direct_parser_reset_clears_state);
     RUN_TEST(test_ve_direct_parser_checksum_only_frame_has_no_data);
     RUN_TEST(test_ve_direct_parser_newline_checksum_byte_accepted);
+    RUN_TEST(test_ve_direct_parser_full_frame_has_no_aux_fields);
+    RUN_TEST(test_ve_direct_parser_aux_starter_voltage);
+    RUN_TEST(test_ve_direct_parser_aux_midpoint_voltage);
+    RUN_TEST(test_ve_direct_parser_aux_temperature);
 
     // VeDirectBatteryRole tests
     RUN_TEST(test_ve_direct_battery_role_type_string);
@@ -311,6 +315,9 @@ int main() {
     RUN_TEST(test_ve_direct_battery_role_loop_correct_soc);
     RUN_TEST(test_ve_direct_battery_role_loop_correct_ttg);
     RUN_TEST(test_ve_direct_battery_role_loop_correct_instance);
+    RUN_TEST(test_ve_direct_battery_role_loop_no_aux_fields_by_default);
+    RUN_TEST(test_ve_direct_battery_role_loop_carries_aux_starter_voltage);
+    RUN_TEST(test_ve_direct_battery_role_loop_carries_aux_temperature);
     RUN_TEST(test_ve_direct_battery_role_loop_bad_checksum_not_sent);
     RUN_TEST(test_ve_direct_battery_role_loop_no_data_no_send);
     RUN_TEST(test_ve_direct_battery_role_configure_from_json);

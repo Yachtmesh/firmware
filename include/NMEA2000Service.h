@@ -23,6 +23,10 @@ struct BatteryContext {
     float soc;            // % state of charge
     float ttg;            // minutes remaining (-1 = unavailable)
     float consumedAh;     // Ah consumed
+    float temperature;    // °C, Battery Case Temperature (AUX configured as Temperature)
+    bool hasTemperature;
+    float auxVoltage;     // V, second/starter or mid-point battery voltage (AUX configured as Starter/MidPoint)
+    bool hasAuxVoltage;
 };
 
 enum class MetricType : uint8_t {

@@ -9,6 +9,10 @@ struct VeDirectFrame {
     float power = 0.0f;       // W  (from P field)
     float ttg = -1.0f;        // minutes (-1 = unavailable, from TTG field)
     float consumedAh = 0.0f;  // Ah (from CE field, mAh ÷ -1000)
+    float auxVoltage = 0.0f;  // V (from VS or VM field, mV ÷ 1000) — starter or mid-point voltage
+    bool hasAuxVoltage = false;  // true when VS or VM was present in this frame
+    float temperature = 0.0f;    // °C (from T field, no scaling) — AUX configured as temperature
+    bool hasTemperature = false;  // true when T was present in this frame
     bool checksumOk = false;  // true when block byte sum == 0 mod 256
     bool hasData = false;     // true when at least one battery field was decoded
 };
